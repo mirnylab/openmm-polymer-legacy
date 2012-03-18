@@ -465,6 +465,7 @@ class Simulation():
         
         if type(self.forceDict["Nonbonded"]) != self.mm.NonbondedForce:
             self.exit("Cannot add interactions without Lennard-Jones nonbonded force")
+            
         if sigma == None: sigma = 1.1 * self.conlen
         epsilon = epsilon * units.kilocalorie_per_mole
         if (min(i,j) < length) or (max(i,j) > self.N - length): 

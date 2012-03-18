@@ -15,7 +15,7 @@ def exampleOpenmm():
     """
     
     
-    a = Simulation(timestep = 70, thermostat = 0.004)
+    a = Simulation(timestep = 70, thermostat = 0.0004)
     a.verbose = True
     a.load("globule")  #filename to load    
     a.saveFolder("trajectory")   #folder where to save

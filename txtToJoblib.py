@@ -3,7 +3,17 @@ import joblib
 import numpy
 import sys
 
-
+"""
+Sample txt file looks like this 
+next line starts the file 
+10
+x1 y1 z1
+x2 y2 z2 
+....
+x10 y10 z10
+ 
+So the file has the first line with a number of atoms, and then 10 lines with their coordinates 
+"""
 infile = sys.argv[1]
 try:
     outfile = sys.argv[2]

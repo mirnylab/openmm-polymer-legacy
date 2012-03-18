@@ -14,10 +14,12 @@ fs = units.second * 1e-15
 ps = units.second * 1e-12 
 
 class Simulation():
-    def __init__(self,start_mode = "cold",timestep=25,thermostat=0.01,verbose = False,velocityReinitialize = True, name = "sim"):
+    def __init__(self,start_mode = "cold",timestep=25,thermostat=0.01,temperature = 300 * units.kelvin, 
+                 verbose = False,velocityReinitialize = True, name = "sim"):
         self.name = name        
         self.timestep = timestep * fs
         self.collisionRate = thermostat * ps        
+        self.temperature = temperature
         self.verbose = verbose
         self.velocityReinialize = velocityReinitialize
         self.loaded = False  #check if the data is loaded
@@ -26,91 +28,68 @@ class Simulation():
         self.nm = nm 
         self.metadata = {}
         
-    def setup(self,platform="OpenCL", PBC = False,density = False,PBCbox = None):           
+    def setup(self,platform="OpenCL", PBC = False,PBCbox = None,GPU = "0"):           
         "sets up the system, autodetects the size of PBC box unless passed explicitely"
         self.step = 0
         if PBC == True: 
             self.metadata["PBC"] = True             
-        try: myplatform = self.platformName
-        except: 
-            myplatform = platform
-            self.platformName = platform 
-        
-        try: self.temperature
-        except: self.temperature = 300 * units.kelvin  #we can redefine the temperature sometimes... if we need it. 
-        try: self.collisionRate
-        except: self.collisionRate = 0.01 * ps
+
         self.kB = units.BOLTZMANN_CONSTANT_kB * units.AVOGADRO_CONSTANT_NA # Boltzmann constant
-        self.kT = self.kB * self.temperature # thermal energy
-        self.beta = 1.0 / self.kT # inverse temperature
-        self.mass = 100.0 * units.amu
+        self.kT = self.kB * self.temperature # thermal energy        
+        self.mass = 100.0 * units.amu   #All masses are the same, changing them would be difficult in this formalism 
         self.bondsForException = []
         self.mm = openmm
         self.conlen = 1. * self.nm
         self.system = self.mm.System()
         self.PBC = PBC
-        if self.PBC == True:
+        
+        if self.PBC == True:   #if periodic boundary conditions
             if PBCbox == None:            
                 data = self.getData()
                 data -= numpy.min(data,axis = 0)
                 self.setData(data)
                 datasize = 1.1 * (2+(numpy.max(self.getData(),axis = 0) - numpy.min(self.getData(),axis = 0))) #size of the system plus some overhead                          
-                self.SolventGridSize = (datasize / 1.1)  - 2
-                realBoxSize = datasize
-                realVolume = realBoxSize[0] * realBoxSize[1] * realBoxSize[2]
-                mydensity = self.N / realVolume
-                print "density is ", mydensity
+                self.SolventGridSize = (datasize / 1.1)  - 2                                                                
+                print "density is ", self.N / (datasize[0] * datasize[1] * datasize[2])
             else:
-                PBCbox = numpy.array(PBCbox) 
-                                
+                PBCbox = numpy.array(PBCbox)                                 
                 datasize = PBCbox 
+            
             self.metadata["PBCbox"] = PBCbox
             self.system.setDefaultPeriodicBoxVectors([datasize[0],0.,0.],[0.,datasize[1],0.],[0.,0.,datasize[2]])
             self.BoxSizeReal = datasize 
             print "system size is %lfx%lfx%lf nm, solvent grid size is   %lfx%lfx%lf in dimensionless units" % tuple(list(datasize) + list(self.SolventGridSize))
             time.sleep(5)
-             
-            
-            
         
-        try: self.GPU 
-        except: self.GPU = "0"  #setting default GPU  
+        
+        self.GPU = GPU  #setting default GPU  
 
-        if myplatform == "OpenCL":
-            platform = openmm.Platform.getPlatformByName('OpenCL')
-            platform.setPropertyDefaultValue('OpenCLDeviceIndex', self.GPU)
-        elif myplatform == "Reference":
-            platform =  openmm.Platform.getPlatformByName('Reference')
+        if platform == "OpenCL":
+            platformObject = openmm.Platform.getPlatformByName('OpenCL')
+            platformObject.setPropertyDefaultValue('OpenCLDeviceIndex', self.GPU)
+        elif platform == "Reference":
+            platformObject =  openmm.Platform.getPlatformByName('Reference')
         elif platform == "CUDA":
-            platform = openmm.Platform.getPlatformByName('Cuda')
-            platform.setPropertyDefaultValue('CudaDevice', self.GPU)
+            platformObject = openmm.Platform.getPlatformByName('Cuda')
+            platformObject.setPropertyDefaultValue('CudaDevice', self.GPU)
         else:
-            raw_input("\n!!!!!!!!!!unknown platform!!!!!!!!!!!!!!!\n")
-            exit()
-        self.platform = platform
-            
-        "clearing ForceDict to recreate it"
+            self.exit("\n!!!!!!!!!!unknown platform!!!!!!!!!!!!!!!\n")            
+        self.platform = platformObject
+                    
         self.forceDict = {}
         try:
             for _ in xrange(self.N):
                 self.system.addParticle(self.mass)
             print self.N, "particles loaded"
-        except: pass
-                                 
+        except: pass                                 
         self.integrator = openmm.LangevinIntegrator(self.temperature, self.collisionRate, self.timestep)
 
     def saveFolder(self,folder):
-        "sets the folder where to save data"
-        if folder[-1] == "/": folder = folder[:-1]
+        "sets the folder where to save data"        
         if os.path.exists(folder) == False:
             os.mkdir(folder)
         self.folder = folder
-
         
-    def use_platform(self,platform):
-        "sets the platform"
-        self.platformName = platform
-        self.setup()
 
     def exitProgram(self,line):
         print line

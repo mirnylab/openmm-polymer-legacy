@@ -15,7 +15,7 @@ def exampleOpenmm():
     """
     
     
-    a = Simulation(timestep = 70, thermostat = 0.0004)
+    a = Simulation(timestep = 80, thermostat = 0.001)
     a.verbose = True
     a.load("globule")  #filename to load    
     a.saveFolder("trajectory")   #folder where to save
@@ -112,8 +112,7 @@ def create_spiral(r1,r2,N):
 
         
 def resolve(data,chains = None,mode = "chain",steps = 3000):
-    "resolves a simulation"
-    from openmmlib import Simulation
+    "resolves a simulation"    
     a = Simulation(timestep = 5, thermostat = 0.5,name = "resolve")
     a.setup()
     a.load(data)        

@@ -17,12 +17,12 @@ def exampleOpenmm():
     a.addGrosbergRepulsiveForce()
     a.addGrosbergStifness()
 
-    a.energy_minimization(steps = 500,twoStage= True)    
-    
-    for _ in xrange(5):
-        a.doBlock(5000)
-        a.save()
+    a.energy_minimization(steps = 50,twoStage= True)    
     a.show()
+    for _ in xrange(5):
+        a.doBlock(500)
+        a.save()
+    
     
 exampleOpenmm()
 exit()

@@ -3,6 +3,7 @@ import cPickle
 import sys,os
 import time
 import joblib
+import tempfile
 os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda/lib64:/usr/local/openmm/lib"
 
 import simtk.openmm as openmm
@@ -896,47 +897,55 @@ class Simulation():
             started = False
             begin = b2
     def show(self,coloring = "chain",chain = "all" ):
-        "shows system in rasmol"
+        """shows system in rasmol by drawing spheres
+        draws 4 spheres in between any two points (5 * N spheres total)"""
+              
+        #if you want to change positions of the spheres along each segment, change these numbers
+        #e.g. [0,.1, .2 ...  .9] will draw 10 spheres, and this will look better
         shifts = [0.,0.2,0.4,0.6,0.8]
-        data = self.data / self.nm
-        newData3 = data
-        rascript = open("rascript_xyz",'w')
+        data = self.getData()        
+        if len(data[0]) != 3: 
+            data = numpy.transpose(data)
+        if len(data[0]) != 3:
+            print "wrong data!"
+            return        
+        #determining the 95 percentile distance between particles,  
+        meandist = numpy.percentile(numpy.sqrt(numpy.sum(numpy.diff(data,axis = 0)**2,axis = 1)),95)
+        #rescaling the data, so that bonds are of the order of 1. This is because rasmol spheres are of the fixed diameter. 
+        data /= meandist                
+        rascript = tempfile.NamedTemporaryFile() #writing the rasmol script. Spacefill controls radius of the sphere.
         rascript.write("""wireframe off 
         color temperature
         spacefill 100 
         background white
         """)
-        rascript.flush()
-        rascript.close()
-        if coloring == "chain": colors = [int((j*450.)/(len(newData3)))-225 for j in xrange(len(newData3))]
-        if coloring == "domains": colors = [float(self.domains[i]) for i in xrange(self.N)]
-        if chain == "all":
-            beg =0
-            end = self.N
-        else:
-            beg,end = tuple(self.chains[chain])
-        newData3 = newData3[beg:end]
-        colors = colors[beg:end]
-        colors = numpy.array(colors)
+        rascript.flush()        
         
+        #creating the array, linearly chanhing from -225 to 225, to serve as an array of colors  
+        colors = numpy.array([int((j*450.)/(len(data)))-225 for j in xrange(len(data))])    
         
-            
-        newData = numpy.zeros(((end-beg-1) * len(shifts) +1 ,4))
+        #creating spheres along the trajectory            
+        newData = numpy.zeros((len(data) * len(shifts) - (len(shifts) - 1) ,4))  
         for i in xrange(len(shifts)):            
-            newData[i:-1:len(shifts),:3] = newData3[:-1] * shifts[i] + newData3[1:] * ( 1 - shifts[i])           
+            newData[i:-1:len(shifts),:3] = data[:-1] * shifts[i] + data[1:] * ( 1 - shifts[i])            
             newData[i:-1:len(shifts),3] = colors[:-1]
-        newData[-1,:3] = newData3[-1]
+        newData[-1,:3] = data[-1]
         newData[-1,3] = colors[-1]
-
                     
-        towrite = open("trace.xyz",'w')
-        towrite.write("%d\n\n"%(len(newData)))
+        towrite = tempfile.NamedTemporaryFile()
+        towrite.write("%d\n\n"%(len(newData)))  #number of atoms and a blank line after is a requirement of rasmol
             
         for i in newData:                     
-            towrite.write("CA\t%lf\t%lf\t%lf\t%d\n" % (i[0],i[1],i[2],i[3])) 
-        towrite.close()
-        #Now we view this file with rasmol. You can make a standalone script out of this part of the code and use it to view trajectories afterwards. 
-        os.system("rasmol -xyz trace.xyz -script rascript_xyz")
+            towrite.write("CA\t%lf\t%lf\t%lf\t%d\n" % tuple(i)) 
+        towrite.flush()
+  
+        if os.name == "posix":  #if linux 
+            os.system("rasmol -xyz %s -script %s" % (towrite.name, rascript.name))
+        else:     #if windows 
+            os.system("C:/RasWin/raswin.exe -xyz %s -script %s" % (towrite.name, rascript.name))         #For windows you might need to change the place where your rasmol file is
+        rascript.close()
+        towrite.close() 
+        
     
     
     def save(self,filename = None):

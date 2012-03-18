@@ -1,14 +1,23 @@
-
 from math import sin,cos,sqrt
 import numpy
+from openmmlib import Simulation
 
 
         
 def exampleOpenmm():
-    from openmmlib import Simulation
+    """
+    You need to have a OpenMM-compatible GPU and OpenMM installed to run this script. 
+    Otherwise you can switch to "reference" platform 
+    a.setup(platform = "reference")
+    But this will be extremely slow... 
+    
+    Installing OpenMM may be not easy too... but you can try 
+    """
+    
+    
     a = Simulation(timestep = 70, thermostat = 0.004)
     a.verbose = True
-    a.load("globule")  #filename to load
+    a.load("globule")  #filename to load    
     a.saveFolder("trajectory")   #folder where to save
     a.setup(platform = "OpenCL")   #trajectory
     a.setLayout(mode = "chain")                     #default = chain

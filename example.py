@@ -146,7 +146,7 @@ def create_sausage(N,ratio = 4,enlarge = 1):
         #a.initVelocities()
         #a.show()
     
-    for i in xrange(5):
+    for _ in xrange(5):
         a.doBlock()
     return a.getData(),a.getLayout()
     

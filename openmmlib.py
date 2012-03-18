@@ -27,52 +27,10 @@ class Simulation():
         self.metadata = {}
     
         
-    def add_cubic_grid(self,step,percent = 0.5,mass = 0.1):
-        print "Be sure that changing to MULT=1 didn't affect it... "
-        raw_input("type any key to continue...") 
-        """In PBC this function adds a cubic grid of atoms (solvent),
-            - separated by step units of length
-            - with the probability percent
-            -with mass = mass
-            -in a box defined by PBC
-            """
-        size = self.SolventGridSize  #using box that was written in setup()
-        newdata = []                 #array of solvent molecules
-        count = [int(i / step) for i in size]  #grid size
-        myarray = numpy.zeros(tuple(count),int) + 1  #grid itself
-        for particle in self.getData():              #exclude monomers 
-            p = [int(i) for i in particle/step]
-            p = numpy.array(p)
-            lb = p - 1
-            lb[lb<0] = 0 
-            
-            myarray[lb[0] : p[0] + 2,lb[1]  : p[1] + 2,lb[2]: p[2] + 2] = 0 
-        myarray[numpy.random.random(tuple(count)) > percent] = 0
-        print "Using solvent with %d particles," % numpy.sum(myarray) 
-        for i in xrange(count[0]):
-            for j in xrange(count[1]):
-                for k in xrange(count[2]):
-                    if myarray[i,j,k] == 1:
-                        newdata.append((step * i,step * j,step * k))
-        newdata = numpy.array(newdata)
-        for i in newdata: 
-            self.system.addParticle(self.mass * mass)
-        pastN = len(self.data)
-        fulldata = numpy.concatenate([self.getData(),newdata])
-        self.setData(fulldata)
-        self.domains = numpy.zeros(self.N,int)
-        self.domains[:pastN] = 1
-        self.domains[pastN:] = 0
         
                         
         
-    def quickLoad(self,data,mode = "chain",Nchains = 1,trunk = None):
-        "quickly loads one chain"
-        self.setup()
-        self.load(data)
-        self.setLayout(mode,Nchains)
-        self.addHarmonicPolymerBonds()
-        self.addSimpleRepulsiveForce(trunk = trunk)
+
         
     def setup(self,platform="OpenCL", PBC = False,density = False,PBCbox = None):           
         "sets up the system, autodetects the size of PBC box unless passed explicitely"
@@ -152,12 +110,31 @@ class Simulation():
         self.platformName = platform
         self.setup()
 
-    def exit(self,line):
+    def exitProgram(self,line):
         print line
         print "--------------> Bye <---------------"
         exit()
         
-            
+    def setLayout(self,mode = "chain",chains = None,Nchains = 1):
+        "sets layout of chains for chains or rings. "
+        "chains: [0 100],[100 200],... etc"
+        N = self.N
+        if mode in ["chain","ring"]:            
+            if chains != None: 
+                self.chains = chains           
+            else: 
+                self.chains = []
+                for i in xrange(Nchains):
+                    self.chains.append(((N* i)/Nchains,(N * (i+1))/Nchains))
+        self.mode = mode
+        #print self.N, chains
+        layout = {"chains":chains,"mode":mode,"Nchains":Nchains}
+        self.metadata["layout"] = layout 
+    
+    
+    def getLayout(self):
+        "returns configuration of chains"
+        return self.chains            
     
     def load(self,filename,center = False):        
         "loads file from  an Nx3 or 3xN or filename"
@@ -185,8 +162,8 @@ class Simulation():
         if len(data) == 3: 
             data = numpy.transpose(data)
         if len(data[0]) != 3: 
-            self.exit("strange data file")        
-        if numpy.isnan(data).any(): self.exit("\n!!!!!!!!!!file contains NANS!!!!!!!!!\n")
+            self.exitProgram("strange data file")        
+        if numpy.isnan(data).any(): self.exitProgram("\n!!!!!!!!!!file contains NANS!!!!!!!!!\n")
         if center == True:
             av = numpy.mean(data,0)
             data -= av
@@ -208,6 +185,13 @@ class Simulation():
             self.loaded = True
         except: pass
 
+    def quickLoad(self,data,mode = "chain",Nchains = 1,trunk = None):
+        "quickly loads one chain"
+        self.setup()
+        self.load(data)
+        self.setLayout(mode,Nchains)
+        self.addHarmonicPolymerBonds()
+        self.addSimpleRepulsiveForce(trunk = trunk)
     
     def RG(self):
         "returns radius of gyration"
@@ -217,26 +201,7 @@ class Simulation():
         "returns distance to the furthest particle"
         return numpy.max(numpy.sqrt(numpy.sum((numpy.array(self.data/self.nm) )**2,1)))
         
-    def setLayout(self,mode = "chain",chains = None,Nchains = 1):
-        "sets layout of chains for chains or rings. "
-        "chains: [0 100],[100 200],... etc"
-        N = self.N
-        if mode in ["chain","ring"]:            
-            if chains != None: 
-                self.chains = chains           
-            else: 
-                self.chains = []
-                for i in xrange(Nchains):
-                    self.chains.append(((N* i)/Nchains,(N * (i+1))/Nchains))
-        self.mode = mode
-        #print self.N, chains
-        layout = {"chains":chains,"mode":mode,"Nchains":Nchains}
-        self.metadata["layout"] = layout 
-    
-    
-    def getLayout(self):
-        "returns configuration of chains"
-        return self.chains
+
 
     def useDomains(self,mode,chromosomes = None, domains = "domains.dat"):
         "in combination with LennardJonseForce this allows to create domains from Hi-C eigenvectors"
@@ -320,7 +285,7 @@ class Simulation():
         if trunk!=None: repulforce.addGlobalParameter('REPcutoff',trunk * self.kT)
         repulforce.addGlobalParameter('REPepsilon',epsilonRep)
         repulforce.addGlobalParameter('REPsigma',sigmaRep) 
-        for n in range(self.N):
+        for _ in range(self.N):
             repulforce.addParticle(())        
         # Set non-periodic boundary conditions with cutoff.
         if self.PBC: 
@@ -332,7 +297,7 @@ class Simulation():
         self.metadata["SimgleRepulsiveForce"] = {"cutoff":cutoff,"trunk":trunk,"rep":rep}
         
     
-    def addGrosbergRepulsiveForce(self,trunk=None):
+    def addGrosbergRepulsiveForce(self,trunk=None):            
         nbCutOffDist = self.conlen * 2.**(1./6.)
         if trunk == None:     
             repul_energy = "4 * REPe * ((REPs/r)^12 - (REPs/r)^6) + REPe"
@@ -346,7 +311,7 @@ class Simulation():
         if trunk != None: 
             repulforce.addGlobalParameter('REPcut',self.kT * trunk)        
             repulforce.addGlobalParameter('REPa',0.001)
-        for n in range(self.N):
+        for _ in range(self.N):
             repulforce.addParticle(())        
         # Set non-periodic boundary conditions with cutoff.
         if self.PBC: 
@@ -382,7 +347,7 @@ class Simulation():
          You can specify parameters differently per domains. 
          If you want to skip random set of particles, modify "blind percent" - it'll skip particles with probability blindPercent 
          """
-        if blindFraction > 0.99: self.exit ("why do you need this force without particles??? set blindFraction between 0 and 1") 
+        if blindFraction > 0.99: self.exitProgram ("why do you need this force without particles??? set blindFraction between 0 and 1") 
         if (sigmaRep == None) and (sigmaAttr == None):
             sigmaAttr = sigmaRep = self.conlen / nm
         else:
@@ -471,23 +436,6 @@ class Simulation():
 
 
     ### MARKED FOR MIGRATION TO YEAST CLASS ####
-    def addNucleolus(self, k = 1, r =  None):
-        if r==None: r =  self.sphericalConfinementRadius
-        
-        
-        extforce3 = openmm.CustomExternalForce("step(r-NUCaa) * NUCkb * (sqrt((r-NUCaa)*(r-NUCaa) + NUCt*NUCt) - NUCt) ;r = sqrt(x^2 + y^2 + (z + NUCoffset )^2 + NUCtt^2)")
-        
-        self.forceDict["NucleolusConfinement"] = extforce3
-        #adding all the particles on which force acts
-        if self.verbose == True: print "NUCleolus confinement from radius = %lf" % r 
-        #assigning parameters of the force 
-        extforce3.addGlobalParameter("NUCkb",k*self.kT/self.nm);
-        extforce3.addGlobalParameter("NUCaa", (r - 1./k)*self.nm * 1.75 );
-        extforce3.addGlobalParameter("NUCoffset", (r - 1./k)*self.nm * 1.1 );
-        extforce3.addGlobalParameter("NUCt",(1./k)*self.nm/10.);
-        extforce3.addGlobalParameter("NUCtt",0.01*self.nm);
-        for i in xrange(self.N): extforce3.addParticle(i,[])
-
 
     def addLaminaAttraction(self,width = 1,depth = 1, r = None):
         extforce3 = openmm.CustomExternalForce("step(LAMr-LAMaa + LAMwidth) * step(LAMaa + LAMwidth - LAMr) * LAMdepth * (LAMr-LAMaa + LAMwidth) * (LAMaa + LAMwidth - LAMr) / (LAMwidth * LAMwidth)  ;LAMr = sqrt(x^2 + y^2 + z^2 + LAMtt^2)")
@@ -595,12 +543,14 @@ class Simulation():
     def getData(self):
         "use this to return data, not something else"
         return self.data / self.nm
+    
     def getScaledData(self):        
         "returns back data rescaled to the simulations box"
         alldata = self.getData()
         boxsize = numpy.array(self.BoxSizeReal)
         mults = numpy.array(alldata / boxsize[None,:],int)
         return alldata - mults * boxsize[None,:]
+    
     def setData(self,data):
         """use this, not self.data, to set data.
          internal realization may change later
@@ -626,23 +576,25 @@ class Simulation():
             self.forceDict["Gravity"] = extforce3
      
 
-
     def initGrosbergBondForce(self):
+        
         "inits Grosberg FENE bond force"
         if "GrosbergBondForce" not in self.forceDict.keys():
-            force = "- 0.5 * GROSk * GROSr0 * GROSr0 * log(1-(r/GROSr0)* (r / GROSr0))"
+            force = "- 0.5 * GROSk * GROSr0 * GROSr0 * log(1-(r/GROSr0)* (r / GROSr0)) + (4 * GROSe * ((GROSs/r)^12 - (GROSs/r)^6) + GROSe) * step(GROScut - r)"
             bondforce3  = openmm.CustomBondForce(force)
             
             bondforce3.addGlobalParameter("GROSk",30 * self.kT / (self.conlen * self.conlen))
             bondforce3.addGlobalParameter("GROSr0",self.conlen * 1.5)
+            bondforce3.addGlobalParameter('GROSe',self.kT)
+            bondforce3.addGlobalParameter('GROSs',self.conlen)
+            bondforce3.addGlobalParameter("GROScut",self.conlen * 2.**(1./6.))
             self.forceDict["GrosbergBondForce"] = bondforce3
-
-        
+       
         
     def addBond(self,i,j,bondWiggleDistance,distance = None, bondType = None,verbose = None):
         
         #print (self.data[i,:]- self.data[j,:]), ((self.data[i,:]- self.data[j,:])**2).sum()
-        #if  ((self.data[i,:]- self.data[j,:])**2).sum()**.5 > 1.4: self.exit ('asdfa') # sanity check on distance between molecules
+        #if  ((self.data[i,:]- self.data[j,:])**2).sum()**.5 > 1.4: self.exitProgram ('asdfa') # sanity check on distance between molecules
         if verbose == None:
             verbose = self.verbose 
         
@@ -661,11 +613,11 @@ class Simulation():
         elif bondType == "Grosberg":
             self.initGrosbergForce()
             self.forceDict["GrosbergForce"].addBond(i,j,[])
-        else: self.exit("Bond type not known")
+        else: self.exitProgram("Bond type not known")
         
     def addRandomCrosslinks(self,num=10):
         data = numpy.array(self.getData())
-        for i in xrange(num):
+        for _ in xrange(num):
             a = numpy.random.randint(0,self.N)            
             cur = data[a]
             dist = numpy.sqrt(numpy.sum((data - cur[None,:])**2,axis = 1))
@@ -690,7 +642,7 @@ class Simulation():
             
     def addPerChainRandomCrosslinks(self,num=10,chain = 0):
         data = numpy.array(self.getData())
-        for i in xrange(num):
+        for _ in xrange(num):
             while True: 
                 mychain = self.chains[chain]
                 a = numpy.random.randint(mychain[0],mychain[1])            
@@ -798,14 +750,14 @@ class Simulation():
         else: self.integrator.setFriction(thermostat)
         self.reinitialize()
         
-        for i in xrange(10): 
+        for _ in xrange(10): 
             self.doBlock(steps = steps, increment = False)
             self.initVelocities()
             
         if twoStage == True:
             self.integrator.setFriction(0.1)
             self.reinitialize()
-            for i in xrange(5):            
+            for _ in xrange(5):            
                 self.doBlock(steps = steps, increment = False)
                 self.initVelocities()
 
@@ -824,15 +776,15 @@ class Simulation():
         if increment == True: self.step += 1
         if steps == None: steps = self.steps_per_block
         
-        N = self.N
-        kT = self.kT
+        
+        
         
         for attempt in xrange(6):
             print "%s  block=%d" % (self.name,self.step),
             if num == None:
                 num = steps/10 + 1
             a = time.time()
-            for i in xrange(steps/num):
+            for _ in xrange(steps/num):
                 self.integrator.step(num)  #integrate!
                 #state = self.context.getState(getEnergy = True)
                 #eK = state.getKineticEnergy()/self.N/self.kT
@@ -866,36 +818,8 @@ class Simulation():
             if attempt in [3,4]:
                 self.energy_minimization(10)
             if attempt == 5:                                
-                self.exit("exceeded number of attmpts")
+                self.exitProgram("exceeded number of attmpts")
                 
-    def addConsecutiveRandomBonds(self,bondlength,range,distance,smeer = 0.2):
-        shift = int(bondlength * smeer)
-        begin = numpy.random.randint(shift)
-        while True:
-            b1 = begin
-            b2 = begin + bondlength
-            if b2 > self.N - 3: break
-            self.addBond(b1,b2,range,distance)
-            begin = begin + bondlength + numpy.random.randint(shift) + shift/2
-            if self.verbose == True: print "bond added between %d and %d" % (b1,b2)
-            
-    def addDoubleRandomLengthBonds(self,bondlength,range,distance):
-        begin = 4
-        started = True
-        past = 0
-        while True:
-            past
-            b1 = begin
-            b2 = begin + numpy.random.randint(0.5*bondlength,1.7*bondlength)
-            if b2 > self.N -4: break
-            self.addBond(b1,b2,range,distance)
-            if self.verbose == True: print "bond added between %d and %d" % (b1,b2)
-            if started == False:
-                self.addBond(past,b2,range,distance)
-                if self.verbose == True: print "bond added between %d and %d" % (past,b2)
-                past = b1
-            started = False
-            begin = b2
     def show(self,coloring = "chain",chain = "all" ):
         """shows system in rasmol by drawing spheres
         draws 4 spheres in between any two points (5 * N spheres total)"""
@@ -959,7 +883,78 @@ class Simulation():
         else:
             f = os.path.join(self.folder , filename)
         joblib.dump(self.metadata,filename = f,compress = 3)
-                
+
+class SimulationWithCrosslinks(Simulation):
+    def addConsecutiveRandomBonds(self,bondlength,bondRange,distance,smeer = 0.2):
+        shift = int(bondlength * smeer)
+        begin = numpy.random.randint(shift)
+        while True:
+            b1 = begin
+            b2 = begin + bondlength
+            if b2 > self.N - 3: break
+            self.addBond(b1,b2,bondRange,distance)
+            begin = begin + bondlength + numpy.random.randint(shift) + shift/2
+            if self.verbose == True: print "bond added between %d and %d" % (b1,b2)
+            
+    def addDoubleRandomLengthBonds(self,bondlength,bondRange,distance):
+        begin = 4
+        started = True
+        past = 0
+        while True:
+            past
+            b1 = begin
+            b2 = begin + numpy.random.randint(0.5*bondlength,1.7*bondlength)
+            if b2 > self.N -4: break
+            self.addBond(b1,b2,bondRange,distance)
+            if self.verbose == True: print "bond added between %d and %d" % (b1,b2)
+            if started == False:
+                self.addBond(past,b2,bondRange,distance)
+                if self.verbose == True: print "bond added between %d and %d" % (past,b2)
+                past = b1
+            started = False
+            begin = b2
+    
+    
+
+class ExperimentalSimulation(Simulation):
+    "contains some experimental features"
+    def add_cubic_grid(self,step,percent = 0.5,mass = 0.1):
+        print "Be sure that changing to MULT=1 didn't affect it... "
+        raw_input("type any key to continue...") 
+        """In PBC this function adds a cubic grid of atoms (solvent),
+            - separated by step units of length
+            - with the probability percent
+            -with mass = mass
+            -in a box defined by PBC
+            """
+        size = self.SolventGridSize  #using box that was written in setup()
+        newdata = []                 #array of solvent molecules
+        count = [int(i / step) for i in size]  #grid size
+        myarray = numpy.zeros(tuple(count),int) + 1  #grid itself
+        for particle in self.getData():              #exclude monomers 
+            p = [int(i) for i in particle/step]
+            p = numpy.array(p)
+            lb = p - 1
+            lb[lb<0] = 0 
+            
+            myarray[lb[0] : p[0] + 2,lb[1]  : p[1] + 2,lb[2]: p[2] + 2] = 0 
+        myarray[numpy.random.random(tuple(count)) > percent] = 0
+        print "Using solvent with %d particles," % numpy.sum(myarray) 
+        for i in xrange(count[0]):
+            for j in xrange(count[1]):
+                for k in xrange(count[2]):
+                    if myarray[i,j,k] == 1:
+                        newdata.append((step * i,step * j,step * k))
+        newdata = numpy.array(newdata)
+        for i in newdata: 
+            self.system.addParticle(self.mass * mass)
+        pastN = len(self.data)
+        fulldata = numpy.concatenate([self.getData(),newdata])
+        self.setData(fulldata)
+        self.domains = numpy.zeros(self.N,int)
+        self.domains[:pastN] = 1
+        self.domains[pastN:] = 0
+                    
         
 class YeastSimulation(Simulation):
     

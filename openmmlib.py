@@ -2,49 +2,28 @@ import numpy
 import cPickle
 import sys,os
 import time
-import simtk
+import joblib
 os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda/lib64:/usr/local/openmm/lib"
 
-#from grow import create_spiral
-#from numutils import createRW
-#import matplotlib.pyplot as plt
-version =3 
-if version==2:
-    import simtk.chem.openmm as openmm
-if version == 3: 
-    import simtk.openmm as openmm
+import simtk.openmm as openmm
 import simtk.unit as units
 
- 
-nm = units.nanometer
-fs = units.femtosecond
-ps = units.picosecond
-
-def load_eigenvector(chrom,folder = None):
-    if folder == None: folder = "/home/magus/evo/data/HiC-eigenvectors/GM-combined.ctgDATA1.ctgDATA1.100000bp.hm.eigenvector.tab"
-    file = folder.replace("DATA1",str(chrom))
-    data = [[float(j) for j in i.split()] for i in open(file).readlines()]
-    positions = [i[1] for i in data]
-    maxpos = max(positions)
-    values = numpy.zeros(maxpos+1,float)
-    for i in data: values[i[1]] = i[2]
-    domains = numpy.zeros(maxpos+1,int)
-    domains[values > 0.001] = 1
-    
-    return domains
+nm = units.meter * 1e-9
+fs = units.second * 1e-15
+ps = units.second * 1e-12 
 
 class Simulation():
-    def __init__(self,start_mode = "cold",timestep=25,thermostat=0.01,bonds="cool",verbose = False,velocityReinitialize = True, name = "sim"):
+    def __init__(self,start_mode = "cold",timestep=25,thermostat=0.01,verbose = False,velocityReinitialize = True, name = "sim"):
         self.name = name        
         self.timestep = timestep * fs
-        self.collisionRate = thermostat * ps
-        self.bonds = bonds  #type of bonds, not really used        
+        self.collisionRate = thermostat * ps        
         self.verbose = verbose
         self.velocityReinialize = velocityReinitialize
         self.loaded = False  #check if the data is loaded
         self.forcesApplied = False
         self.folder = "."
-        
+        self.nm = nm 
+        self.metadata = {}
     
         
     def add_cubic_grid(self,step,percent = 0.5,mass = 0.1):
@@ -86,9 +65,6 @@ class Simulation():
         
                         
         
-        
-        
-        
     def quickLoad(self,data,mode = "chain",Nchains = 1,trunk = None):
         "quickly loads one chain"
         self.setup()
@@ -100,6 +76,8 @@ class Simulation():
     def setup(self,platform="OpenCL", PBC = False,density = False,PBCbox = None):           
         "sets up the system, autodetects the size of PBC box unless passed explicitely"
         self.step = 0
+        if PBC == True: 
+            self.metadata["PBC"] = True             
         try: myplatform = self.platformName
         except: 
             myplatform = platform
@@ -115,12 +93,11 @@ class Simulation():
         self.mass = 100.0 * units.amu
         self.bondsForException = []
         self.mm = openmm
-        self.conlen = 1. * units.nanometer
+        self.conlen = 1. * self.nm
         self.system = self.mm.System()
         self.PBC = PBC
         if self.PBC == True:
-            if PBCbox == None:
-            
+            if PBCbox == None:            
                 data = self.getData()
                 data -= numpy.min(data,axis = 0)
                 self.setData(data)
@@ -132,9 +109,9 @@ class Simulation():
                 print "density is ", mydensity
             else:
                 PBCbox = numpy.array(PBCbox) 
-                SolventGridSize  = PBCbox
+                                
                 datasize = PBCbox 
-                     
+            self.metadata["PBCbox"] = PBCbox
             self.system.setDefaultPeriodicBoxVectors([datasize[0],0.,0.],[0.,datasize[1],0.],[0.,0.,datasize[2]])
             self.BoxSizeReal = datasize 
             print "system size is %lfx%lfx%lf nm, solvent grid size is   %lfx%lfx%lf in dimensionless units" % tuple(list(datasize) + list(self.SolventGridSize))
@@ -162,7 +139,7 @@ class Simulation():
         "clearing ForceDict to recreate it"
         self.forceDict = {}
         try:
-            for i in xrange(self.N):
+            for _ in xrange(self.N):
                 self.system.addParticle(self.mass)
             print self.N, "particles loaded"
         except: pass
@@ -176,82 +153,69 @@ class Simulation():
 
     def exit(self,line):
         print line
-        exit()        
-    
-    def load(self,filename,center = False):
+        print "--------------> Bye <---------------"
+        exit()
         
+            
+    
+    def load(self,filename,center = False):        
         "loads file from  an Nx3 or 3xN or filename"
-        if type(filename) == str:
-            lines = open(filename).readlines()[1:]
-            data = [[float(i) for i in j.split()] for j in lines if len(j) > 3]
-            if numpy.isnan(data).any(): self.exit("\n!!!!!!!!!!file contains NANS!!!!!!!!!\n")
-            if center == True:
-                av = numpy.mean(data,0)
-                data -= av
-            if center == "zero":
-                min = numpy.min(data,0)
-                data -= min
-            data = numpy.array(data)
-            data = units.Quantity(data,units.nanometer)                    
-            self.data = data
-            self.N = len(data)
-        elif type(filename) == int:
-            lines = open("expanded%d.dat" % filename).readlines()[1:]
-            data = [[float(i) for i in j.split()] for j in lines if len(j) > 3]
-            if numpy.isnan(data).any(): self.exit("\n!!!!!!!!!!file contains NANS!!!!!!!!!\n")
-            if center == True:
-                av = numpy.mean(data,0)
-                data -= av
-            if center == "zero":
-                min = numpy.min(data,0)
-                data -= min
-
-            data = numpy.array(data)
-            data = units.Quantity(data,units.nanometer) 
-            self.data = data
-            self.N = len(data)
+        if type(filename) == str:             
+            try:
+                line0 = open(filename).readline() 
+                try: N = int(line0)
+                except ValueError: raise TypeError("Cannot read text file... reading pickle file")                         
+                
+                lines = open(filename).readlines()
+                data = [[float(i) for i in j.split()] for j in lines if len(j) > 3]
+                
+                if len(data) != N:
+                    raise ValueError("N does not correspond to the number of lines!")
             
+            except TypeError:
+                print "Working with joblib file"
+                mydict = dict(joblib.load(filename))
+                data = mydict.pop("data")
+                self.oldMetadata = data 
         else:
-            
             data = filename
-            data = numpy.array(data)
-            if len(data) == 3: 
-                data = numpy.transpose(data)
-            if len(data[0]) != 3: 
-                self.exit("strange data file")
-            data = units.Quantity(data,units.nanometer) 
-            self.data = data
-            self.N = len(data)
-            if center == True:
-                av = numpy.mean(data,0)
-                data -= av
-            if center == "zero":
-                min = numpy.min(data,0)
-                data -= min
-
-                     
-        self.conlen = units.nanometer
+                    
+        data = numpy.asarray(data,float)
+        if len(data) == 3: 
+            data = numpy.transpose(data)
+        if len(data[0]) != 3: 
+            self.exit("strange data file")        
+        if numpy.isnan(data).any(): self.exit("\n!!!!!!!!!!file contains NANS!!!!!!!!!\n")
+        if center == True:
+            av = numpy.mean(data,0)
+            data -= av
+            
+        if center == "zero":
+            minvalue = numpy.min(data,0)
+            data -= minvalue
+                                        
+        self.setData(data)                                     
+        
         if self.verbose == True:
             print "center of mass is", numpy.mean(self.data,0)
             print "Radius of gyration is," , self.RG()
+        
         try: 
             for i in xrange(self.N):
                 self.system.addParticle(self.mass)
             if self.verbose == True:print "%d particles loaded" % self.N
             self.loaded = True
         except: pass
-                
-        
 
     
     def RG(self):
         "returns radius of gyration"
-        return numpy.sqrt(numpy.sum(numpy.var(numpy.array(self.data/units.nanometer) ,0)))
+        return numpy.sqrt(numpy.sum(numpy.var(numpy.array(self.data/self.nm) ,0)))
+    
     def RMAX(self):
         "returns distance to the furthest particle"
-        return numpy.max(numpy.sqrt(numpy.sum((numpy.array(self.data/units.nanometer) )**2,1)))
-    
-    
+        return numpy.max(numpy.sqrt(numpy.sum((numpy.array(self.data/self.nm) )**2,1)))
+        
     def setLayout(self,mode = "chain",chains = None,Nchains = 1):
         "sets layout of chains for chains or rings. "
         "chains: [0 100],[100 200],... etc"
@@ -265,6 +229,8 @@ class Simulation():
                     self.chains.append(((N* i)/Nchains,(N * (i+1))/Nchains))
         self.mode = mode
         #print self.N, chains
+        layout = {"chains":chains,"mode":mode,"Nchains":Nchains}
+        self.metadata["layout"] = layout 
     
     
     def getLayout(self):
@@ -274,16 +240,7 @@ class Simulation():
     def useDomains(self,mode,chromosomes = None, domains = "domains.dat"):
         "in combination with LennardJonseForce this allows to create domains from Hi-C eigenvectors"
         self.domains = numpy.zeros(self.N,int)
-        if mode == "chromosomes":
-            if len(chromosomes) != len(self.chains): self.exit("wrong number of chromosomes")
-            vectors = [load_eigenvector(i) for i in chromosomes]            
-            for t,i in enumerate(self.chains): 
-                beg = i[0]
-                end = i[1]
-                vec = vectors[t]
-                for j in xrange(beg,end):
-                    self.domains[j] = vec[((j - beg) * len(vec) ) / (end - beg)] 
-            cPickle.dump(self.domains,open(self.folder + "/domains.dat",'wb'))
+
         if mode == "file":
             domains = cPickle.load(open(domains))
             if len(domains) != self.N: exit("Wrong domain length")
@@ -292,35 +249,26 @@ class Simulation():
             if type(domains) == type("bla"): domains = cPickle.load(open(domains))
             if len(domains) != self.N: exit("Wrong domain length")
             self.domains = domains
-            cPickle.dump(domains,open(self.folder + "/domains.dat",'wb'))
-            
-            
-    
-    def setForces(self,setup_script = None):
-        print "setting all the forces from the setup script"
-        if setup_script != None: 
-            self.setup_script = setup_script
-        self.setup_script(self)
-        
+            cPickle.dump(domains,open(self.folder + "/domains.dat",'wb'))            
+                
     def initHarmonicBondForce(self):
         "Inits harmonic forse for polymer and non-polymer bonds"
         if "HarmonicBondForce" not in self.forceDict.keys(): 
             self.forceDict["HarmonicBondForce"] = self.mm.HarmonicBondForce()
-        self.bondType = "Harmonic"
-
-
+        self.bondType = "Harmonic"        
 
           
     def addHarmonicPolymerBonds(self,wiggleDist = 0.05):
-        "adds harmonic polymer bonds"
-      
+        "adds harmonic polymer bonds"      
         for i in self.chains:
             for j in xrange(i[0],i[1] - 1):
-                self.addBond(j,j+1,wiggleDist,distance = 1, bondType = "Harmonic")
+                self.addBond(j,j+1,wiggleDist,distance = 1, bondType = "Harmonic",verbose = False)
 
             if self.mode == "ring":
                 self.addBond(i[0],i[1] -1,wiggleDist,distance = 1, bondType = "Harmonic")            
                 if self.verbose == True: print "ring bond added", i[0],i[1]-1
+                
+        self.metadata["HarmonicPolymerBonds"] = {"wiggleDist":wiggleDist}
 
     
     def addGrosbergPolymerBonds(self,k = 30):
@@ -332,6 +280,7 @@ class Simulation():
             if self.mode == "ring":
                 force.addBond(i[0],i[1] - 1,[])
                 print "chain bond added", i[0],i[1]-1
+        self.metadata["GorsbergPolymerForce"] = {"k":k}
         
                 
 
@@ -342,6 +291,7 @@ class Simulation():
             for j in xrange(i[0]+1,i[1] - 1):
                 myforce.addAngle(j-1,j,j+1,[])
         myforce.addGlobalParameter("k",k)
+        self.metadata["AngleForce"] = {"stifness":k}
 
 
     def addGrosbergStifness(self, k = 1.5):
@@ -351,6 +301,7 @@ class Simulation():
             for j in xrange(i[0]+1,i[1] - 1):
                 myforce.addAngle(j-1,j,j+1,[])
         myforce.addGlobalParameter("k",k * self.kT)
+        self.metadata["GrosbergAngleForce"] = {"stifness":k}
 
         
     def addSimpleRepulsiveForce(self,cutoff = 1.7,trunk = None,rep = 0.26):
@@ -377,6 +328,7 @@ class Simulation():
             
         else: repulforce.setNonbondedMethod(openmm.CustomNonbondedForce.CutoffNonPeriodic)
         repulforce.setCutoffDistance(nbCutOffDist)
+        self.metadata["SimgleRepulsiveForce"] = {"cutoff":cutoff,"trunk":trunk,"rep":rep}
         
     
     def addGrosbergRepulsiveForce(self,trunk=None):
@@ -403,6 +355,7 @@ class Simulation():
         repulforce.setCutoffDistance(nbCutOffDist)
         
         
+        
     def addMutualException(self, particles):
         for i in particles: #xrange(len(particles)):
             for j in particles:#xrange(len(particles)):
@@ -415,7 +368,7 @@ class Simulation():
     def dist(self,i,j):
         "returns distance between particles i and j"                
         dif = self.data[i] - self.data[j]
-        dif = dif / (units.nanometer)
+        dif = dif / (self.nm)
         dif = numpy.sqrt(sum(dif**2))        
         return dif
         
@@ -510,13 +463,13 @@ class Simulation():
         self.sphericalConfinementRadius = r
         if self.verbose == True: print "SPherical confinement with radius = %lf" % r 
         #assigning parameters of the force 
-        extforce2.addGlobalParameter("SPHkb",k*self.kT/units.nanometer);
-        extforce2.addGlobalParameter("SPHaa",(r - 1./k)*units.nanometer);
-        extforce2.addGlobalParameter("SPHt",(1./k)*units.nanometer/10.);
-        extforce2.addGlobalParameter("SPHtt",0.01*units.nanometer);
+        extforce2.addGlobalParameter("SPHkb",k*self.kT/self.nm);
+        extforce2.addGlobalParameter("SPHaa",(r - 1./k)*self.nm);
+        extforce2.addGlobalParameter("SPHt",(1./k)*self.nm/10.);
+        extforce2.addGlobalParameter("SPHtt",0.01*self.nm);
 
 
-   ### MARKED FOR MIGRATION TO YEAST CLASS ####
+    ### MARKED FOR MIGRATION TO YEAST CLASS ####
     def addNucleolus(self, k = 1, r =  None):
         if r==None: r =  self.sphericalConfinementRadius
         
@@ -527,11 +480,11 @@ class Simulation():
         #adding all the particles on which force acts
         if self.verbose == True: print "NUCleolus confinement from radius = %lf" % r 
         #assigning parameters of the force 
-        extforce3.addGlobalParameter("NUCkb",k*self.kT/units.nanometer);
-        extforce3.addGlobalParameter("NUCaa", (r - 1./k)*units.nanometer * 1.75 );
-        extforce3.addGlobalParameter("NUCoffset", (r - 1./k)*units.nanometer * 1.1 );
-        extforce3.addGlobalParameter("NUCt",(1./k)*units.nanometer/10.);
-        extforce3.addGlobalParameter("NUCtt",0.01*units.nanometer);
+        extforce3.addGlobalParameter("NUCkb",k*self.kT/self.nm);
+        extforce3.addGlobalParameter("NUCaa", (r - 1./k)*self.nm * 1.75 );
+        extforce3.addGlobalParameter("NUCoffset", (r - 1./k)*self.nm * 1.1 );
+        extforce3.addGlobalParameter("NUCt",(1./k)*self.nm/10.);
+        extforce3.addGlobalParameter("NUCtt",0.01*self.nm);
         for i in xrange(self.N): extforce3.addParticle(i,[])
 
 
@@ -548,10 +501,10 @@ class Simulation():
         if self.verbose == True: print "Lamina attraction added with r = %d"% r 
          
         #assigning parameters of the force 
-        extforce3.addGlobalParameter("LAMaa", r * units.nanometer);
-        extforce3.addGlobalParameter("LAMwidth",width*units.nanometer);
+        extforce3.addGlobalParameter("LAMaa", r * self.nm);
+        extforce3.addGlobalParameter("LAMwidth",width*self.nm);
         extforce3.addGlobalParameter("LAMdepth",depth * self.kT);        
-        extforce3.addGlobalParameter("LAMtt",0.01*units.nanometer);
+        extforce3.addGlobalParameter("LAMtt",0.01*self.nm);
 
 
     def addSphericalWell(self,r = 10,depth = 1):
@@ -570,9 +523,9 @@ class Simulation():
         if self.verbose == True: print "Well attraction added with r = %d"% r 
          
         #assigning parameters of the force 
-        extforce4.addGlobalParameter("WELLwidth",r*units.nanometer);
+        extforce4.addGlobalParameter("WELLwidth",r*self.nm);
         extforce4.addGlobalParameter("WELLdepth",depth * self.kT);        
-        extforce4.addGlobalParameter("WELLtt",0.01*units.nanometer);
+        extforce4.addGlobalParameter("WELLtt",0.01*self.nm);
         
     
     def tetherParticles(self,particles, k = 30):
@@ -581,7 +534,7 @@ class Simulation():
         self.forceDict["Tethering Force"] = extforce2
 
         #assigning parameters of the force 
-        extforce2.addGlobalParameter("TETHkb",k*self.kT/units.nanometer);
+        extforce2.addGlobalParameter("TETHkb",k*self.kT/self.nm);
         extforce2.addPerParticleParameter("TETHx0")
         extforce2.addPerParticleParameter("TETHy0")
         extforce2.addPerParticleParameter("TETHz0")
@@ -608,7 +561,7 @@ class Simulation():
             print "right wall created at ", right / ( 1. * nm)
         
         extforce2 = openmm.CustomExternalForce(" WALLk * (sqrt((x - WALLright) * (x-WALLright) + WALLa * WALLa ) - WALLa) * step(x-WALLright) + WALLk * (sqrt((x - WALLleft) * (x-WALLleft) + WALLa * WALLa ) - WALLa) * step(WALLleft - x) ")
-        extforce2.addGlobalParameter("WALLk",k*self.kT/units.nanometer)
+        extforce2.addGlobalParameter("WALLk",k*self.kT/self.nm)
         extforce2.addGlobalParameter("WALLleft",left)
         extforce2.addGlobalParameter("WALLright",right)
         extforce2.addGlobalParameter("WALLa",1 * nm)
@@ -631,16 +584,16 @@ class Simulation():
             r = 13. * 3 * ((self.N/4000.) ** 0.333333333333333)
          
         #assigning parameters of the force 
-        extforce2.addGlobalParameter("CYLkb",k*self.kT/units.nanometer);
+        extforce2.addGlobalParameter("CYLkb",k*self.kT/self.nm);
         extforce2.addGlobalParameter("CYLkt",self.kT);
-        extforce2.addGlobalParameter("CYLweired",units.nanometer)
-        extforce2.addGlobalParameter("CYLaa",(r - 1./k)*units.nanometer);
-        extforce2.addGlobalParameter("CYLt", (1./(10*k))*units.nanometer);
-        extforce2.addGlobalParameter("CYLtt",0.01*units.nanometer);
+        extforce2.addGlobalParameter("CYLweired",self.nm)
+        extforce2.addGlobalParameter("CYLaa",(r - 1./k)*self.nm);
+        extforce2.addGlobalParameter("CYLt", (1./(10*k))*self.nm);
+        extforce2.addGlobalParameter("CYLtt",0.01*self.nm);
         
     def getData(self):
         "use this to return data, not something else"
-        return self.data / units.nanometer
+        return self.data / self.nm
     def getScaledData(self):        
         "returns back data rescaled to the simulations box"
         alldata = self.getData()
@@ -651,7 +604,8 @@ class Simulation():
         """use this, not self.data, to set data.
          internal realization may change later
         """
-        self.data = units.Quantity(data,units.nanometer)
+        data = numpy.asarray(data,dtype = "float")
+        self.data = units.Quantity(data,self.nm)
         self.N = len(self.data)    
     def addGravity(self,k = 0.1,cutoff = None):
         """adds force pulling downwards in z direction
@@ -660,13 +614,13 @@ class Simulation():
         
         if cutoff == None:
             extforce3 = openmm.CustomExternalForce("kG * z")
-            extforce3.addGlobalParameter("kG",k * self.kT / (units.nanometer))
+            extforce3.addGlobalParameter("kG",k * self.kT / (self.nm))
             for i in xrange(self.N): extforce3.addParticle(i,[])
             self.forceDict["Gravity"] = extforce3
         else:
             extforce3 = openmm.CustomExternalForce("kG * (z - cutoffG) * step(z - cutoffG)")
-            extforce3.addGlobalParameter("kG",k * self.kT / (units.nanometer))
-            extforce3.addGlobalParameter("cutoffG", cutoff * units.nanometer)
+            extforce3.addGlobalParameter("kG",k * self.kT / (self.nm))
+            extforce3.addGlobalParameter("cutoffG", cutoff * self.nm)
             for i in xrange(self.N): extforce3.addParticle(i,[])
             self.forceDict["Gravity"] = extforce3
      
@@ -684,11 +638,12 @@ class Simulation():
 
         
         
-    def addBond(self,i,j,bondWiggleDistance,distance = None, bondType = None):
+    def addBond(self,i,j,bondWiggleDistance,distance = None, bondType = None,verbose = None):
         
         #print (self.data[i,:]- self.data[j,:]), ((self.data[i,:]- self.data[j,:])**2).sum()
         #if  ((self.data[i,:]- self.data[j,:])**2).sum()**.5 > 1.4: self.exit ('asdfa') # sanity check on distance between molecules
-        
+        if verbose == None:
+            verbose = self.verbose 
         
         bondSize = float(bondWiggleDistance)
         if distance == None: distance = self.conlen / nm
@@ -701,7 +656,7 @@ class Simulation():
             self.initHarmonicBondForce()
             kbond = ( 2 * self.kT / (bondSize * self.conlen) ** 2 ) / (units.kilojoule_per_mole / nm ** 2 )
             self.forceDict["HarmonicBondForce"].addBond(int(i),int(j),float(distance),float(kbond))
-            if self.verbose == True: print "Harmonic bond added between %d,%d, params %lf %lf" % (i,j,float(distance),float(kbond))
+            if verbose == True: print "Harmonic bond added between %d,%d, params %lf %lf" % (i,j,float(distance),float(kbond))
         elif bondType == "Grosberg":
             self.initGrosbergForce()
             self.forceDict["GrosbergForce"].addBond(i,j,[])
@@ -831,6 +786,7 @@ class Simulation():
         self.folder = folder
     def energy_minimization(self,steps = 1000,twoStage = False,thermostat = None):
         "run this first, to minimize energy."
+        print "Performing energy minimization"
         if self.forcesApplied == False:
             self.applyForces()
             self.forcesApplied = True
@@ -854,7 +810,8 @@ class Simulation():
 
         self.integrator.setFriction(def_fric)
         self.integrator.setStepSize(def_step)
-        self.reinitialize()        
+        self.reinitialize()
+        print "Finished energy minimization"        
     def doBlock(self,steps = None,increment = True,num = None):
         """performs one block of simulations, doing steps timesteps, or steps_per_block if not specified. 
         "increment" controls where we increase the self.step or not
@@ -886,7 +843,7 @@ class Simulation():
             state = self.context.getState(getPositions=True,getEnergy = True)  #get state of a system: positions, energies
             b = time.time()
             coords = state.getPositions(asNumpy=True)
-            newcoords = coords / units.nanometer
+            newcoords = coords / self.nm
             eK = state.getKineticEnergy()/self.N/self.kT                          #calculate energies in KT/particle
             eP = state.getPotentialEnergy()/self.N/self.kT
             if self.velocityReinialize == True:
@@ -940,9 +897,8 @@ class Simulation():
             begin = b2
     def show(self,coloring = "chain",chain = "all" ):
         "shows system in rasmol"
-        import os    
         shifts = [0.,0.2,0.4,0.6,0.8]
-        data = self.data / units.nanometer
+        data = self.data / self.nm
         newData3 = data
         rascript = open("rascript_xyz",'w')
         rascript.write("""wireframe off 
@@ -981,26 +937,20 @@ class Simulation():
         towrite.close()
         #Now we view this file with rasmol. You can make a standalone script out of this part of the code and use it to view trajectories afterwards. 
         os.system("rasmol -xyz trace.xyz -script rascript_xyz")
+    
+    
     def save(self,filename = None):
+        "saves conformation plus some metadata. Metadata is not interpreted by this library, and is for your reference"
+        self.metadata["data"] = self.getData()
+        self.metadata["timestep"] = self.timestep / fs
+        self.metadata["Collision rate"] = self.collisionRate / ps         
+        
         if filename == None: 
-            f = open(self.folder + "/expanded%d.dat" % self.step, 'w')
+            f = os.path.join(self.folder , "block%d.dat" % self.step)
         else:
-            if filename[0] == "/":
-                f = open(filename,'w')
-            else:
-                f = open(self.folder + "/" + filename,'w')
-        data = self.data / units.nanometer
-        data = numpy.transpose(data)
-        f.write(str(len(data[0])) + "\n")
-        for i in xrange(len(data[0])):
+            f = os.path.join(self.folder , filename)
+        joblib.dump(self.metadata,filename = f,compress = 3)
                 
-            for j in xrange(len(data)):
-                f.write(str(data[j][i]) + " ")
-            f.write("\n")                
-        f.close()
-        
-
-        
         
 class YeastSimulation(Simulation):
     
@@ -1014,11 +964,11 @@ class YeastSimulation(Simulation):
         #adding all the particles on which force acts
         if self.verbose == True: print "NUCleolus confinement from radius = %lf" % r 
         #assigning parameters of the force 
-        extforce3.addGlobalParameter("NUCkb",k*self.kT/units.nanometer);
-        extforce3.addGlobalParameter("NUCaa", (r - 1./k)*units.nanometer * 1.75 );
-        extforce3.addGlobalParameter("NUCoffset", (r - 1./k)*units.nanometer * 1.1 );
-        extforce3.addGlobalParameter("NUCt",(1./k)*units.nanometer/10.);
-        extforce3.addGlobalParameter("NUCtt",0.01*units.nanometer);
+        extforce3.addGlobalParameter("NUCkb",k*self.kT/self.nm);
+        extforce3.addGlobalParameter("NUCaa", (r - 1./k)*self.nm * 1.75 );
+        extforce3.addGlobalParameter("NUCoffset", (r - 1./k)*self.nm * 1.1 );
+        extforce3.addGlobalParameter("NUCt",(1./k)*self.nm/10.);
+        extforce3.addGlobalParameter("NUCtt",0.01*self.nm);
         for i in xrange(self.N): extforce3.addParticle(i,[])
 
 
@@ -1046,10 +996,10 @@ class YeastSimulation(Simulation):
         if self.verbose == True: print "Lamina attraction added with r = %d"% r 
          
         #assigning parameters of the force 
-        extforce3.addGlobalParameter("LAMaa", r * units.nanometer);
-        extforce3.addGlobalParameter("LAMwidth",width*units.nanometer);
+        extforce3.addGlobalParameter("LAMaa", r * self.nm);
+        extforce3.addGlobalParameter("LAMwidth",width*self.nm);
         extforce3.addGlobalParameter("LAMdepth",depth * self.kT);        
-        extforce3.addGlobalParameter("LAMtt",0.01*units.nanometer);
+        extforce3.addGlobalParameter("LAMtt",0.01*self.nm);
 
                       
                 

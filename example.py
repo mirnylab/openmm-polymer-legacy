@@ -8,20 +8,21 @@ def exampleOpenmm():
     from openmmlib import Simulation
     a = Simulation(timestep = 70, thermostat = 0.004)
     a.verbose = True
-    a.load("globule")
-    a.saveFolder("trajectory")
-    a.setup(platform = "OpenCL")
-    a.setLayout()
-    a.addSphericalConfinement(density = 0.55)
+    a.load("globule")  #filename to load
+    a.saveFolder("trajectory")   #folder where to save
+    a.setup(platform = "OpenCL")   #trajectory
+    a.setLayout(mode = "chain")                     #default = chain
+    a.addSphericalConfinement(density = 0.55)    
     a.addHarmonicPolymerBonds()        
-    a.addGrosbergRepulsiveForce()
+    a.addGrosbergRepulsiveForce()   #Fastest pure repulsive force
     a.addGrosbergStifness()
 
-    a.energy_minimization(steps = 50,twoStage= True)    
-    a.show()
+    a.energy_minimization(steps = 200,twoStage= True)    
+    
     for _ in xrange(5):
-        a.doBlock(500)
+        a.doBlock(1000)
         a.save()
+    a.show()
     
     
 exampleOpenmm()

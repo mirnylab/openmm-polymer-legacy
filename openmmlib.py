@@ -316,13 +316,14 @@ class Simulation():
         force = self.forceDict["GrosbergBondForce"]
         for i in self.chains:
             for j in xrange(i[0],i[1] - 1):
-                force.addBond(j,j+1,[])               
+                force.addBond(j,j+1,[])
+                self.bondsForException.append((j,j+1))               
             if self.mode == "ring":
                 force.addBond(i[0],i[1] - 1,[])
+                self.bondsForException.append((i[0],i[1] - 1))
                 print "chain bond added", i[0],i[1]-1
         self.metadata["GorsbergPolymerForce"] = {"k":k}
-        
-                
+                        
 
     def addStifness(self,k = 40):
         myforce= self.mm.CustomAngleForce("k * (theta - 3.141592) * (theta - 3.141592)")
@@ -346,6 +347,7 @@ class Simulation():
         
     def addSimpleRepulsiveForce(self,cutoff = 1.7,trunk = None,rep = 0.26):
         "creates a force where each particle repells eath other particle"
+        self.metadata["SimgleRepulsiveForce"] = {"cutoff":cutoff,"trunk":trunk,"rep":rep}
         nbCutOffDist = self.conlen * cutoff    #repulsive part saturates quickly 
         if trunk == None: repul_energy = 'REPepsilon*(REPsigma/r)^12'
         else: repul_energy = '1/((1/REPcutoff) + (1/REPU + 0.0001 * REPcutoff));REPU=REPepsilon*(REPsigma/r)^12'
@@ -368,10 +370,11 @@ class Simulation():
             
         else: repulforce.setNonbondedMethod(openmm.CustomNonbondedForce.CutoffNonPeriodic)
         repulforce.setCutoffDistance(nbCutOffDist)
-        self.metadata["SimgleRepulsiveForce"] = {"cutoff":cutoff,"trunk":trunk,"rep":rep}
+        
         
     
-    def addGrosbergRepulsiveForce(self,trunk=None):            
+    def addGrosbergRepulsiveForce(self,trunk=None):
+        self.metadata["GrosbergRepulsiveForce"] = {"trunk":trunk}            
         nbCutOffDist = self.conlen * 2.**(1./6.)
         if trunk == None:     
             repul_energy = "4 * REPe * ((REPs/r)^12 - (REPs/r)^6) + REPe"
@@ -395,6 +398,7 @@ class Simulation():
         repulforce.setCutoffDistance(nbCutOffDist)
         
         
+        
     def addLennardJonesForce(self,cutoff = 2.5, 
                             domains = False,
                             epsilonRep = 0.24,epsilonAttr = 0.27,   #parameters for LJ force 
@@ -404,6 +408,8 @@ class Simulation():
          You can specify parameters differently per domains. 
          If you want to skip random set of particles, modify "blind percent" - it'll skip particles with probability blindPercent 
          """
+        self.metadata["LennardJonesForce"] = {"cutoff":cutoff,"domains":domains,"epsilonRep":epsilonRep, "epsilonAttr":epsilonAttr,"blindFraction":blindFraction,
+                                              "sigmaRep":sigmaRep, "sigmaAttr":sigmaAttr}
         if blindFraction > 0.99: self.exitProgram ("why do you need this force without particles??? set blindFraction between 0 and 1") 
         if (sigmaRep == None) and (sigmaAttr == None):
             sigmaAttr = sigmaRep = self.conlen / nm
@@ -453,6 +459,10 @@ class Simulation():
         """adds attractive short-range interaction of strength epsilon between particles i,j
         requires LennardJones Force
         """
+        if self.metadata.has_key("interactions") == False: 
+            self.metadata["interactions"] = []
+        self.metadata["interactions"].append((i,j))
+        
         if type(self.forceDict["Nonbonded"]) != self.mm.NonbondedForce:
             self.exit("Cannot add interactions without Lennard-Jones nonbonded force")
         if sigma == None: sigma = 1.1 * self.conlen
@@ -474,7 +484,7 @@ class Simulation():
 
     def addCylindricalConfinement(self,r="density",bottom = True,k=0.1,weired = False):
         "as it says" 
-        
+        self.metadata["CylindricalConfinement"] = {"r":r,"bottom":bottom,"k":k,"weird":weired}
         if bottom == True: extforce2 = openmm.CustomExternalForce("step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) + step(-z) * CYLkb * (sqrt(z^2 + CYLt^2) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
         else: extforce2 = openmm.CustomExternalForce("step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)") 
         if weired == True: extforce2 = openmm.CustomExternalForce(" 0.6 * CYLkt * CYLaa*CYLaa / (CYLaa * CYLaa + r * r) + step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa)  + CYLt*CYLt) - CYLt) + step(-z) * CYLkb * (sqrt(z^2 + CYLt^2) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
@@ -496,6 +506,7 @@ class Simulation():
             
     def addSphericalConfinement(self,r="density",  k = 1., density = .3):
         "constrain particles to be within a sphere. With no parameters creates sphere with density 0.25. "
+        self.metadata["SphericalConfinement"] = {"r":r,"k":k,"density":density}
         
         extforce2 = openmm.CustomExternalForce("step(r-SPHaa) * SPHkb * (sqrt((r-SPHaa)*(r-SPHaa) + SPHt*SPHt) - SPHt) ;r = sqrt(x^2 + y^2 + z^2 + SPHtt^2)")
         self.forceDict["SphericalConfinement"] = extforce2
@@ -516,9 +527,9 @@ class Simulation():
         extforce2.addGlobalParameter("SPHtt",0.01*self.nm);
 
 
-    
-
     def addLaminaAttraction(self,width = 1,depth = 1, r = None):
+        
+        self.metadata["laminaAttraction"] = {"width":width,"depth":depth,"r":r}
         extforce3 = openmm.CustomExternalForce("step(LAMr-LAMaa + LAMwidth) * step(LAMaa + LAMwidth - LAMr) * LAMdepth * (LAMr-LAMaa + LAMwidth) * (LAMaa + LAMwidth - LAMr) / (LAMwidth * LAMwidth)  ;LAMr = sqrt(x^2 + y^2 + z^2 + LAMtt^2)")
         self.forceDict["Lamina attraction"] = extforce3
 
@@ -536,11 +547,11 @@ class Simulation():
         extforce3.addGlobalParameter("LAMdepth",depth * self.kT);        
         extforce3.addGlobalParameter("LAMtt",0.01*self.nm);
 
-
-        
     
-    def tetherParticles(self,particles, k = 30):
-        "tethers particles in the 'particles' array. Increase k to tether them stronger, but watch the system!" 
+    def tetherParticles(self,particles, k = 30):        
+        "tethers particles in the 'particles' array. Increase k to tether them stronger, but watch the system!"
+        self.metadata["TetheredParticles"] = {"particles":particles,"k":k}
+         
         extforce2 = openmm.CustomExternalForce(" TETHkb * ((x - TETHx0)^2 + (y - TETHy0)^2 + (z - TETHz0)^2)")
         self.forceDict["Tethering Force"] = extforce2
 

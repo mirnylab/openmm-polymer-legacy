@@ -25,12 +25,6 @@ class Simulation():
         self.folder = "."
         self.nm = nm 
         self.metadata = {}
-    
-        
-        
-                        
-        
-
         
     def setup(self,platform="OpenCL", PBC = False,density = False,PBCbox = None):           
         "sets up the system, autodetects the size of PBC box unless passed explicitely"
@@ -104,6 +98,14 @@ class Simulation():
         except: pass
                                  
         self.integrator = openmm.LangevinIntegrator(self.temperature, self.collisionRate, self.timestep)
+
+    def saveFolder(self,folder):
+        "sets the folder where to save data"
+        if folder[-1] == "/": folder = folder[:-1]
+        if os.path.exists(folder) == False:
+            os.mkdir(folder)
+        self.folder = folder
+
         
     def use_platform(self,platform):
         "sets the platform"
@@ -192,7 +194,37 @@ class Simulation():
         self.setLayout(mode,Nchains)
         self.addHarmonicPolymerBonds()
         self.addSimpleRepulsiveForce(trunk = trunk)
+
+    def save(self,filename = None):
+        "saves conformation plus some metadata. Metadata is not interpreted by this library, and is for your reference"
+        self.metadata["data"] = self.getData()
+        self.metadata["timestep"] = self.timestep / fs
+        self.metadata["Collision rate"] = self.collisionRate / ps                 
+        if filename == None: 
+            f = os.path.join(self.folder , "block%d.dat" % self.step)
+        else:
+            f = os.path.join(self.folder , filename)
+        joblib.dump(self.metadata,filename = f,compress = 3)
+        
+    def getData(self):
+        "use this to return data, not something else"
+        return self.data / self.nm
     
+    def getScaledData(self):        
+        "returns back data rescaled to the simulations box"
+        alldata = self.getData()
+        boxsize = numpy.array(self.BoxSizeReal)
+        mults = numpy.array(alldata / boxsize[None,:],int)
+        return alldata - mults * boxsize[None,:]
+    
+    def setData(self,data):
+        """use this, not self.data, to set data.
+         internal realization may change later
+        """
+        data = numpy.asarray(data,dtype = "float")
+        self.data = units.Quantity(data,self.nm)
+        self.N = len(self.data)    
+            
     def RG(self):
         "returns radius of gyration"
         return numpy.sqrt(numpy.sum(numpy.var(numpy.array(self.data/self.nm) ,0)))
@@ -201,6 +233,12 @@ class Simulation():
         "returns distance to the furthest particle"
         return numpy.max(numpy.sqrt(numpy.sum((numpy.array(self.data/self.nm) )**2,1)))
         
+    def dist(self,i,j):
+        "returns distance between particles i and j"                
+        dif = self.data[i] - self.data[j]
+        dif = dif / (self.nm)
+        dif = numpy.sqrt(sum(dif**2))        
+        return dif
 
 
     def useDomains(self,mode,chromosomes = None, domains = "domains.dat"):
@@ -223,6 +261,43 @@ class Simulation():
             self.forceDict["HarmonicBondForce"] = self.mm.HarmonicBondForce()
         self.bondType = "Harmonic"        
 
+
+    def initGrosbergBondForce(self):        
+        "inits Grosberg FENE bond force"
+        if "GrosbergBondForce" not in self.forceDict.keys():
+            force = "- 0.5 * GROSk * GROSr0 * GROSr0 * log(1-(r/GROSr0)* (r / GROSr0)) + (4 * GROSe * ((GROSs/r)^12 - (GROSs/r)^6) + GROSe) * step(GROScut - r)"
+            bondforce3  = openmm.CustomBondForce(force)            
+            bondforce3.addGlobalParameter("GROSk",30 * self.kT / (self.conlen * self.conlen))
+            bondforce3.addGlobalParameter("GROSr0",self.conlen * 1.5)
+            bondforce3.addGlobalParameter('GROSe',self.kT)
+            bondforce3.addGlobalParameter('GROSs',self.conlen)
+            bondforce3.addGlobalParameter("GROScut",self.conlen * 2.**(1./6.))
+            self.forceDict["GrosbergBondForce"] = bondforce3
+                   
+    def addBond(self,i,j,bondWiggleDistance,distance = None, bondType = None,verbose = None):
+        
+        #print (self.data[i,:]- self.data[j,:]), ((self.data[i,:]- self.data[j,:])**2).sum()
+        #if  ((self.data[i,:]- self.data[j,:])**2).sum()**.5 > 1.4: self.exitProgram ('asdfa') # sanity check on distance between molecules
+        if verbose == None:
+            verbose = self.verbose 
+        
+        bondSize = float(bondWiggleDistance)
+        if distance == None: distance = self.conlen / nm
+        else:  distance = self.conlen * distance / nm
+        
+        distance  = float(distance)        
+        if bondType == None: 
+            bondType = self.bondType             
+        if bondType == "Harmonic":
+            self.initHarmonicBondForce()
+            kbond = ( 2 * self.kT / (bondSize * self.conlen) ** 2 ) / (units.kilojoule_per_mole / nm ** 2 )
+            self.forceDict["HarmonicBondForce"].addBond(int(i),int(j),float(distance),float(kbond))
+            if verbose == True: print "Harmonic bond added between %d,%d, params %lf %lf" % (i,j,float(distance),float(kbond))
+        elif bondType == "Grosberg":
+            self.initGrosbergForce()
+            self.forceDict["GrosbergForce"].addBond(i,j,[])
+        else: self.exitProgram("Bond type not known")
+
           
     def addHarmonicPolymerBonds(self,wiggleDist = 0.05):
         "adds harmonic polymer bonds"      
@@ -235,7 +310,6 @@ class Simulation():
                 if self.verbose == True: print "ring bond added", i[0],i[1]-1
                 
         self.metadata["HarmonicPolymerBonds"] = {"wiggleDist":wiggleDist}
-
     
     def addGrosbergPolymerBonds(self,k = 30):
         self.initGrosbergBondForce()
@@ -321,23 +395,6 @@ class Simulation():
         repulforce.setCutoffDistance(nbCutOffDist)
         
         
-        
-    def addMutualException(self, particles):
-        for i in particles: #xrange(len(particles)):
-            for j in particles:#xrange(len(particles)):
-                if j> i:        
-                    self.bondsForException.append((i,j))
-
-
-
-        
-    def dist(self,i,j):
-        "returns distance between particles i and j"                
-        dif = self.data[i] - self.data[j]
-        dif = dif / (self.nm)
-        dif = numpy.sqrt(sum(dif**2))        
-        return dif
-        
     def addLennardJonesForce(self,cutoff = 2.5, 
                             domains = False,
                             epsilonRep = 0.24,epsilonAttr = 0.27,   #parameters for LJ force 
@@ -384,11 +441,20 @@ class Simulation():
         else: repulforce.setNonbondedMethod(openmm.NonbondedForce.CutoffNonPeriodic)
         repulforce.setCutoffDistance(nbCutOffDist)
         
+    def addMutualException(self, particles):
+        "used to exclude a bunch of particles from calculation of nonbonded force"
+        for i in particles: #xrange(len(particles)):
+            for j in particles:#xrange(len(particles)):
+                if j> i:        
+                    self.bondsForException.append((i,j))
+
         
     def addInteraction(self,i,j,epsilon,sigma = None, length = 3):
         """adds attractive short-range interaction of strength epsilon between particles i,j
         requires LennardJones Force
         """
+        if type(self.forceDict["Nonbonded"]) != self.mm.NonbondedForce:
+            self.exit("Cannot add interactions without Lennard-Jones nonbonded force")
         if sigma == None: sigma = 1.1 * self.conlen
         epsilon = epsilon * units.kilocalorie_per_mole
         if (min(i,j) < length) or (max(i,j) > self.N - length): 
@@ -406,119 +472,6 @@ class Simulation():
         for tt in xrange(j-length, j+length):
             repulforce.setParticleParameters(tt,0,self.conlen, self.epsilonRep)
 
-            
-        
-        
-        
-            
-            
-    def addSphericalConfinement(self,r="density",  k = 1., density = None):
-        "constrain particles to be within a sphere. With no parameters creates sphere with density 0.25. "
-        
-        extforce2 = openmm.CustomExternalForce("step(r-SPHaa) * SPHkb * (sqrt((r-SPHaa)*(r-SPHaa) + SPHt*SPHt) - SPHt) ;r = sqrt(x^2 + y^2 + z^2 + SPHtt^2)")
-        self.forceDict["SphericalConfinement"] = extforce2
-        
-        #adding all the particles on which force acts
-        for i in xrange(self.N): extforce2.addParticle(i,[])
-        if r == "density":
-            r = 13.  * ((self.N/4000.) ** 0.333333333333333)
-        if density != None:
-            r = (3 * self.N / (4 * 3.141592 * density)) ** (1/3.)
-            k = 5
-             
-        self.sphericalConfinementRadius = r
-        if self.verbose == True: print "SPherical confinement with radius = %lf" % r 
-        #assigning parameters of the force 
-        extforce2.addGlobalParameter("SPHkb",k*self.kT/self.nm);
-        extforce2.addGlobalParameter("SPHaa",(r - 1./k)*self.nm);
-        extforce2.addGlobalParameter("SPHt",(1./k)*self.nm/10.);
-        extforce2.addGlobalParameter("SPHtt",0.01*self.nm);
-
-
-    ### MARKED FOR MIGRATION TO YEAST CLASS ####
-
-    def addLaminaAttraction(self,width = 1,depth = 1, r = None):
-        extforce3 = openmm.CustomExternalForce("step(LAMr-LAMaa + LAMwidth) * step(LAMaa + LAMwidth - LAMr) * LAMdepth * (LAMr-LAMaa + LAMwidth) * (LAMaa + LAMwidth - LAMr) / (LAMwidth * LAMwidth)  ;LAMr = sqrt(x^2 + y^2 + z^2 + LAMtt^2)")
-        self.forceDict["Lamina attraction"] = extforce3
-
-        #adding all the particles on which force acts
-        for i in xrange(self.N): 
-            if self.domains[i] > 0.5: extforce3.addParticle(i,[])
-        if r == None:
-            try: r = self.sphericalConfinementRadius
-            except: exit("No spherical confinement radius defined yet. Apply spherical confinement first!")
-        if self.verbose == True: print "Lamina attraction added with r = %d"% r 
-         
-        #assigning parameters of the force 
-        extforce3.addGlobalParameter("LAMaa", r * self.nm);
-        extforce3.addGlobalParameter("LAMwidth",width*self.nm);
-        extforce3.addGlobalParameter("LAMdepth",depth * self.kT);        
-        extforce3.addGlobalParameter("LAMtt",0.01*self.nm);
-
-
-    def addSphericalWell(self,r = 10,depth = 1):
-        "pushes particles towards a boundary of a cylindrical well to create uniform well coverage"       
-
-        extforce4 = openmm.CustomExternalForce("WELLdepth * (((sin((WELLr * 3.141592 * 0.5) / WELLwidth)) ^ 10)  -1) * step(-WELLr + WELLwidth)  ;WELLr = sqrt(x^2 + y^2 + z^2 + WELLtt^2)")
-        self.forceDict["Well attraction"] = extforce4
-        
-        
-        #adding all the particles on which force acts
-        for i in xrange(self.N): 
-            if self.domains[i] > 0.5: extforce4.addParticle(i,[])
-        if r == None:
-            try: r = self.sphericalConfinementRadius * 0.5
-            except: exit("No spherical confinement radius defined yet. Apply spherical confinement first!")
-        if self.verbose == True: print "Well attraction added with r = %d"% r 
-         
-        #assigning parameters of the force 
-        extforce4.addGlobalParameter("WELLwidth",r*self.nm);
-        extforce4.addGlobalParameter("WELLdepth",depth * self.kT);        
-        extforce4.addGlobalParameter("WELLtt",0.01*self.nm);
-        
-    
-    def tetherParticles(self,particles, k = 30):
-        "tethers particles in the 'particles' array. Increase k to tether them stronger, but watch the system!" 
-        extforce2 = openmm.CustomExternalForce(" TETHkb * ((x - TETHx0)^2 + (y - TETHy0)^2 + (z - TETHz0)^2)")
-        self.forceDict["Tethering Force"] = extforce2
-
-        #assigning parameters of the force 
-        extforce2.addGlobalParameter("TETHkb",k*self.kT/self.nm);
-        extforce2.addPerParticleParameter("TETHx0")
-        extforce2.addPerParticleParameter("TETHy0")
-        extforce2.addPerParticleParameter("TETHz0")
-        for i in particles:#adding all the particles on which force acts
-            coordinates = self.data[i]
-            extforce2.addParticle(i,list(coordinates))
-            if self.verbose == True: print "particle %d tethered! " % i 
-        
-        
-        
-    def createWalls(self,left = None, right = None,k=0.5):
-        "creates walls at x = left, x = right, x direction only"
-        if left == None: 
-            left = self.data[0][0] + 1. * nm
-        else:
-            left = 1. * nm * left
-        if right == None: 
-            right = self.data[-1][0] - 1. * nm
-        else:
-            right = 1. * nm * right 
-        
-        if self.verbose == True:
-            print "left wall created at ", left / (1. * nm) 
-            print "right wall created at ", right / ( 1. * nm)
-        
-        extforce2 = openmm.CustomExternalForce(" WALLk * (sqrt((x - WALLright) * (x-WALLright) + WALLa * WALLa ) - WALLa) * step(x-WALLright) + WALLk * (sqrt((x - WALLleft) * (x-WALLleft) + WALLa * WALLa ) - WALLa) * step(WALLleft - x) ")
-        extforce2.addGlobalParameter("WALLk",k*self.kT/self.nm)
-        extforce2.addGlobalParameter("WALLleft",left)
-        extforce2.addGlobalParameter("WALLright",right)
-        extforce2.addGlobalParameter("WALLa",1 * nm)
-        for i in xrange(self.N):
-            extforce2.addParticle(i,[])
-        self.forceDict["WALL Force"] = extforce2
-        
-            
     def addCylindricalConfinement(self,r="density",bottom = True,k=0.1,weired = False):
         "as it says" 
         
@@ -539,30 +492,73 @@ class Simulation():
         extforce2.addGlobalParameter("CYLaa",(r - 1./k)*self.nm);
         extforce2.addGlobalParameter("CYLt", (1./(10*k))*self.nm);
         extforce2.addGlobalParameter("CYLtt",0.01*self.nm);
+                
+            
+    def addSphericalConfinement(self,r="density",  k = 1., density = .3):
+        "constrain particles to be within a sphere. With no parameters creates sphere with density 0.25. "
         
-    def getData(self):
-        "use this to return data, not something else"
-        return self.data / self.nm
+        extforce2 = openmm.CustomExternalForce("step(r-SPHaa) * SPHkb * (sqrt((r-SPHaa)*(r-SPHaa) + SPHt*SPHt) - SPHt) ;r = sqrt(x^2 + y^2 + z^2 + SPHtt^2)")
+        self.forceDict["SphericalConfinement"] = extforce2
+        
+        #adding all the particles on which force acts
+        for i in xrange(self.N): extforce2.addParticle(i,[])
+
+        if density != None:
+            r = (3 * self.N / (4 * 3.141592 * density)) ** (1/3.)
+            k = 5
+             
+        self.sphericalConfinementRadius = r
+        if self.verbose == True: print "SPherical confinement with radius = %lf" % r 
+        #assigning parameters of the force 
+        extforce2.addGlobalParameter("SPHkb",k*self.kT/self.nm);
+        extforce2.addGlobalParameter("SPHaa",(r - 1./k)*self.nm);
+        extforce2.addGlobalParameter("SPHt",(1./k)*self.nm/10.);
+        extforce2.addGlobalParameter("SPHtt",0.01*self.nm);
+
+
     
-    def getScaledData(self):        
-        "returns back data rescaled to the simulations box"
-        alldata = self.getData()
-        boxsize = numpy.array(self.BoxSizeReal)
-        mults = numpy.array(alldata / boxsize[None,:],int)
-        return alldata - mults * boxsize[None,:]
+
+    def addLaminaAttraction(self,width = 1,depth = 1, r = None):
+        extforce3 = openmm.CustomExternalForce("step(LAMr-LAMaa + LAMwidth) * step(LAMaa + LAMwidth - LAMr) * LAMdepth * (LAMr-LAMaa + LAMwidth) * (LAMaa + LAMwidth - LAMr) / (LAMwidth * LAMwidth)  ;LAMr = sqrt(x^2 + y^2 + z^2 + LAMtt^2)")
+        self.forceDict["Lamina attraction"] = extforce3
+
+        #adding all the particles on which force acts
+        for i in xrange(self.N): 
+            if self.domains[i] > 0.5: extforce3.addParticle(i,[])
+        if r == None:
+            try: r = self.sphericalConfinementRadius
+            except: exit("No spherical confinement radius defined yet. Apply spherical confinement first!")
+        if self.verbose == True: print "Lamina attraction added with r = %d"% r 
+         
+        #assigning parameters of the force 
+        extforce3.addGlobalParameter("LAMaa", r * self.nm);
+        extforce3.addGlobalParameter("LAMwidth",width*self.nm);
+        extforce3.addGlobalParameter("LAMdepth",depth * self.kT);        
+        extforce3.addGlobalParameter("LAMtt",0.01*self.nm);
+
+
+        
     
-    def setData(self,data):
-        """use this, not self.data, to set data.
-         internal realization may change later
-        """
-        data = numpy.asarray(data,dtype = "float")
-        self.data = units.Quantity(data,self.nm)
-        self.N = len(self.data)    
+    def tetherParticles(self,particles, k = 30):
+        "tethers particles in the 'particles' array. Increase k to tether them stronger, but watch the system!" 
+        extforce2 = openmm.CustomExternalForce(" TETHkb * ((x - TETHx0)^2 + (y - TETHy0)^2 + (z - TETHz0)^2)")
+        self.forceDict["Tethering Force"] = extforce2
+
+        #assigning parameters of the force 
+        extforce2.addGlobalParameter("TETHkb",k*self.kT/self.nm);
+        extforce2.addPerParticleParameter("TETHx0")
+        extforce2.addPerParticleParameter("TETHy0")
+        extforce2.addPerParticleParameter("TETHz0")
+        for i in particles:#adding all the particles on which force acts
+            coordinates = self.data[i]
+            extforce2.addParticle(i,list(coordinates))
+            if self.verbose == True: print "particle %d tethered! " % i 
+        
+
     def addGravity(self,k = 0.1,cutoff = None):
         """adds force pulling downwards in z direction
         When using cutoff, acts only when z>cutoff
-        """
-        
+        """        
         if cutoff == None:
             extforce3 = openmm.CustomExternalForce("kG * z")
             extforce3.addGlobalParameter("kG",k * self.kT / (self.nm))
@@ -574,122 +570,19 @@ class Simulation():
             extforce3.addGlobalParameter("cutoffG", cutoff * self.nm)
             for i in xrange(self.N): extforce3.addParticle(i,[])
             self.forceDict["Gravity"] = extforce3
-     
-
-    def initGrosbergBondForce(self):
-        
-        "inits Grosberg FENE bond force"
-        if "GrosbergBondForce" not in self.forceDict.keys():
-            force = "- 0.5 * GROSk * GROSr0 * GROSr0 * log(1-(r/GROSr0)* (r / GROSr0)) + (4 * GROSe * ((GROSs/r)^12 - (GROSs/r)^6) + GROSe) * step(GROScut - r)"
-            bondforce3  = openmm.CustomBondForce(force)
-            
-            bondforce3.addGlobalParameter("GROSk",30 * self.kT / (self.conlen * self.conlen))
-            bondforce3.addGlobalParameter("GROSr0",self.conlen * 1.5)
-            bondforce3.addGlobalParameter('GROSe',self.kT)
-            bondforce3.addGlobalParameter('GROSs',self.conlen)
-            bondforce3.addGlobalParameter("GROScut",self.conlen * 2.**(1./6.))
-            self.forceDict["GrosbergBondForce"] = bondforce3
-       
-        
-    def addBond(self,i,j,bondWiggleDistance,distance = None, bondType = None,verbose = None):
-        
-        #print (self.data[i,:]- self.data[j,:]), ((self.data[i,:]- self.data[j,:])**2).sum()
-        #if  ((self.data[i,:]- self.data[j,:])**2).sum()**.5 > 1.4: self.exitProgram ('asdfa') # sanity check on distance between molecules
-        if verbose == None:
-            verbose = self.verbose 
-        
-        bondSize = float(bondWiggleDistance)
-        if distance == None: distance = self.conlen / nm
-        else:  distance = self.conlen * distance / nm
-        
-        distance  = float(distance)        
-        if bondType == None: 
-            bondType = self.bondType             
-        if bondType == "Harmonic":
-            self.initHarmonicBondForce()
-            kbond = ( 2 * self.kT / (bondSize * self.conlen) ** 2 ) / (units.kilojoule_per_mole / nm ** 2 )
-            self.forceDict["HarmonicBondForce"].addBond(int(i),int(j),float(distance),float(kbond))
-            if verbose == True: print "Harmonic bond added between %d,%d, params %lf %lf" % (i,j,float(distance),float(kbond))
-        elif bondType == "Grosberg":
-            self.initGrosbergForce()
-            self.forceDict["GrosbergForce"].addBond(i,j,[])
-        else: self.exitProgram("Bond type not known")
-        
-    def addRandomCrosslinks(self,num=10):
-        data = numpy.array(self.getData())
-        for _ in xrange(num):
-            a = numpy.random.randint(0,self.N)            
-            cur = data[a]
-            dist = numpy.sqrt(numpy.sum((data - cur[None,:])**2,axis = 1))
-            attempt = dist < 1.9
-             
-            attempt[a] = False
-            attempt[a-1] = False
-            attempt[a-2] = False
-            attempt[a+1] = False
-            attempt[a+2] = False
-            if attempt.sum() <= 0: 
-                print "no atoms"
-                continue
-            nums = numpy.nonzero(attempt)[0]
-            
-            b = nums[numpy.random.randint(0,len(nums))]
-
-            if self.verbose == True: print "random bond added",  self.dist(a,b)
-            print a,b
-            self.addBond(a,b,0.5)
-            
-            
-    def addPerChainRandomCrosslinks(self,num=10,chain = 0):
-        data = numpy.array(self.getData())
-        for _ in xrange(num):
-            while True: 
-                mychain = self.chains[chain]
-                a = numpy.random.randint(mychain[0],mychain[1])            
-                cur = data[a]
-                dist = numpy.sqrt(numpy.sum((data - cur[None,:])**2,axis = 1))
-                attempt = dist < 1.9
-                 
-                attempt[a] = False
-                attempt[a-1] = False
-                attempt[a-2] = False
-                attempt[a+1] = False
-                attempt[a+2] = False
-                attempt[:mychain[0]] = False
-                attempt[mychain[1]:] = False
-
-                if attempt.sum() <= 0: 
-                    print "no atoms"
-                    continue
-                nums = numpy.nonzero(attempt)[0]
-                
-                b = nums[numpy.random.randint(0,len(nums))]
-    
-                if self.verbose == True: print "random bond added",  self.dist(a,b)
-                print a,b
-                self.addBond(a,b,0.5)
-                break
-            
-             
-            
-         
-            
-            
                                   
     def applyForces(self):
         ##making comprehensive list of exceptions
-        exc = self.bondsForException
-        
-        print "exeptionlength", len(exc)
+        exc = self.bondsForException        
+        print "Number of exceptions:", len(exc)        
         
         if len(exc) > 0:
             exc = numpy.array(exc) 
             exc = numpy.sort(exc,axis = 1) 
             exc = [tuple(i) for i in exc]
-            exc = list(set(exc)) 
-
-        for i in self.forceDict.keys():
-
+            exc = list(set(exc)) #only unique pairs are left
+             
+        for i in self.forceDict.keys():   #Adding exceptions 
             force = self.forceDict[i]
             if type(force) == openmm.NonbondedForce:
                 for pair in exc: 
@@ -697,11 +590,11 @@ class Simulation():
             elif type(force) == openmm.CustomNonbondedForce:
                 for pair in exc:
                     #force.addExclusion(*pair) 
-                    force.addExclusion(int(pair[0]),int(pair[1])) 
-                
+                    force.addExclusion(int(pair[0]),int(pair[1]))                                     
             print "adding force ",i,self.system.addForce(self.forceDict[i])        
         self.context = openmm.Context(self.system, self.integrator, self.platform)
         self.forcesApplied = True
+        
     def initVelocities(self,mult = 1,massmult = 'auto'):
         "sets velocities."
         if massmult == "auto":
@@ -715,10 +608,10 @@ class Simulation():
         sigma = units.Quantity(numpy.zeros(1,float), units.sqrt(self.kT.unit/units.amu))
         mass = self.system.getParticleMass(0)
         sigma[0] = units.sqrt(self.kT/(mass * massmult))   #calculating mean velocity
-        velocs = mult * units.Quantity(numpy.random.normal(size=(self.N,3)) * sigma,sigma.unit)
-        
+        velocs = mult * units.Quantity(numpy.random.normal(size=(self.N,3)) * sigma,sigma.unit)        
         #set initial configuration in the OpenMM
         self.context.setVelocities(velocs)
+        
     def initPositions(self):
         "sets positions"
         self.context.setPositions(self.data)
@@ -726,17 +619,12 @@ class Simulation():
         eP = state.getPotentialEnergy()/self.N/self.kT
         
         print "Positions loaded, potential energy is %lf" % eP
+        
     def reinitialize(self,mult = 1):
         "call this every time you change some parameters of the system between blocks"
         self.context.reinitialize()
         self.initPositions()
         self.initVelocities(mult)
-    def saveFolder(self,folder):
-        "sets the folder where to save data"
-        if folder[-1] == "/": folder = folder[:-1]
-        if os.path.exists(folder) == False:
-            os.mkdir(folder)
-        self.folder = folder
     def energy_minimization(self,steps = 1000,twoStage = False,thermostat = None):
         "run this first, to minimize energy."
         print "Performing energy minimization"
@@ -764,7 +652,8 @@ class Simulation():
         self.integrator.setFriction(def_fric)
         self.integrator.setStepSize(def_step)
         self.reinitialize()
-        print "Finished energy minimization"        
+        print "Finished energy minimization"
+                
     def doBlock(self,steps = None,increment = True,num = None):
         """performs one block of simulations, doing steps timesteps, or steps_per_block if not specified. 
         "increment" controls where we increase the self.step or not
@@ -775,9 +664,6 @@ class Simulation():
             self.forcesApplied = True
         if increment == True: self.step += 1
         if steps == None: steps = self.steps_per_block
-        
-        
-        
         
         for attempt in xrange(6):
             print "%s  block=%d" % (self.name,self.step),
@@ -803,8 +689,6 @@ class Simulation():
                 if eK > 2.4:
                     self.initVelocities()   
             print " Coord[1]= [%.1lf %.1lf %.1lf] " % tuple(newcoords[0]),
-            
-            
             
             if (numpy.isnan(newcoords).any()) or (eK > 20) or (numpy.isnan(eK) ) or (numpy.isnan(eP)):
                 self.context.setPositions(self.data)
@@ -870,21 +754,64 @@ class Simulation():
         rascript.close()
         towrite.close() 
         
-    
-    
-    def save(self,filename = None):
-        "saves conformation plus some metadata. Metadata is not interpreted by this library, and is for your reference"
-        self.metadata["data"] = self.getData()
-        self.metadata["timestep"] = self.timestep / fs
-        self.metadata["Collision rate"] = self.collisionRate / ps         
-        
-        if filename == None: 
-            f = os.path.join(self.folder , "block%d.dat" % self.step)
-        else:
-            f = os.path.join(self.folder , filename)
-        joblib.dump(self.metadata,filename = f,compress = 3)
 
 class SimulationWithCrosslinks(Simulation):
+    
+    def addRandomCrosslinks(self,num=10):
+        data = numpy.array(self.getData())
+        for _ in xrange(num):
+            a = numpy.random.randint(0,self.N)            
+            cur = data[a]
+            dist = numpy.sqrt(numpy.sum((data - cur[None,:])**2,axis = 1))
+            attempt = dist < 1.9
+             
+            attempt[a] = False
+            attempt[a-1] = False
+            attempt[a-2] = False
+            attempt[a+1] = False
+            attempt[a+2] = False
+            if attempt.sum() <= 0: 
+                print "no atoms"
+                continue
+            nums = numpy.nonzero(attempt)[0]
+            
+            b = nums[numpy.random.randint(0,len(nums))]
+
+            if self.verbose == True: print "random bond added",  self.dist(a,b)
+            print a,b
+            self.addBond(a,b,0.5)
+            
+            
+    def addPerChainRandomCrosslinks(self,num=10,chain = 0):
+        data = numpy.array(self.getData())
+        for _ in xrange(num):
+            while True: 
+                mychain = self.chains[chain]
+                a = numpy.random.randint(mychain[0],mychain[1])            
+                cur = data[a]
+                dist = numpy.sqrt(numpy.sum((data - cur[None,:])**2,axis = 1))
+                attempt = dist < 1.9
+                 
+                attempt[a] = False
+                attempt[a-1] = False
+                attempt[a-2] = False
+                attempt[a+1] = False
+                attempt[a+2] = False
+                attempt[:mychain[0]] = False
+                attempt[mychain[1]:] = False
+
+                if attempt.sum() <= 0: 
+                    print "no atoms"
+                    continue
+                nums = numpy.nonzero(attempt)[0]
+                
+                b = nums[numpy.random.randint(0,len(nums))]
+    
+                if self.verbose == True: print "random bond added",  self.dist(a,b)
+                print a,b
+                self.addBond(a,b,0.5)
+                break
+    
     def addConsecutiveRandomBonds(self,bondlength,bondRange,distance,smeer = 0.2):
         shift = int(bondlength * smeer)
         begin = numpy.random.randint(shift)
@@ -918,6 +845,53 @@ class SimulationWithCrosslinks(Simulation):
 
 class ExperimentalSimulation(Simulation):
     "contains some experimental features"
+
+    def createWalls(self,left = None, right = None,k=0.5):
+        "creates walls at x = left, x = right, x direction only"
+        if left == None: 
+            left = self.data[0][0] + 1. * nm
+        else:
+            left = 1. * nm * left
+        if right == None: 
+            right = self.data[-1][0] - 1. * nm
+        else:
+            right = 1. * nm * right 
+        
+        if self.verbose == True:
+            print "left wall created at ", left / (1. * nm) 
+            print "right wall created at ", right / ( 1. * nm)
+        
+        extforce2 = openmm.CustomExternalForce(" WALLk * (sqrt((x - WALLright) * (x-WALLright) + WALLa * WALLa ) - WALLa) * step(x-WALLright) + WALLk * (sqrt((x - WALLleft) * (x-WALLleft) + WALLa * WALLa ) - WALLa) * step(WALLleft - x) ")
+        extforce2.addGlobalParameter("WALLk",k*self.kT/self.nm)
+        extforce2.addGlobalParameter("WALLleft",left)
+        extforce2.addGlobalParameter("WALLright",right)
+        extforce2.addGlobalParameter("WALLa",1 * nm)
+        for i in xrange(self.N):
+            extforce2.addParticle(i,[])
+        self.forceDict["WALL Force"] = extforce2
+
+    
+    def addSphericalWell(self,r = 10,depth = 1):
+        "pushes particles towards a boundary of a cylindrical well to create uniform well coverage"       
+
+        extforce4 = openmm.CustomExternalForce("WELLdepth * (((sin((WELLr * 3.141592 * 0.5) / WELLwidth)) ^ 10)  -1) * step(-WELLr + WELLwidth)  ;WELLr = sqrt(x^2 + y^2 + z^2 + WELLtt^2)")
+        self.forceDict["Well attraction"] = extforce4
+        
+        
+        #adding all the particles on which force acts
+        for i in xrange(self.N): 
+            if self.domains[i] > 0.5: extforce4.addParticle(i,[])
+        if r == None:
+            try: r = self.sphericalConfinementRadius * 0.5
+            except: exit("No spherical confinement radius defined yet. Apply spherical confinement first!")
+        if self.verbose == True: print "Well attraction added with r = %d"% r 
+         
+        #assigning parameters of the force 
+        extforce4.addGlobalParameter("WELLwidth",r*self.nm);
+        extforce4.addGlobalParameter("WELLdepth",depth * self.kT);        
+        extforce4.addGlobalParameter("WELLtt",0.01*self.nm);
+
+
     def add_cubic_grid(self,step,percent = 0.5,mass = 0.1):
         print "Be sure that changing to MULT=1 didn't affect it... "
         raw_input("type any key to continue...") 

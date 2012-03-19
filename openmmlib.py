@@ -1,4 +1,5 @@
 import numpy
+import scipy.stats
 import cPickle
 import sys,os
 import time
@@ -12,6 +13,8 @@ import simtk.unit as units
 nm = units.meter * 1e-9
 fs = units.second * 1e-15
 ps = units.second * 1e-12 
+
+
 
 class Simulation():
     def __init__(self,timestep=25,thermostat=0.01,temperature = 300 * units.kelvin, 
@@ -285,9 +288,11 @@ class Simulation():
         for i in self.chains:
             for j in xrange(i[0],i[1] - 1):
                 self.addBond(j,j+1,wiggleDist,distance = 1, bondType = "Harmonic",verbose = False)
+                self.bondsForException.append((j,j+1))
 
             if self.mode == "ring":
-                self.addBond(i[0],i[1] -1,wiggleDist,distance = 1, bondType = "Harmonic")            
+                self.addBond(i[0],i[1] -1,wiggleDist,distance = 1, bondType = "Harmonic")
+                self.bondsForException.append((i[0],i[1] -1))            
                 if self.verbose == True: print "ring bond added", i[0],i[1]-1
                 
         self.metadata["HarmonicPolymerBonds"] = {"wiggleDist":wiggleDist}
@@ -570,16 +575,14 @@ class Simulation():
         self.context = openmm.Context(self.system, self.integrator, self.platform)
         self.forcesApplied = True
         
-    def initVelocities(self):
+    def initVelocities(self,mult=1):
         "Initializes particles velocities"
         try: self.context
-        except: print "No context, cannot set velocs. Initialize context before that"
+        except: raise ValueError("No context, cannot set velocs. Initialize context before that") 
         
-        sigma = units.Quantity(numpy.zeros(1,float), units.sqrt(self.kT.unit/units.amu))
-        mass = self.system.getParticleMass(0)
-        sigma[0] = units.sqrt(self.kT/(mass))   #calculating mean velocity
-        velocs =  units.Quantity(numpy.random.normal(size=(self.N,3)) * sigma,sigma.unit)        
-        #Ugly workaround for a bug in units.quantity and units.strip_unit
+        sigma = units.sqrt(self.kT/ self.system.getParticleMass(0) )   #calculating mean velocity        
+        velocs = units.Quantity(mult * numpy.random.normal(size=(self.N,3)), units.meter) * (sigma / units.meter)
+        #Guide to simtk.unit: 1. Always use units.quantity. 2. Avoid dimensionless shit. 3. If you have to, create fake units, as done here with meters                          
         self.context.setVelocities(velocs)
         
     def initPositions(self):
@@ -655,23 +658,74 @@ class Simulation():
             if self.velocityReinialize == True:
                 if eK > 2.4:
                     self.initVelocities()                       
-            print " Coord[1]= [%.1lf %.1lf %.1lf] " % tuple(newcoords[0]),            
+            print " Coord[1]=[%.1lf %.1lf %.1lf] " % tuple(newcoords[0]),            
             
             if (numpy.isnan(newcoords).any()) or (eK > 20) or (numpy.isnan(eK) ) or (numpy.isnan(eP)):
                 self.context.setPositions(self.data)
                 self.initVelocities()
                 print "trying one more time at step # %i" % self.step
             else:
+                dif = numpy.sqrt(numpy.mean(numpy.sum((newcoords - self.getData())**2,axis = 1)))
+                print "sq(MSD)=%.2lf" % (dif,), 
                 self.data = coords
-                print " %.2lf kin, %.2lf pot, %.2lf tot," % (eK,eP,eK+eP),  " Rg= %.3lf" % self.RG(),
-                print "SPS = %.0lf:"%(steps/(float(b-a)))                
+                print " %.2lf kin, %.2lf pot, %.2lf tot," % (eK,eP,eK+eP),  " Rg=%.3lf" % self.RG(),
+                print "SPS=%.0lf:"%(steps/(float(b-a)))                
                 break
             if attempt in [3,4]:
                 self.energy_minimization(10)
             if attempt == 5:                                
                 self.exitProgram("exceeded number of attmpts")
                 
-                
+    def printStats(self):
+        ss = scipy.stats #shortcut
+        state = self.context.getState(getPositions = True, getVelocities = True, getEnergy = True)
+        
+        eP = state.getPotentialEnergy()
+        pos = numpy.array(state.getPositions()/nm)
+        bonds = numpy.sum(numpy.diff(pos,axis = 0) **2, axis = 1)
+        sbonds = numpy.sort(bonds)
+        vel = state.getVelocities()         
+        mass = self.system.getParticleMass(0)
+        vkT = numpy.array(vel / units.sqrt(self.kT / mass),dtype = float)
+        EkPerParticle = 0.5 * numpy.sum(vkT**2,axis = 1)
+        EkSimulated = 0.5 * numpy.sum((numpy.random.randn(*vkT.shape)) **2, axis = 1)
+        
+        cm = numpy.mean(pos,axis = 0)
+        centredPos = pos - cm[None,:]
+        dists = numpy.sqrt(numpy.sum(centredPos**2, axis = 1))
+        per95 = numpy.percentile(dists, 95)
+        den = (0.95 * self.N) / ((4. * numpy.pi * per95**3) / 3 )
+        
+        
+        
+        print
+        print "Statistics for the simulation %s, number of particles: %d,  number of chains: %d,  mode:  %s" % (self.name, self.N, len(self.chains),self.mode)
+        print
+        print "Mean position is: ", numpy.mean(pos,axis = 0), "  Rg = ",self.RG()
+        print "     mean bond size is ", numpy.mean(bonds)
+        print "     three shortest/longest bonds are ", sbonds[:3],"  ",sbonds[-3:]
+        print "     95 percentile of distance to center is:   ",per95
+        print "     density of closest 95% monomers is:   ", den        
+        print
+        print "Statistics for velocities:"      
+        print "     mean kinetic energy is: ", numpy.mean(EkPerParticle), "should be:", 1.5 
+        print "     fastest particles are: ", numpy.sort(EkPerParticle)[-5:]
+        print "     fastest particles in simulated distribution:   ", numpy.sort(EkSimulated)[-5:]
+        print "     moments of velosities distribution are:", numpy.mean(EkPerParticle), numpy.var(EkPerParticle), ss.skew(EkPerParticle), scipy.stats.kurtosis(EkPerParticle)
+        print "     moments of simulated  distribution are:", numpy.mean(EkSimulated), numpy.var(EkSimulated), ss.skew(EkSimulated), scipy.stats.kurtosis(EkSimulated)
+        print
+        print "Statistics for the system:"
+        print "     Forces are: ", self.forceDict.keys()
+        print "     Number of exceptions:  ", len(self.bondsForException)
+        print 
+        print "Potential Energy Ep = ", eP/self.N/self.kT
+        
+        
+        
+
+        
+
+        
     def show(self,coloring = "chain",chain = "all" ):
         """shows system in rasmol by drawing spheres
         draws 4 spheres in between any two points (5 * N spheres total)"""

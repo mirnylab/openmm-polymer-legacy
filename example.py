@@ -2,7 +2,6 @@ from math import sin,cos,sqrt
 import numpy
 from openmmlib import Simulation
 
-
         
 def exampleOpenmm():
     """
@@ -15,22 +14,24 @@ def exampleOpenmm():
     """
     
     
-    a = Simulation(timestep = 80, thermostat = 0.001)
+    a = Simulation(timestep = 80, thermostat = 0.002)
     a.verbose = True
     a.load("globule")  #filename to load    
-    a.saveFolder("trajectory")   #folder where to save
-    a.setup(platform = "OpenCL")   #trajectory
+    a.saveFolder("trajectory")   #folder where to save trajectory
+    a.setup(platform = "OpenCL")   
     a.setLayout(mode = "chain")                     #default = chain
     a.addSphericalConfinement(density = 0.55)    
     a.addHarmonicPolymerBonds()        
     a.addGrosbergRepulsiveForce()   #Fastest pure repulsive force
     a.addGrosbergStifness()
 
-    a.energy_minimization(steps = 200,twoStage= True)    
+    a.energy_minimization(steps = 200,twoStage= True)
+        
     
-    for _ in xrange(5):
-        a.doBlock(1000)
+    for _ in xrange(20):
+        a.doBlock(5000)        
         a.save()
+    a.printStats()
     a.show()
     
     

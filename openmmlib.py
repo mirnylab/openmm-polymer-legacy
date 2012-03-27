@@ -338,11 +338,10 @@ class Simulation():
                 if len(data) != N:
                     raise ValueError("N does not correspond to the number of lines!")
             
-            except TypeError:
-                print "Working with joblib file"
+            except TypeError:                
                 mydict = dict(joblib.load(filename))
                 data = mydict.pop("data")
-                self.oldMetadata = data 
+                self.oldMetadata = data
         else:
             data = filename
                     

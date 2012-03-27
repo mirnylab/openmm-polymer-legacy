@@ -25,4 +25,4 @@ data = [[float(i) for i in j.split()] for j in lines if len(j) > 3]
 
 data2 = numpy.array(data,dtype = float)
 ourdict = {"data":data2,"OldFilename":os.path.abspath(infile)}
-joblib.dump(ourdict,outfile)
+joblib.dump(ourdict,outfile,compress = 3)

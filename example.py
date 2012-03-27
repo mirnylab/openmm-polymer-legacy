@@ -15,16 +15,16 @@ def exampleOpenmm():
     
     
     a = Simulation(timestep = 80, thermostat = 0.002)
-    a.verbose = True
-    a.load("globule")  #filename to load    
-    a.saveFolder("trajectory")   #folder where to save trajectory
-    a.setup(platform = "OpenCL")   
-    a.setLayout(mode = "chain")                     #default = chain
+    
+    a.setup(platform = "OpenCL", verbose = True)
+    a.saveFolder("trajectory")   #folder where to save trajectory   
+    a.load("globule")  #filename to load
+    a.setLayout(mode = "chain")                     #default = chain    
     a.addSphericalConfinement(density = 0.55)    
     a.addHarmonicPolymerBonds()        
     a.addGrosbergRepulsiveForce()   #Fastest pure repulsive force
     a.addGrosbergStiffness()
-    a.energy_minimization(steps = 200,twoStage= True)
+    a.energyMinimization(steps = 200,twoStage= True)
             
     for _ in xrange(10):
         a.doBlock(3000)        

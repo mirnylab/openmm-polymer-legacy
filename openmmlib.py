@@ -314,7 +314,7 @@ class Simulation():
         self.metadata["GorsbergPolymerForce"] = {"k":k}
                         
 
-    def addStifness(self,k = 40):
+    def addStiffness(self,k = 40):
         "Adds harmonic angle bonds. k specifies energy in kT at one radian"
         myforce= self.mm.CustomAngleForce("k * (theta - 3.141592) * (theta - 3.141592) * (0.5)")
         self.forceDict["AngleForce"] = myforce 
@@ -322,17 +322,17 @@ class Simulation():
             for j in xrange(i[0]+1,i[1] - 1):
                 myforce.addAngle(j-1,j,j+1,[])
         myforce.addGlobalParameter("k",k*self.kT)
-        self.metadata["AngleForce"] = {"stifness":k}
+        self.metadata["AngleForce"] = {"stiffness":k}
 
-    def addGrosbergStifness(self, k = 1.5):
-        "Adds stifness according to the Grosberg paper. Parameters are synchronized with normal stiffness"
+    def addGrosbergStiffness(self, k = 1.5):
+        "Adds stiffness according to the Grosberg paper. Parameters are synchronized with normal stiffness"
         myforce= self.mm.CustomAngleForce("k * (1 - cos(theta - 3.141592))")
         self.forceDict["AngleForce"] = myforce 
         for i in self.chains:
             for j in xrange(i[0]+1,i[1] - 1):
                 myforce.addAngle(j-1,j,j+1,[])
         myforce.addGlobalParameter("k",k * self.kT)
-        self.metadata["GrosbergAngleForce"] = {"stifness":k}
+        self.metadata["GrosbergAngleForce"] = {"stiffness":k}
 
         
     def addSimpleRepulsiveForce(self,cutoff = 1.7,trunk = None,rep = 0.26):
@@ -637,6 +637,7 @@ class Simulation():
             self.forcesApplied = True
         if increment == True: self.step += 1
         if steps == None: steps = self.steps_per_block
+        if (increment == True) and ((self.step % 50) == 25): self.printStats()
         
         for attempt in xrange(6):
             print "%s  block=%d" % (self.name,self.step),
@@ -677,6 +678,8 @@ class Simulation():
                 self.exitProgram("exceeded number of attmpts")
                 
     def printStats(self):
+        """Prints detailed statistics of a system. 
+        Will be run every 50 steps"""
         ss = scipy.stats #shortcut
         state = self.context.getState(getPositions = True, getVelocities = True, getEnergy = True)
         
@@ -695,8 +698,6 @@ class Simulation():
         dists = numpy.sqrt(numpy.sum(centredPos**2, axis = 1))
         per95 = numpy.percentile(dists, 95)
         den = (0.95 * self.N) / ((4. * numpy.pi * per95**3) / 3 )
-        
-        
         
         print
         print "Statistics for the simulation %s, number of particles: %d,  number of chains: %d,  mode:  %s" % (self.name, self.N, len(self.chains),self.mode)
@@ -718,13 +719,7 @@ class Simulation():
         print "     Forces are: ", self.forceDict.keys()
         print "     Number of exceptions:  ", len(self.bondsForException)
         print 
-        print "Potential Energy Ep = ", eP/self.N/self.kT
-        
-        
-        
-
-        
-
+        print "Potential Energy Ep = ", eP/self.N/self.kT        
         
     def show(self,coloring = "chain",chain = "all" ):
         """shows system in rasmol by drawing spheres
@@ -768,7 +763,7 @@ class Simulation():
         for i in newData:                     
             towrite.write("CA\t%lf\t%lf\t%lf\t%d\n" % tuple(i)) 
         towrite.flush()
-  
+        "TODO: rewrite using subprocess.popen" 
         if os.name == "posix":  #if linux 
             os.system("rasmol -xyz %s -script %s" % (towrite.name, rascript.name))
         else:     #if windows 

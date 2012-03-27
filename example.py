@@ -23,13 +23,11 @@ def exampleOpenmm():
     a.addSphericalConfinement(density = 0.55)    
     a.addHarmonicPolymerBonds()        
     a.addGrosbergRepulsiveForce()   #Fastest pure repulsive force
-    a.addGrosbergStifness()
-
+    a.addGrosbergStiffness()
     a.energy_minimization(steps = 200,twoStage= True)
-        
-    
-    for _ in xrange(20):
-        a.doBlock(5000)        
+            
+    for _ in xrange(10):
+        a.doBlock(3000)        
         a.save()
     a.printStats()
     a.show()

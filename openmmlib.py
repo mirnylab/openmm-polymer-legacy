@@ -340,7 +340,7 @@ class Simulation():
             
             except TypeError:                
                 mydict = dict(joblib.load(filename))
-                data = mydict.pop("data")
+                data = mydict.pop("data") 
                 self.oldMetadata = data
         else:
             data = filename

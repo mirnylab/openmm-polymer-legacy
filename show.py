@@ -15,6 +15,8 @@ meandist = numpy.percentile(numpy.sqrt(numpy.sum(numpy.diff(data,axis = 0)**2,ax
 #rescaling the data, so that bonds are of the order of 1. This is because rasmol spheres are of the fixed diameter. 
 data /= meandist
 
+#Screw you guys
+
 #writing the rasmol script. Spacefill controls radius of the sphere. 
 rascript = tempfile.NamedTemporaryFile()
 rascript.write("""wireframe off 

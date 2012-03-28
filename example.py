@@ -125,13 +125,13 @@ def create_sausage(N,ratio = 4,enlarge = 1):
     print ratio * D
     spiral = create_spiral(3.1,3.3,N)
     import openmmlib        
-    a = openmmlib.Simulation(timestep = 13, thermostat =0.1,name = "sausage")
+    a = openmmlib.Simulation(timestep = 40, thermostat =0.1,name = "sausage")
     a.setup()
     a.load(spiral)
     a.setLayout(mode = "chain")
     a.addCylindricalConfinement(r=D/2.,bottom = True,k=2.5)
     a.addHarmonicPolymerBonds(0.06)
-    a.addStiffness(10)
+    a.addStiffness(5)
 
 
     a.addSimpleRepulsiveForce()

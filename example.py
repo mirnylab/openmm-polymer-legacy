@@ -34,8 +34,12 @@ def exampleOpenmm():
     
     
 exampleOpenmm()
-exit()
+exit() 
 
+"""Below are scripts that can be used to create starting conformation. 
+create_spiral will create a spiral. 
+create_sausage will create a sausage with a certain length/width ratio of a certain N. 
+""" 
 
 
 
@@ -110,18 +114,6 @@ def create_spiral(r1,r2,N):
                 add_point(fullcoord(curphi, z))
 
         
-def resolve(data,chains = None,mode = "chain",steps = 3000):
-    "resolves a simulation"    
-    a = Simulation(timestep = 5, thermostat = 0.5,name = "resolve")
-    a.setup()
-    a.load(data)        
-    if chains != None: a.setLayout(mode=mode, chains = chains)
-    else: a.setLayout(mode = mode)
-    a.addHarmonicPolymerBonds()
-    a.addSimpleRepulsiveForce(trunk = 20,rep = 0.6)
-    a.energy_minimization(steps, twoStage = True)
-    return a.getData(), a.getLayout()
-
     
     
 
@@ -139,14 +131,13 @@ def create_sausage(N,ratio = 4,enlarge = 1):
     a.setLayout(mode = "chain")
     a.addCylindricalConfinement(r=D/2.,bottom = True,k=2.5)
     a.addHarmonicPolymerBonds(0.06)
-    a.addStifness(10)
+    a.addStiffness(10)
 
 
     a.addSimpleRepulsiveForce()
-    a.addGravity(0.3,cutoff = D * ratio )
-    a.applyForces()
+    a.addGravity(0.3,cutoff = D * ratio )    
     a.steps_per_block = 4000
-    a.energy_minimization(steps = 100)
+    a.energyMinimization(steps = 100)
     
     while a.getData()[:,2].max() >  D * ratio + 15:
         #print a.getData()[:,2].max(),  a.getData()[:,1].min(),             (ratio * D )
@@ -156,9 +147,10 @@ def create_sausage(N,ratio = 4,enlarge = 1):
     
     for _ in xrange(5):
         a.doBlock()
-    return a.getData(),a.getLayout()
+    a.show()
+    
     
 
 
     
-
+create_sausage(1000,3)

@@ -5,8 +5,8 @@ import plotting
 import numutils
 from numutils import logbins
   
-import conformationUtils
-from conformationUtils import load, Cload, give_contacts 
+import contactmaps 
+from contactmaps import load, Cload, giveContacts 
 import cPickle  
 from math import exp,sqrt,log 
 
@@ -45,8 +45,8 @@ def give_dist_scaling(data, bins0, cutoff=1.1,integrate = False,ring=False,intCo
     bins = [(bins0[i], bins0[i + 1]) for i in xrange(len(bins0) - 1)]    
     
     
-    if intContacts == False:   contacts = numpy.array(give_contacts(data,cutoff))      
-    else:  contacts = conformationUtils.giveIntContacts(data)           #integer contacts are faster
+    if intContacts == False:   contacts = numpy.array(giveContacts(data,cutoff))      
+    else:  contacts = contactmaps.giveIntContacts(data)           #integer contacts are faster
     
     contacts = contacts[:,1] - contacts[:,0]   #contact lengthes
     
@@ -252,8 +252,7 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", 
             
             if (mode == "chain") : a = give_dist_scaling(i, bins2,1.7,integrate,project=False)
             if (mode == "ring"): a = give_dist_scaling(i, bins2,1.7,integrate,ring = True)
-            if (mode == "intring"): a = give_dist_scaling(i, bins2,1.7,integrate,ring = True,project=False,intContacts = True) 
-            if (mode  == 'parts'): a =new_dist_scaling(i, bins2,1.7)
+            if (mode == "intring"): a = give_dist_scaling(i, bins2,1.7,integrate,ring = True,project=False,intContacts = True)             
             if (mode == "project"): a = give_dist_scaling(i, bins2,1.450,integrate,project=True)
             
             if (mode == "ring") or (mode == "intring"):

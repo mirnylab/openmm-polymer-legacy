@@ -332,7 +332,7 @@ class Simulation():
                 try: N = int(line0)
                 except ValueError: raise TypeError("Cannot read text file... reading pickle file")                         
                 
-                lines = open(filename).readlines()
+                lines = open(filename).readlines()[1:]
                 data = [[float(i) for i in j.split()] for j in lines if len(j) > 3]
                 
                 if len(data) != N:

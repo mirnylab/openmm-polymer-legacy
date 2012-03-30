@@ -1,13 +1,13 @@
-import numutils 
+from mirnylab import numutils  
 from array import array 
 import numpy 
 from scipy import weave
 from math import sqrt
-from numutils import arrayInArray
-from systemutils import fmapred,fmap 
+from mirnylab.numutils import arrayInArray
+from mirnylab.systemutils import fmapred,fmap 
 import cPickle 
-import plotting 
-from plotting import mat_img
+import mirnylab.plotting 
+from mirnylab.plotting import mat_img
 
 
 

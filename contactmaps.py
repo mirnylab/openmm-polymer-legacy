@@ -762,7 +762,7 @@ def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = 
             mysum = None
             for i in values:
                 try:
-                    data = load(i)
+                    data = loadFunction(i)
                     print i
                 except exceptionsToIgnore:
                     print "file not found", i

@@ -724,7 +724,7 @@ def cool_trunk(data):
     return [datax[f1 - 2:f2 + 3], datay[f1 - 2:f2 + 3], dataz[f1 - 2:f2 + 3]]
 
 
-def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = False, n = 4 ):
+def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = False, n = 4 , loadFunction = load):
     """
     Returns an average contact map of a set of conformations. 
     Non-existing files are simply ignored. 
@@ -751,7 +751,7 @@ def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = 
     Nbase = resolution
     def action(i):   #for rescaled map only 
         print i
-        try:data = load(i)
+        try:data = loadFunction(i)
         except:
             print "file not found"
             return numpy.zeros((Nbase,Nbase),"float") 

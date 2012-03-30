@@ -355,7 +355,7 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", 
 #             slices = [20000], sliceParams = (1,10), multipliers = numpy.arange(0.7,1,0.01), mode = "intring", loadFunction = intload)
 
 #---------------------------Equilibrium rings, 4k ---------
-give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run7_small/expandedDATA2.dat",
+"""give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run7_small/expandedDATA2.dat",
              tosave  = "/home/magus/workspace/testnucl2/data/DNA_conf/plots/paper_scalings/ring4", 
              slices = [4000], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
 
@@ -371,4 +371,4 @@ give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run8_tin
 give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run8_tiny_eq/expandedDATA2.dat",
              tosave  = "data/DNA_conf/plots/paper_scalings/ring2_eq", 
              slices = [9000], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
-
+"""

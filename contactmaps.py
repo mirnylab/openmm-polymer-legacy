@@ -290,7 +290,7 @@ def giveContactsAny(data,cutoff=1.4,maxContacts = 100):
         double sq(double x) {return x*x;} 
         double  dist(double* data, int N, int i,int j)
         {
-        return sqrt(pow((data[3 * i]-data[3 * j]),2.) + pow((data[3 * i + 1] - data[3 * j + 1]),2.) + pow((data[3 * i + 2] - data[3 * j + 2]),2.)); 
+        return (pow((data[3 * i]-data[3 * j]),2.) + pow((data[3 * i + 1] - data[3 * j + 1]),2.) + pow((data[3 * i + 2] - data[3 * j + 2]),2.)); 
         }
        """ % (cutoff*cutoff) 
     #

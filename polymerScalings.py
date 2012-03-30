@@ -298,7 +298,8 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", 
             b2 = p2[0]
             b1 = p1[0]
             
-        
+        """
+        TODO: rewrite this!!!         
         plot1 = plotting.plot([b1,plots1],"sigmaplot",label="t="+str(cur_slice))
         plot1.base = base
         plot1.multipliers = multipliers
@@ -310,7 +311,7 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", 
         sliceplots2.append(plot2)
         sliceplots3.append(plot3)        
     
-        
+        """
     cPickle.dump([sliceplots1,sliceplots2,sliceplots3],open(tosave,'wb'),-1)
     print "Finished!!!"
     return sliceplots1,sliceplots2,sliceplots3

@@ -3,11 +3,8 @@ from array import array
 import numpy 
 from scipy import weave
 from math import sqrt
-from mirnylab.numutils import arrayInArray
 from mirnylab.systemutils import fmapred,fmap 
-import cPickle 
-import mirnylab.plotting 
-from mirnylab.plotting import mat_img
+
 
 
 

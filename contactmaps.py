@@ -721,7 +721,7 @@ def cool_trunk(data):
     return [datax[f1 - 2:f2 + 3], datay[f1 - 2:f2 + 3], dataz[f1 - 2:f2 + 3]]
 
 
-def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = False, n = 4 , loadFunction = load):
+def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = False, n = 4 , loadFunction = load, exceptionsToIgnore = []):
     """
     Returns an average contact map of a set of conformations. 
     Non-existing files are simply ignored. 
@@ -749,12 +749,12 @@ def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = 
     def action(i):   #for rescaled map only 
         print i
         try:data = loadFunction(i)
-        except:
+        except exceptionsToIgnore:
             print "file not found"
             return numpy.zeros((Nbase,Nbase),"float") 
         def dist(i,j): return numpy.sqrt(numpy.sum((data[:,i] - data[:,j])**2))
         return rescaledMap(data[:,:],Nbase,cutoff)
-    if usePureMap == False: return fmapred(action, filenames ,n=n)
+    if usePureMap == False: return fmapred(action, filenames ,n=n,exceptionList= exceptionsToIgnore)
     else:
         n = min(n,len(filenames))
         subvalues = [filenames[i::n] for i in xrange(n)]
@@ -762,9 +762,9 @@ def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = 
             mysum = None
             for i in values:
                 try:
-                    data = load( i)
+                    data = load(i)
                     print i
-                except:
+                except exceptionsToIgnore:
                     print "file not found", i
                     continue
                 if data.shape[0] == 3: data = data.T
@@ -774,7 +774,7 @@ def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = 
                 pureMap(data, cutoff, mysum)
             return mysum
 
-        blocks  =  fmap(myaction,subvalues)
+        blocks  =  fmap(myaction,subvalues,exceptionList= exceptionsToIgnore)
         blocks = [i for i in blocks if i != None]
         a = blocks[0]
         for i in blocks[1:]:

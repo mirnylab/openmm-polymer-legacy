@@ -1078,7 +1078,7 @@ class Simulation():
                 print "SPS=%.0lf:"%(steps/(float(b-a)))                
                 break
             if attempt in [3,4]:
-                self.energy_minimization(10)
+                self.energyMinimization(10)
             if attempt == 5:                                
                 self.exitProgram("exceeded number of attmpts")
                 

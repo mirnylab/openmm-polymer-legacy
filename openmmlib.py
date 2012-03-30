@@ -832,7 +832,7 @@ class Simulation():
         self.forceDict["SphericalConfinement"] = extforce2
         
         for i in xrange(self.N): extforce2.addParticle(i,[])
-        if density != None:
+        if r == "density":
             r = (3 * self.N / (4 * 3.141592 * density)) ** (1/3.)
              
         self.sphericalConfinementRadius = r

@@ -4,13 +4,12 @@ import numpy
 from scipy import weave
 from math import sqrt
 from mirnylab.systemutils import fmapred,fmap 
+import joblib
 
 
 
-
-def load(filename,center=True):
-    """loads xyz polymer file using pure python... slow!
-    ..warning :: About to be deprecated because of switch to joblib.load that is just a line of code. 
+def load(filename,center = False):
+    """loads xyz polymer file using pure python... slow!    
     
     Parameters
     ----------
@@ -19,6 +18,12 @@ def load(filename,center=True):
     center : bool, optional
         Shift center of mass to zero, default = True. 
     """
+    try: int(open(filename).readline())
+    except: 
+        data = joblib.load(filename)["data"]
+        if center == True: data -= numpy.mean(data,axis = 0)[None,:]
+        return data
+    
     f = open(filename, 'r')
     lines = f.readlines()
     N = int(lines[0])            
@@ -44,7 +49,8 @@ def load(filename,center=True):
     return numpy.array([datax,datay,dataz])
 
 
-def Cload(filename,center = True):
+
+def Cload(filename,center = False):
     """fast polymer loader using weave.inline
     
     ..warning:: About to be deprecated 
@@ -71,10 +77,12 @@ def Cload(filename,center = True):
     #include <math.h>  
     """
     weave.inline(code, ['filename', 'N' , 'ret' ], extra_compile_args=['-march=native -malign-double'],support_code =support )
+    if center == True: ret -=  numpy.mean(ret,axis = 1)[:,None]
     return ret
     
 
-def intload(filename,center = False):
+
+def intload(filename,center = "N/A"):
     """
     ..warning:: About to be deprecated 
     """
@@ -103,10 +111,14 @@ def intload(filename,center = False):
     #include <math.h>  
     """
     weave.inline(code, ['filename', 'N' , 'ret' ], extra_compile_args=['-march=native -malign-double'],support_code =support )
+    
     return ret
 
 def rad2(data):
-    "returns Rg(N^(2/3)"    
+    "returns Rg(N^(2/3)"
+    
+    if len(data) != 3: data = numpy.transpose(data)
+    if len(data) != 3: raise ValueError("Wrong dimensions of data")    
     def give_radius_scaling(data):
         N = len(data[0])
         target = int(N**(2/3.))    
@@ -565,6 +577,9 @@ def pureMap(data,cutoff=1.4,contactMap = None):
     contactMap : NxN array, optional 
         contact map to update, if averaging is used 
     """
+    
+    if len(data) != 3: data = numpy.transpose(data)
+    if len(data) != 3: raise ValueError("Wrong dimensions of data")        
     t = giveContacts(data,cutoff)
     N = len(data[0])
     if contactMap == None: contactMap = numpy.zeros((N,N),int)
@@ -741,20 +756,26 @@ def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = 
     usePureMap : bool, optional
         Calculate a pure (NxN) contact map. This may be slow for N>5000 
     n : int, optional 
-        Number of threads to use. By default 4 to minimize RAM consumption with pure maps.     
+        Number of threads to use. By default 4 to minimize RAM consumption with pure maps.
+    exceptionsToIgnore : list of Exceptions
+        List of exceptions to ignore when finding the contact map. 
+        Put IOError there if you want it to ignore missing files. 
     
     """        
     
     Nbase = resolution
-    def action(i):   #for rescaled map only 
-        print i
-        try:data = loadFunction(i)
-        except exceptionsToIgnore:
-            print "file not found"
-            return numpy.zeros((Nbase,Nbase),"float") 
-        def dist(i,j): return numpy.sqrt(numpy.sum((data[:,i] - data[:,j])**2))
-        return rescaledMap(data[:,:],Nbase,cutoff)
-    if usePureMap == False: return fmapred(action, filenames ,n=n,exceptionList= exceptionsToIgnore)
+    if usePureMap == False:
+        
+        def action(i):   #action for rescaled map 
+            print i
+            try:data = loadFunction(i)
+            except exceptionsToIgnore:
+                print "file not found"
+                return numpy.zeros((Nbase,Nbase),"float") 
+            def dist(i,j): return numpy.sqrt(numpy.sum((data[:,i] - data[:,j])**2))
+            return rescaledMap(data[:,:],Nbase,cutoff)
+        
+        return fmapred(action, filenames ,n=n,exceptionList= exceptionsToIgnore)
     else:
         n = min(n,len(filenames))
         subvalues = [filenames[i::n] for i in xrange(n)]

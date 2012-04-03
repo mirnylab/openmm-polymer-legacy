@@ -458,7 +458,7 @@ class Simulation():
         else: self.exit("You have to specify at least some domains!")
             
         if len(self.domains) != self.N: self.exitProgram("Wrong domain lengths")                        
-        cPickle.dump(self.domains,open(os.path.join(self.folder ,"/domains.dat"),'wb'))
+        cPickle.dump(self.domains,open(os.path.join(self.folder ,"domains.dat"),'wb'))
                     
                 
     def _initHarmonicBondForce(self):
@@ -696,9 +696,9 @@ class Simulation():
         domains : bool, optional 
             Use domains, defined by :py:func:'setDomains <Simulation.setDomains>'
         epsilonRep : float, optional  
-            Epsilon (attraction strength) for LJ-force for all particles (except for domain) 
+            Epsilon (attraction strength) for LJ-force for all particles (except for domain) in kT 
         epsilonAttr : float, optional
-            Epsilon for attractive domain (if domains are used)
+            Epsilon for attractive domain (if domains are used) in kT 
         blindFraction : float, 0<x<1
             Fraction of particles that are "transparent" - used here instead of truncation 
         sigmaRep, sigmaAttr: float, optional
@@ -709,12 +709,14 @@ class Simulation():
                                               "sigmaRep":sigmaRep, "sigmaAttr":sigmaAttr}
         if blindFraction > 0.99: self.exitProgram ("why do you need this force without particles??? set blindFraction between 0 and 1") 
         if (sigmaRep == None) and (sigmaAttr == None):
-            sigmaAttr = sigmaRep = self.conlen / nm
+            sigmaAttr = sigmaRep = self.conlen 
         else:
-            sigmaAttr  = sigmaAttr * self.conlen  / nm
-            sigmaRep = sigmaRep * self.conlen  / nm                    
-        epsilonRep = epsilonRep *  units.kilocalorie_per_mole / units.kilojoule_per_mole
-        epsilonAttr = epsilonAttr * units.kilocalorie_per_mole / units.kilojoule_per_mole
+            sigmaAttr  = sigmaAttr * self.conlen 
+            sigmaRep = sigmaRep * self.conlen  
+                                
+        epsilonRep = epsilonRep *  self.kT
+        epsilonAttr = epsilonAttr * self.kT
+        
         nbCutOffDist = self.conlen * cutoff
         self.epsilonRep = epsilonRep                 
         repulforce = openmm.NonbondedForce()

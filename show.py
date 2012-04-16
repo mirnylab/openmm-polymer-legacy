@@ -1,3 +1,4 @@
+#!/usr/bin/env python 
 import numpy, os, tempfile,sys
 import joblib 
 def load(filename):

@@ -287,7 +287,8 @@ class Simulation():
             Does the system consist of rings or chains? 
             
         chains : None or ((0,L1),(L1,L2),(L2,L3)...)
-            Specifies exact chain/ring start/end positions if chains are of different lengths.
+            Specifies exact chain/ring start/end particle numbers, if chains are of different lengths.
+            E.g. if you have 3 chains of length 5,10,15, chains should be [(0,5),(5,15),(15,30)]
             
         Nchains : int 
             Number of chains, if they all are of the same lengths. 

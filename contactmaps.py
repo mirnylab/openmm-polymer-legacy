@@ -1,3 +1,30 @@
+"""
+This file contains a bunch of method to work on contact maps of a Hi-C data. 
+It uses a lot of methods from mirnylab repository. 
+
+Save/load functions
+-------------------
+
+Use :py:func:`load` to load any polymer. 
+
+Use :py:func:`save` to save an XYZ. Otherwise you can just use joblib.dump({"data":data},filename)
+
+Other functions are about to be deprecated
+
+
+Find contacts of a conformation
+-------------------------------
+
+To be filled in later
+
+
+Find average contact maps
+-------------------------
+
+bla
+
+"""
+
 from mirnylab import numutils  
 from array import array 
 import numpy 
@@ -9,7 +36,7 @@ import joblib
 
 
 def load(filename,center = False):
-    """loads xyz polymer file using pure python... slow!    
+    """loads joblib or xyz polymer file.      
     
     Parameters
     ----------
@@ -84,7 +111,7 @@ def Cload(filename,center = False):
 
 def intload(filename,center = "N/A"):
     """
-    ..warning:: About to be deprecated 
+    .. warning:: About to be deprecated 
     """
     "dedicated weave.inline for loading int polymers"
     f = open(filename, 'r')
@@ -113,6 +140,26 @@ def intload(filename,center = "N/A"):
     weave.inline(code, ['filename', 'N' , 'ret' ], extra_compile_args=['-march=native -malign-double'],support_code =support )
     
     return ret
+
+def save(filename, data,doint=False):
+    """
+    Old function to save an xyz conformation. 
+    .. warning:: About to be deprecated. 
+    
+    """
+    f = open(filename, 'w')
+    f.write(str(len(data[0])) + "\n")
+    for i in xrange(len(data[0])):
+        if (doint == False):
+            for j in xrange(len(data)):
+                f.write(str(data[j][i]) + " ")
+            f.write("\n")
+        else:
+            for j in xrange(len(data)):
+                f.write(str(int(data[j][i])) + " ")
+            f.write("\n")            
+    f.close()
+
 
 def rad2(data):
     "returns Rg(N^(2/3)"
@@ -635,19 +682,6 @@ def observedOverExpected(matrix):
     return data
     
 
-def save(filename, data,doint=False):
-    f = open(filename, 'w')
-    f.write(str(len(data[0])) + "\n")
-    for i in xrange(len(data[0])):
-        if (doint == False):
-            for j in xrange(len(data)):
-                f.write(str(data[j][i]) + " ")
-            f.write("\n")
-        else:
-            for j in xrange(len(data)):
-                f.write(str(int(data[j][i])) + " ")
-            f.write("\n")            
-    f.close()
 
 
 def cool_trunk(data):

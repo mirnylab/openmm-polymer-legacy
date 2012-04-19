@@ -773,7 +773,7 @@ def cool_trunk(data):
 def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = False, n = 4 , loadFunction = load, exceptionsToIgnore = []):
     """
     Returns an average contact map of a set of conformations. 
-    Non-existing files are simply ignored. 
+    Non-existing files are ignored if exceptionsToIgnore is set to IOError. 
     Can use both rescaled or pure contact map.
     example:\n
     filenames = ["/home/magus/evo/GO41_interaction_test/different_strength/expanded%d.dat" % i for i in xrange(100)] \n            
@@ -800,21 +800,28 @@ def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = 
     Nbase = resolution
     if usePureMap == False:
         
-        def action(i):   #action for rescaled map 
+        def action(i):   #Fetch rescale map from filename.  
             print i
-            try:data = loadFunction(i)
-            except exceptionsToIgnore:
+            try:data = loadFunction(i)    #load filename 
+            except exceptionsToIgnore:        # if file faled to load, return empty map
                 print "file not found"
-                return numpy.zeros((Nbase,Nbase),"float") 
-            def dist(i,j): return numpy.sqrt(numpy.sum((data[:,i] - data[:,j])**2))
-            return rescaledMap(data[:,:],Nbase,cutoff)
+                return numpy.zeros((Nbase,Nbase),"float")             
+            return rescaledMap(data,Nbase,cutoff)   #return rescaled map 
         
-        return fmapred(action, filenames ,n=n,exceptionList= exceptionsToIgnore)
+        return fmapred(action, filenames ,n=n,exceptionList= exceptionsToIgnore)   #using simple fork-map-reduce with out exception list
     else:
-        n = min(n,len(filenames))
+        """
+        Now we actually need to modify our contact map by adding contacts from each new file to the contact map. 
+        We do it this way because our contact map is huge (maybe a gigabyte!), 
+        so we can't just add many gigabyte-sized arrays together. 
+        Instead of this each worker creates an empty "average contact map", 
+        and then loads files one by one and adds contacts from each file to a contact map. 
+        Maps from different workers are then added together manually. 
+        """
+        n = min(n,len(filenames))   
         subvalues = [filenames[i::n] for i in xrange(n)]
-        def myaction(values):
-            mysum = None
+        def myaction(values):   #our worker receives some filenames
+            mysum = None   #contact map. 
             for i in values:
                 try:
                     data = loadFunction(i)
@@ -823,10 +830,10 @@ def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = 
                     print "file not found", i
                     continue
                 if data.shape[0] == 3: data = data.T
-                if mysum == None:
-                    N = len(data)
-                    mysum = numpy.zeros((N,N),dtype = int)
-                pureMap(data, cutoff, mysum)
+                if mysum == None: #if it's the first filename, 
+                    N = len(data)#find the size o the data,
+                    mysum = numpy.zeros((N,N),dtype = int) #create an empty map
+                pureMap(data, cutoff, mysum)   #and pass it to pureMap to fill it in 
             return mysum
 
         blocks  =  fmap(myaction,subvalues,exceptionList= exceptionsToIgnore)

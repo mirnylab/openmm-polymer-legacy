@@ -88,7 +88,7 @@ Frequently-used settings - where to specify them?
 
 Select GPU ("0" or "1") - :py:func:`setup <Simulation.setup>`
  
-Select chain/ring - :py:func:`setup <Simulation.setup>`
+Select chain/ring - :py:func:`setLayout <Simulation.setLayout>`
  
 Select timestep or collision rate - :py:class:`Simulation`
 
@@ -287,8 +287,9 @@ class Simulation():
             Does the system consist of rings or chains? 
             
         chains : None or ((0,L1),(L1,L2),(L2,L3)...)
-            Specifies exact chain/ring start/end particle numbers, if chains are of different lengths.
+            Specifies exact chain/ring start/end particle numbers, if chains are of different lengths. Nchains is ignored. 
             E.g. if you have 3 chains of length 5,10,15, chains should be [(0,5),(5,15),(15,30)]
+             
             
         Nchains : int 
             Number of chains, if they all are of the same lengths. 
@@ -298,7 +299,7 @@ class Simulation():
         N = self.N
         if mode in ["chain","ring"]:            
             if chains != None: 
-                self.chains = chains           
+                self.chains = chains                             
             else: 
                 self.chains = []
                 for i in xrange(Nchains):

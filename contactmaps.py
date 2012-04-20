@@ -635,7 +635,7 @@ def pureMap(data,cutoff=1.4,contactMap = None):
     if len(data) != 3: raise ValueError("Wrong dimensions of data")        
     t = giveContacts(data,cutoff)
     N = len(data[0])
-    if contactMap == None: contactMap = numpy.zeros((N,N),int)
+    if contactMap == None: contactMap = numpy.zeros((N,N),"int32")
     contactMap[t[:,0],t[:,1]] += 1 
     contactMap[t[:,1],t[:,0]] += 1    
     return contactMap  
@@ -799,7 +799,13 @@ def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = 
         Number of threads to use. By default 4 to minimize RAM consumption with pure maps.
     exceptionsToIgnore : list of Exceptions
         List of exceptions to ignore when finding the contact map. 
-        Put IOError there if you want it to ignore missing files. 
+        Put IOError there if you want it to ignore missing files.
+        
+        
+    Returns
+    -------
+    
+    An resolutionXresolution or NxN (for pure map) numpy array with the conntact map. 
     
     """        
     
@@ -827,7 +833,7 @@ def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = 
         n = min(n,len(filenames))   
         subvalues = [filenames[i::n] for i in xrange(n)]
         def myaction(values):   #our worker receives some filenames
-            mysum = None   #contact map. 
+            mysum = None   #future contact map. 
             for i in values:
                 try:
                     data = loadFunction(i)
@@ -836,10 +842,10 @@ def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = 
                     print "file not found", i
                     continue
                 if data.shape[0] == 3: data = data.T
-                if mysum == None: #if it's the first filename, 
-                    N = len(data)#find the size of the data,
-                    mysum = numpy.zeros((N,N),dtype = int) #create an empty map
-                pureMap(data, cutoff, mysum)   #and pass it to pureMap to fill it in 
+                if mysum == None: #if it's the first filename,                     
+                    mysum = pureMap(data,cutoff) #create a map
+                else:               #if not
+                    pureMap(data, cutoff, mysum)   #use existing map and fill in contacts 
             return mysum
 
         blocks  =  fmap(myaction,subvalues,exceptionList= exceptionsToIgnore)

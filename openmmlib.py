@@ -567,7 +567,7 @@ class Simulation():
         self.metadata["GorsbergPolymerForce"] = {"k":k}
                         
 
-    def addStiffness(self,k = 40):
+    def addStiffness(self,k = 1.5):
         """Adds harmonic angle bonds. k specifies energy in kT at one radian
         
         Parameters

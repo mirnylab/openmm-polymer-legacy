@@ -15,7 +15,7 @@ def exampleOpenmm():
     
     
     a = Simulation(timestep = 80, thermostat = 0.002)
-    
+    assert isinstance(a,Simulation) 
     a.setup(platform = "OpenCL", verbose = True)
     a.saveFolder("trajectory")   #folder where to save trajectory   
     a.load("globule")  #filename to load
@@ -23,7 +23,8 @@ def exampleOpenmm():
     a.addSphericalConfinement(density = 0.55)    
     a.addHarmonicPolymerBonds()        
     a.addGrosbergRepulsiveForce()   #Fastest pure repulsive force
-    a.addGrosbergStiffness()
+    #a.addGrosbergStiffness()
+    a.addStiffness() 
     a.energyMinimization(steps = 200,twoStage= True)
             
     for _ in xrange(10):

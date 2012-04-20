@@ -240,13 +240,18 @@ def giveContacts(data,cutoff=1.7,maxContacts = 40 ):
     
     k by 2 array of contacts. Each row corresponds to a contact. 
     """
-                
-    data = numpy.asarray(data)
+    data = numpy.asarray(data)     
     if len(data.shape) != 2: raise ValueError("Wrong dimensions of data")
     if 3 not in data.shape: raise ValueError("Wrong size of data: %s,%s" % data.shape)
     if data.shape[0] == 3: data = data.T
     data = numpy.asarray(data,float,order = "C")
-    N = len(data) 
+    
+    ####---------------------------------------------------- Finish it!     
+#    dists2 = numpy.sum(numpy.diff(data,axis = 0)**2,axis = 1)
+#    if dists2.max() > 3:
+#        raise RuntimeError("Maximum distance for a ")
+    #-------------------------------------------------------------
+    N = len(data)     
     points = numpy.zeros((maxContacts*N,2),int,order = "C")
     N #Eclipse warning remover 
     code = r"""
@@ -612,7 +617,8 @@ def rescaledMap(data,res,cutoff = 1.4 ):
     return rescalePoints(t,res) 
     
 def pureMap(data,cutoff=1.4,contactMap = None):
-    """calculates an all-by-all contact map of a structure
+    """calculates an all-by-all contact map of a single polymer chain.
+    Doesn't work for multi-chain polymers!!!  
     If contact map is supplied, it just updates it 
     
     Parameters
@@ -831,7 +837,7 @@ def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = 
                     continue
                 if data.shape[0] == 3: data = data.T
                 if mysum == None: #if it's the first filename, 
-                    N = len(data)#find the size o the data,
+                    N = len(data)#find the size of the data,
                     mysum = numpy.zeros((N,N),dtype = int) #create an empty map
                 pureMap(data, cutoff, mysum)   #and pass it to pureMap to fill it in 
             return mysum

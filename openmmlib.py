@@ -1095,7 +1095,7 @@ class Simulation():
         
         eP = state.getPotentialEnergy()
         pos = numpy.array(state.getPositions()/nm)
-        bonds = numpy.sum(numpy.diff(pos,axis = 0) **2, axis = 1)
+        bonds = numpy.sqrt(numpy.sum(numpy.diff(pos,axis = 0) **2, axis = 1))
         sbonds = numpy.sort(bonds)
         vel = state.getVelocities()         
         mass = self.system.getParticleMass(0)

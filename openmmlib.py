@@ -1113,8 +1113,8 @@ class Simulation():
         print "Statistics for the simulation %s, number of particles: %d,  number of chains: %d,  mode:  %s" % (self.name, self.N, len(self.chains),self.mode)
         print
         print "Mean position is: ", numpy.mean(pos,axis = 0), "  Rg = ",self.RG()
-        print "     mean bond size is ", numpy.mean(bonds)
-        print "     three shortest/longest bonds are ", sbonds[:3],"  ",sbonds[-3:]
+        print "     median bond size is ", numpy.median(bonds)
+        print "     three shortest/longest (<10) bonds are ", sbonds[:3],"  ",sbonds[sbonds < 10][-3:]
         print "     95 percentile of distance to center is:   ",per95
         print "     density of closest 95% monomers is:   ", den        
         print

@@ -612,7 +612,21 @@ def rescalePoints(points, res = 100):
 
  
 def rescaledMap(data,res,cutoff = 1.4 ):
-    "calculates a rescaled contact map of a structure"    
+    """calculates a rescaled contact map of a structure
+    Parameters
+    ----------
+    data : Nx3 or 3xN array
+        polymer conformation
+    res : int
+        size of the map to return. 
+    cutoff : float, optional 
+        cutoff for contacts
+        
+    Returns
+    -------
+        resXres array with the contact map         
+    """
+        
     t = giveContacts(data,cutoff)
     return rescalePoints(t,res) 
     
@@ -630,11 +644,14 @@ def pureMap(data,cutoff=1.4,contactMap = None):
     contactMap : NxN array, optional 
         contact map to update, if averaging is used 
     """
+    data = numpy.asarray(data)     
+    if len(data.shape) != 2: raise ValueError("Wrong dimensions of data")
+    if 3 not in data.shape: raise ValueError("Wrong size of data: %s,%s" % data.shape)
+    if data.shape[0] == 3: data = data.T
+    data = numpy.asarray(data,float,order = "C")
     
-    if len(data) != 3: data = numpy.transpose(data)
-    if len(data) != 3: raise ValueError("Wrong dimensions of data")        
     t = giveContacts(data,cutoff)
-    N = len(data[0])
+    N = data.shape[0]    
     if contactMap == None: contactMap = numpy.zeros((N,N),"int32")
     contactMap[t[:,0],t[:,1]] += 1 
     contactMap[t[:,1],t[:,0]] += 1    

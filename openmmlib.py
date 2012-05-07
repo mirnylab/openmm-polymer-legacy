@@ -508,7 +508,8 @@ class Simulation():
         
         if verbose == None:
             verbose = self.verbose 
-        
+        if (i>=self.N) or (j>=self.N): 
+            raise ValueError("\nCannot add bond with monomers %d,%d that are beyound the polymer length %d" % (i,j,self.N))
         bondSize = float(bondWiggleDistance)
         if distance == None: distance = self.conlen / nm
         else:  distance = self.conlen * distance / nm

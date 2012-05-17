@@ -33,7 +33,13 @@ A new format of the input data was recently introduced.
 Now the data is sotred in a single h5dict file,
 where each saved conformation is represented as a single dictionary record.  
 
-Keys are strings like "1", "2", etc.       
+Keys are strings like "1", "2", etc. 
+
+This was done to save some space, and avoid creating millions of files. This should be actually very fast, and is a recommended storage method. 
+Show command was modified to incorporate new storage format. 
+
+Now if show is runned with two arguments, it assumes that the first is filename of h5dict, and the second is a number to show.
+"-1" stands for the last number.         
 
 Implemented forces 
 ------------------
@@ -236,12 +242,12 @@ class Simulation():
         self.GPU = GPU  #setting default GPU  
 
         if platform.lower() == "opencl":
-            platformObject = openmm.Platform.getPlatformByName('OpenCL')
+            platformObject = self.mm.Platform.getPlatformByName('OpenCL')
             platformObject.setPropertyDefaultValue('OpenCLDeviceIndex', self.GPU)
         elif platform.lower() == "reference":
-            platformObject =  openmm.Platform.getPlatformByName('Reference')
+            platformObject =  self.mm.Platform.getPlatformByName('Reference')
         elif platform.lower() == "cuda":
-            platformObject = openmm.Platform.getPlatformByName('Cuda')
+            platformObject = self.mm.Platform.getPlatformByName('Cuda')
             platformObject.setPropertyDefaultValue('CudaDevice', self.GPU)
         else:
             self.exit("\n!!!!!!!!!!unknown platform!!!!!!!!!!!!!!!\n")            
@@ -253,7 +259,7 @@ class Simulation():
                 self.system.addParticle(self.mass)
             print self.N, "particles loaded"
         except: pass                                 
-        self.integrator = openmm.LangevinIntegrator(self.temperature, self.collisionRate, self.timestep)
+        self.integrator = self.mm.LangevinIntegrator(self.temperature, self.collisionRate, self.timestep)
 
     def saveFolder(self,folder):        
         """
@@ -326,10 +332,13 @@ class Simulation():
         return self.chains            
     
     def load(self,filename,   #Input filename, or input data array   
-             center = False    #Shift center of mass to zero? 
+             center = False,    #Shift center of mass to zero?
+             h5dictKey = None 
              ):        
         """loads data from file. 
         Accepts text files, joblib files or pure data as Nx3 or 3xN array
+        
+        If h5dictKey is specified, uses new h5dict-based I/O
         
         Parameters
         ----------
@@ -337,10 +346,17 @@ class Simulation():
         filename : joblib file, or text file name, or Nx3 or 3xN numpy array
             Input filename or array with data
         center : bool, optional 
-            Move center of mass to zero before starting the simulation 
+            Move center of mass to zero before starting the simulation
+        h5dictKey : int or str, optional
+            Indicates that you need to load from an h5dict
         """
-        if type(filename) == str:             
+        if h5dictKey != None:
+            mydict = h5dict(path = filename,mode = "r")
+            data = h5dict[str(h5dictKey)]                         
+        
+        elif type(filename) == str:             
             try:
+                "checking for a text file here"
                 line0 = open(filename).readline() 
                 try: N = int(line0)
                 except ValueError: raise TypeError("Cannot read text file... reading pickle file")                         
@@ -351,7 +367,8 @@ class Simulation():
                 if len(data) != N:
                     raise ValueError("N does not correspond to the number of lines!")
             
-            except TypeError:                
+            except TypeError:
+                "loading from a joblib file here"                
                 mydict = dict(joblib.load(filename))
                 data = mydict.pop("data") 
                 self.oldMetadata = data
@@ -553,7 +570,7 @@ class Simulation():
         "inits Grosberg FENE bond force"
         if "GrosbergBondForce" not in self.forceDict.keys():
             force = "- 0.5 * GROSk * GROSr0 * GROSr0 * log(1-(r/GROSr0)* (r / GROSr0)) + (4 * GROSe * ((GROSs/r)^12 - (GROSs/r)^6) + GROSe) * step(GROScut - r)"
-            bondforce3  = openmm.CustomBondForce(force)            
+            bondforce3  = self.mm.CustomBondForce(force)            
             bondforce3.addGlobalParameter("GROSk",30 * self.kT / (self.conlen * self.conlen))
             bondforce3.addGlobalParameter("GROSr0",self.conlen * 1.5)
             bondforce3.addGlobalParameter('GROSe',self.kT)
@@ -711,7 +728,7 @@ class Simulation():
         
         epsilonRep = rep * units.kilocalorie_per_mole
         sigmaRep = 1.06 * self.conlen
-        self.forceDict["Nonbonded"] = openmm.CustomNonbondedForce(repul_energy)
+        self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(repul_energy)
         repulforce = self.forceDict["Nonbonded"]
         if trunc!=None: repulforce.addGlobalParameter('REPcutoff',trunc * self.kT)
         repulforce.addGlobalParameter('REPepsilon',epsilonRep)
@@ -719,9 +736,9 @@ class Simulation():
         for _ in range(self.N):
             repulforce.addParticle(())                
         if self.PBC: 
-            repulforce.setNonbondedMethod(openmm.CustomNonbondedForce.CutoffPeriodic)
+            repulforce.setNonbondedMethod(self.mm.CustomNonbondedForce.CutoffPeriodic)
             print "Using periodic boundary conditions!!!!!!!!!!"            
-        else: repulforce.setNonbondedMethod(openmm.CustomNonbondedForce.CutoffNonPeriodic)
+        else: repulforce.setNonbondedMethod(self.mm.CustomNonbondedForce.CutoffNonPeriodic)
         repulforce.setCutoffDistance(nbCutOffDist)
     
     def addGrosbergRepulsiveForce(self,trunc=None):
@@ -741,7 +758,7 @@ class Simulation():
             repul_energy = "4 * REPe * ((REPs/r)^12 - (REPs/r)^6) + REPe"
         else: 
             repul_energy = "1 / (1 / REPcut + 1 / (REPU0 + REPa * REPcut) ) - REPcut * (REPa/(REPa+1)) ;REPU0 = 4 * REPe * ((REPs/r2)^12 - (REPs/r2)^6) + REPe;r2 = (r^10. + (0.3 * REPs)^10.)^0.1"            
-        self.forceDict["Nonbonded"] = openmm.CustomNonbondedForce(repul_energy)
+        self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(repul_energy)
         repulforce = self.forceDict["Nonbonded"]
         repulforce.addGlobalParameter('REPe',self.kT)
         repulforce.addGlobalParameter('REPs',self.conlen)
@@ -751,9 +768,9 @@ class Simulation():
         for _ in range(self.N):
             repulforce.addParticle(())                
         if self.PBC: 
-            repulforce.setNonbondedMethod(openmm.CustomNonbondedForce.CutoffPeriodic)
+            repulforce.setNonbondedMethod(self.mm.CustomNonbondedForce.CutoffPeriodic)
             print "Using periodic boundary conditions!!!!!!!!11"            
-        else: repulforce.setNonbondedMethod(openmm.CustomNonbondedForce.CutoffNonPeriodic)
+        else: repulforce.setNonbondedMethod(self.mm.CustomNonbondedForce.CutoffNonPeriodic)
         repulforce.setCutoffDistance(nbCutOffDist)
         
     def addLennardJonesForce(self,cutoff = 2.5, 
@@ -801,7 +818,7 @@ class Simulation():
         
         nbCutOffDist = self.conlen * cutoff
         self.epsilonRep = epsilonRep                 
-        repulforce = openmm.NonbondedForce()
+        repulforce = self.mm.NonbondedForce()
         
         self.forceDict["Nonbonded"] = repulforce
         if domains == False:
@@ -820,9 +837,9 @@ class Simulation():
                 else:
                     repulforce.addParticle(0,0,0)
         if self.PBC: 
-            repulforce.setNonbondedMethod(openmm.NonbondedForce.CutoffPeriodic)
+            repulforce.setNonbondedMethod(self.mm.NonbondedForce.CutoffPeriodic)
             print "Using periodic boundary conditions!!!!"
-        else: repulforce.setNonbondedMethod(openmm.NonbondedForce.CutoffNonPeriodic)
+        else: repulforce.setNonbondedMethod(self.mm.NonbondedForce.CutoffNonPeriodic)
         repulforce.setCutoffDistance(nbCutOffDist)
         
     def addMutualException(self, particles):        
@@ -883,9 +900,9 @@ class Simulation():
         "As it says. Weird was used for Natasha simulations... and is weird."
         
         self.metadata["CylindricalConfinement"] = {"r":r,"bottom":bottom,"k":k,"weird":weired}
-        if bottom == True: extforce2 = openmm.CustomExternalForce("step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) + step(-z) * CYLkb * (sqrt(z^2 + CYLt^2) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
-        else: extforce2 = openmm.CustomExternalForce("step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)") 
-        if weired == True: extforce2 = openmm.CustomExternalForce(" 0.6 * CYLkt * CYLaa*CYLaa / (CYLaa * CYLaa + r * r) + step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa)  + CYLt*CYLt) - CYLt) + step(-z) * CYLkb * (sqrt(z^2 + CYLt^2) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
+        if bottom == True: extforce2 = self.mm.CustomExternalForce("step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) + step(-z) * CYLkb * (sqrt(z^2 + CYLt^2) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
+        else: extforce2 = self.mm.CustomExternalForce("step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)") 
+        if weired == True: extforce2 = self.mm.CustomExternalForce(" 0.6 * CYLkt * CYLaa*CYLaa / (CYLaa * CYLaa + r * r) + step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa)  + CYLt*CYLt) - CYLt) + step(-z) * CYLkb * (sqrt(z^2 + CYLt^2) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
 
         self.forceDict["CylindricalConfinement"] = extforce2
         for i in xrange(self.N): extforce2.addParticle(i,[])
@@ -912,7 +929,7 @@ class Simulation():
         """
         self.metadata["SphericalConfinement"] = {"r":r,"k":k,"density":density}        
 
-        extforce2 = openmm.CustomExternalForce("step(r-SPHaa) * SPHkb * (sqrt((r-SPHaa)*(r-SPHaa) + SPHt*SPHt) - SPHt) ;r = sqrt(x^2 + y^2 + z^2 + SPHtt^2)")
+        extforce2 = self.mm.CustomExternalForce("step(r-SPHaa) * SPHkb * (sqrt((r-SPHaa)*(r-SPHaa) + SPHt*SPHt) - SPHt) ;r = sqrt(x^2 + y^2 + z^2 + SPHtt^2)")
         self.forceDict["SphericalConfinement"] = extforce2
         
         for i in xrange(self.N): extforce2.addParticle(i,[])
@@ -942,7 +959,7 @@ class Simulation():
         """
         
         self.metadata["laminaAttraction"] = {"width":width,"depth":depth,"r":r}
-        extforce3 = openmm.CustomExternalForce("step(LAMr-LAMaa + LAMwidth) * step(LAMaa + LAMwidth - LAMr) * LAMdepth * (LAMr-LAMaa + LAMwidth) * (LAMaa + LAMwidth - LAMr) / (LAMwidth * LAMwidth)  ;LAMr = sqrt(x^2 + y^2 + z^2 + LAMtt^2)")
+        extforce3 = self.mm.CustomExternalForce("step(LAMr-LAMaa + LAMwidth) * step(LAMaa + LAMwidth - LAMr) * LAMdepth * (LAMr-LAMaa + LAMwidth) * (LAMaa + LAMwidth - LAMr) / (LAMwidth * LAMwidth)  ;LAMr = sqrt(x^2 + y^2 + z^2 + LAMtt^2)")
         self.forceDict["Lamina attraction"] = extforce3
         
         #adding all the particles on which force acts
@@ -973,7 +990,7 @@ class Simulation():
         """
         self.metadata["TetheredParticles"] = {"particles":particles,"k":k}
          
-        extforce2 = openmm.CustomExternalForce(" TETHkb * ((x - TETHx0)^2 + (y - TETHy0)^2 + (z - TETHz0)^2)")
+        extforce2 = self.mm.CustomExternalForce(" TETHkb * ((x - TETHx0)^2 + (y - TETHy0)^2 + (z - TETHz0)^2)")
         self.forceDict["Tethering Force"] = extforce2
 
         #assigning parameters of the force 
@@ -992,9 +1009,9 @@ class Simulation():
         When using cutoff, acts only when z>cutoff"""
         self.metadata["gravity"] = {"k":k,"cutoff":cutoff}        
         if cutoff == None:
-            extforce3 = openmm.CustomExternalForce("kG * z")
+            extforce3 = self.mm.CustomExternalForce("kG * z")
         else: 
-            extforce3 = openmm.CustomExternalForce("kG * (z - cutoffG) * step(z - cutoffG)")
+            extforce3 = self.mm.CustomExternalForce("kG * (z - cutoffG) * step(z - cutoffG)")
             extforce3.addGlobalParameter("cutoffG", cutoff * nm)
         extforce3.addGlobalParameter("kG",k * self.kT / (nm))
             
@@ -1015,15 +1032,15 @@ class Simulation():
              
         for i in self.forceDict.keys():   #Adding exceptions 
             force = self.forceDict[i]
-            if type(force) == openmm.NonbondedForce:
+            if type(force) == self.mm.NonbondedForce:
                 for pair in exc: 
                     force.addException(int(pair[0]),int(pair[1]),0,0,0,True)
-            elif type(force) == openmm.CustomNonbondedForce:
+            elif type(force) == self.mm.CustomNonbondedForce:
                 for pair in exc:
                     #force.addExclusion(*pair) 
                     force.addExclusion(int(pair[0]),int(pair[1]))                                     
             print "adding force ",i,self.system.addForce(self.forceDict[i])        
-        self.context = openmm.Context(self.system, self.integrator, self.platform)
+        self.context = self.mm.Context(self.system, self.integrator, self.platform)
         self.forcesApplied = True
         
     def initVelocities(self,mult=1):
@@ -1378,7 +1395,7 @@ class ExperimentalSimulation(Simulation):
             print "left wall created at ", left / (1. * nm) 
             print "right wall created at ", right / ( 1. * nm)
         
-        extforce2 = openmm.CustomExternalForce(" WALLk * (sqrt((x - WALLright) * (x-WALLright) + WALLa * WALLa ) - WALLa) * step(x-WALLright) + WALLk * (sqrt((x - WALLleft) * (x-WALLleft) + WALLa * WALLa ) - WALLa) * step(WALLleft - x) ")
+        extforce2 = self.mm.CustomExternalForce(" WALLk * (sqrt((x - WALLright) * (x-WALLright) + WALLa * WALLa ) - WALLa) * step(x-WALLright) + WALLk * (sqrt((x - WALLleft) * (x-WALLleft) + WALLa * WALLa ) - WALLa) * step(WALLleft - x) ")
         extforce2.addGlobalParameter("WALLk",k*self.kT/nm)
         extforce2.addGlobalParameter("WALLleft",left)
         extforce2.addGlobalParameter("WALLright",right)
@@ -1391,7 +1408,7 @@ class ExperimentalSimulation(Simulation):
     def addSphericalWell(self,r = 10,depth = 1):
         "pushes particles towards a boundary of a cylindrical well to create uniform well coverage"       
 
-        extforce4 = openmm.CustomExternalForce("WELLdepth * (((sin((WELLr * 3.141592 * 0.5) / WELLwidth)) ^ 10)  -1) * step(-WELLr + WELLwidth)  ;WELLr = sqrt(x^2 + y^2 + z^2 + WELLtt^2)")
+        extforce4 = self.mm.CustomExternalForce("WELLdepth * (((sin((WELLr * 3.141592 * 0.5) / WELLwidth)) ^ 10)  -1) * step(-WELLr + WELLwidth)  ;WELLr = sqrt(x^2 + y^2 + z^2 + WELLtt^2)")
         self.forceDict["Well attraction"] = extforce4
         
         
@@ -1463,7 +1480,7 @@ class YeastSimulation(Simulation):
         if r==None: r =  self.sphericalConfinementRadius
         
         
-        extforce3 = openmm.CustomExternalForce("step(r-NUCaa) * NUCkb * (sqrt((r-NUCaa)*(r-NUCaa) + NUCt*NUCt) - NUCt) ;r = sqrt(x^2 + y^2 + (z + NUCoffset )^2 + NUCtt^2)")
+        extforce3 = self.mm.CustomExternalForce("step(r-NUCaa) * NUCkb * (sqrt((r-NUCaa)*(r-NUCaa) + NUCt*NUCt) - NUCt) ;r = sqrt(x^2 + y^2 + (z + NUCoffset )^2 + NUCtt^2)")
         
         self.forceDict["NucleolusConfinement"] = extforce3
         #adding all the particles on which force acts
@@ -1479,7 +1496,7 @@ class YeastSimulation(Simulation):
 
     def addLaminaAttraction(self,width = 1,depth = 1, r = None, particles = None):
         "method"
-        extforce3 = openmm.CustomExternalForce("-1 * step(LAMr-LAMaa + LAMwidth) * step(LAMaa + LAMwidth - LAMr) * LAMdepth * abs( (LAMr-LAMaa + LAMwidth) * (LAMaa + LAMwidth - LAMr)) / (LAMwidth * LAMwidth)  ;LAMr = sqrt(x^2 + y^2 + z^2 + LAMtt^2)")
+        extforce3 = self.mm.CustomExternalForce("-1 * step(LAMr-LAMaa + LAMwidth) * step(LAMaa + LAMwidth - LAMr) * LAMdepth * abs( (LAMr-LAMaa + LAMwidth) * (LAMaa + LAMwidth - LAMr)) / (LAMwidth * LAMwidth)  ;LAMr = sqrt(x^2 + y^2 + z^2 + LAMtt^2)")
         self.forceDict["Lamina attraction"] = extforce3
         
         #re-defines lamina attraction based on particle index instead of domains.

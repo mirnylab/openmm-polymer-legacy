@@ -1,6 +1,6 @@
 """
 This file contains a bunch of method to work on contact maps of a Hi-C data. 
-It uses a lot of methods from mirnylab repository. 
+It uses a lot of methods from mirnylib repository. 
 
 Save/load functions
 -------------------
@@ -25,14 +25,15 @@ bla
 
 """
 
-from mirnylab import numutils  
+from mirnylib import numutils  
 from array import array 
 import numpy 
 from scipy import weave
 from math import sqrt
-from mirnylab.systemutils import fmapred,fmap 
+from mirnylib.systemutils import fmapred,fmap , deprecate
 import joblib
 import sys 
+import mirnylib
 
 
 
@@ -659,54 +660,10 @@ def pureMap(data,cutoff=1.4,contactMap = None):
     return contactMap  
         
 
-def observedOverExpected(matrix):
-    "Calculates observedOverExpected of any contact map"
-    data = numpy.array(matrix, order = "C")
-    N = data.shape[0]
-    bins = numutils.logbins(1,N,1.2)
-    bins = [(0,1)] + [(bins[i],bins[i+1]) for i in xrange(len(bins)-1)]
-    bins = numpy.array(bins,order = "C")
-    M = len(bins)
-    M #Eclipse warning remover
-    code = r"""
-    #line 50 "binary_search.py"
-    using namespace std;
-    for (int bin = 0; bin < M; bin++)
-    {
-        int start = bins[2 * bin];
-        int end = bins[2 * bin + 1];
-        
-        double ss = 0 ;
-        int count   = 0 ;  
-        for (int offset = start; offset < end; offset ++)
-        {
-            for (int j = 0; j < N - offset; j++)
-            {
-                ss += data[(offset + j) * N + j];
-                count += 1;                            
-            }
-        }
-        double meanss = ss / count;
-        printf("%lf\n",meanss); 
-        for (int offset = start; offset < end; offset ++)
-        {
-            for (int j = 0; j < N - offset; j++)
-            {
-                data[(offset + j) * N + j] /= meanss;                                             
-                if (offset > 0) {data[(offset + j)  + j*N] /= meanss;}
-            }
-        }
-    }
-    
-    """
-    support = """
-    #include <math.h>  
-    """
-    weave.inline(code, ['data', 'bins' , 'N' ,'M'], extra_compile_args=['-march=native -malign-double -O3'],support_code =support )
-    return data
-    
+observedOverExpected = deprecate(mirnylib.numutils.observedOverExpected) 
 
 
+#print observedOverExpected(numpy.arange(100).reshape((10,10)))
 
 def cool_trunk(data):
     "somehow trunkates the globule so that the ends are on the surface"

@@ -1,9 +1,9 @@
-import systemutils
-from systemutils import fmap, fmapav
-systemutils.setExceptionHook() 
-import plotting 
-import numutils
-from numutils import logbins
+import mirnylib.systemutils
+from mirnylib.systemutils import fmap, fmapav
+mirnylib.systemutils.setExceptionHook() 
+import mirnylib.plotting as plotting  
+import mirnylib.numutils as numutils 
+from mirnylib.numutils import logbins
   
 import contactmaps 
 from contactmaps import load, Cload, giveContacts 

@@ -16,6 +16,7 @@ def exampleOpenmm():
     
     a = Simulation(timestep = 80, thermostat = 0.002)
     assert isinstance(a,Simulation) 
+    a.initStorage("mystorage",mode = "w")
     a.setup(platform = "OpenCL", verbose = True)
     a.saveFolder("trajectory")   #folder where to save trajectory   
     a.load("globule")  #filename to load

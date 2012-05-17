@@ -24,7 +24,16 @@ Input file can also be any of the output files.
 Output file format is a dictionary, saved with joblib.dump. 
 Nx3 data array is stored under the key "data".
 The rest of the dictionary consists of metadata, describing details of the simulation. 
-This metadata is for informative purpose only, and is ignored by the code. 
+This metadata is for informative purpose only, and is ignored by the code.
+
+New Input/Output format
+-----------------------
+
+A new format of the input data was recently introduced. 
+Now the data is sotred in a single h5dict file,
+where each saved conformation is represented as a single dictionary record.  
+
+Keys are strings like "1", "2", etc.       
 
 Implemented forces 
 ------------------
@@ -107,6 +116,7 @@ import sys,os
 import time
 import joblib
 import tempfile
+from mirnylib.h5dict import h5dict
 os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda/lib64:/usr/local/openmm/lib"
 
 import simtk.openmm as openmm
@@ -115,6 +125,7 @@ import simtk.unit as units
 nm = units.meter * 1e-9
 fs = units.second * 1e-15
 ps = units.second * 1e-12 
+
 
 
 
@@ -376,16 +387,84 @@ class Simulation():
 
 
 
-    def save(self,filename = None):        
-        "Saves conformation plus some metadata. Metadata is not interpreted by this library, and is for your reference"
-        self.metadata["data"] = self.getData()
-        self.metadata["timestep"] = self.timestep / fs
-        self.metadata["Collision rate"] = self.collisionRate / ps                 
+    def save(self,mode = "auto",filename = None):                
+        """Saves conformation plus some metadata. Metadata is not interpreted by this library, and is for your reference
+        
+        Parameters: 
+            mode : str
+                "h5dict" : use build-in h5dict storage
+                "joblib" : use joblib storage
+                "txt" : use text file storage
+                "auto" : use h5dict if initialized, joblib otherwise
+            
+            filename : str or None
+                Filename not needed for h5dict storage (use initStorage command)
+                for joblib and txt, if filename not provided, it is created automatically.   
+                
+        """
+        mode = mode.lower()
+        if mode == "auto":
+            if hasattr(self,"storage"):
+                mode = "h5dict"
+            else:
+                mode = "joblib"
+        if mode == "h5dict":
+            if not hasattr(self,"storage"):
+                raise StandardError("Initialize storage first!")                            
+            self.storage[str(self.step)] = self.getData()
+            return
+
         if filename == None: 
             f = os.path.join(self.folder , "block%d.dat" % self.step)
         else:
             f = os.path.join(self.folder , filename)
-        joblib.dump(self.metadata,filename = f,compress = 3)
+        
+        if mode == "joblib":
+            self.metadata["data"] = self.getData()
+            self.metadata["timestep"] = self.timestep / fs
+            self.metadata["Collision rate"] = self.collisionRate / ps                 
+            joblib.dump(self.metadata,filename = f,compress = 3)
+        elif mode == "txt":
+            data = self.getData()
+            lines = [int(len(data))]
+            for particle in data: 
+                lines.append("".join([str(j) + " " for j in particle]))
+            with open(f,'w') as myfile:
+                myfile.writelines(lines)
+        else:
+            raise ValueError("Unknown mode : %s, use h5dict, joblib or txt" % mode)
+             
+        
+    def initStorage(self,filename, mode = "w-"):
+        """
+        Initializes an HDF5-based storage for multiple conformation. 
+        
+        When the storage is initialized, save() by default saves to the storage.
+        
+        If "r+" mode is chosen, simulation is automaticaly set up to continue from existing conformation.
+        In that case, last step is automatically determined, and data from second-to-last file is loaded.
+        
+        .. note :: Continue mode does not copy forces and layouts!     
+        
+        Parameters
+        ----------
+        
+        filename : str
+            Filename of an h5dict storage file
+        mode :             
+            'w'  - Create file, truncate if exists 
+            'w-' - Create file, fail if exists         (default)
+            'r+' - Continue simulation, file must exist.
+        """
+        
+        if mode not in ['w','w-','r+']: raise ValueError("Wrong mode to open file. Only 'w','w-' and 'r+' are supported")
+        if (mode == "w-") and os.path.exists(filename): raise IOError("Cannot create file... file already exists. Use mode ='w' to override")
+        self.storage = h5dict(path = filename, mode = mode)        
+        if mode == "r+":
+            maxkey = max(int(i) for i in self.storage.keys())
+            self.step = maxkey - 1 
+            self.setData(self.storage[str(maxkey-1)])
+             
         
     def getData(self):
         "Returns an Nx3 array of positions"

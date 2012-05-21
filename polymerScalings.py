@@ -1,13 +1,12 @@
 import mirnylib.systemutils
 from mirnylib.systemutils import fmap, fmapav
 mirnylib.systemutils.setExceptionHook() 
-import mirnylib.plotting as plotting  
-import mirnylib.numutils as numutils 
 from mirnylib.numutils import logbins
 from mirnylib.h5dict import h5dict
 import os   
 import contactmaps 
-from contactmaps import load, Cload, giveContacts 
+from contactmaps import Cload, giveContacts
+from polymerutils import load 
 import cPickle  
 from math import exp,sqrt,log 
 
@@ -350,7 +349,8 @@ give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run8_tin
 
 
 class h5dictLoad(object):
-    """A class to fetch h5dict values based on a fake filename. 
+    """
+    An experimental class to fetch h5dict values based on a fake filename. 
     
     It accepts filenames in a form
     /path-to-h5dict/h5dictKey

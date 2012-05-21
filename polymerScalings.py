@@ -4,7 +4,8 @@ mirnylib.systemutils.setExceptionHook()
 import mirnylib.plotting as plotting  
 import mirnylib.numutils as numutils 
 from mirnylib.numutils import logbins
-  
+from mirnylib.h5dict import h5dict
+import os   
 import contactmaps 
 from contactmaps import load, Cload, giveContacts 
 import cPickle  
@@ -16,7 +17,7 @@ import matplotlib.pyplot as plt
 
 from copy import copy  
 
-def give_dist_scaling(data, bins0, cutoff=1.1,integrate = False,ring=False,intContacts = False):
+def giveCpScaling(data, bins0, cutoff=1.1,integrate = False,ring=False,intContacts = False):
     """
     Returns contact probability scaling for a given polymer conformation
     
@@ -41,7 +42,8 @@ def give_dist_scaling(data, bins0, cutoff=1.1,integrate = False,ring=False,intCo
     
     """
                  
-    N = len(data[0])          
+    N = len(data[0])
+    bins0 = numpy.array(bins0)          
     bins = [(bins0[i], bins0[i + 1]) for i in xrange(len(bins0) - 1)]    
     
     
@@ -52,10 +54,9 @@ def give_dist_scaling(data, bins0, cutoff=1.1,integrate = False,ring=False,intCo
     
     if ring == True:
         mask = contacts > N/2         
-        contacts[mask] = N - contacts[mask]   
-    
-    scontacts = numpy.sort(contacts)   #sorted contact lengthes
-    connections = numpy.diff(numpy.searchsorted(scontacts, bins0,side = "left"))   #binned contact lengthes
+        contacts[mask] = N - contacts[mask]       
+    scontacts = numpy.sort(contacts)   #sorted contact lengthes         
+    connections = 1.*numpy.diff(numpy.searchsorted(scontacts, bins0,side = "left"))   #binned contact lengthes
     possible = numpy.diff(N * bins0 + 0.5 * bins0 - 0.5 * (bins0**2)) 
     print "average contacts per monomer:", connections.sum() / N
     
@@ -105,6 +106,9 @@ def give_distance(data, bins=None,ring = False ):
 def give_radius_scaling(data, bins=None,ring = False):
     "main working horse for radius of gyration"
     "uses dymanic programming algorithm"
+    
+    bins = [sqrt(bins[i]* bins[i + 1]) for i in xrange(len(bins) - 1)]
+    
     
     data = numpy.array(data,float)
     coms = numpy.cumsum(data,1)   #cumulative sum of locations to calculate COM
@@ -162,19 +166,13 @@ def give_radius_scaling_eig(data, bins=None):
     return  retret
 
 
-def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", loadFunction = Cload, integrate = False,normalize=False):
+def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", loadFunction = Cload, integrate = False,normalize=False, exceptionList = [],nproc=4):
     numpy.seterr(invalid='raise')
-    sliceplots1 = []
-    sliceplots2 = []
-    sliceplots3 = []
     
-       
+    plotsBySlice = []
 
-
-
-    
-
-    for cur_slice in slices: 
+    for cur_slice in slices:
+         
         files = []
 
         def slice2D(a, b,mult=[1]):             
@@ -210,18 +208,16 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", 
             
     
         datas = []
-        MM = len(datas)
         
-        plots1 = [0 for i in xrange(MM)]
-        plots2 = [0 for i in xrange(MM)]
-        plots3 = [0 for i in xrange(MM)]
-
         def newload(i):
             #loads a file  
             try:                    
                 data =  loadFunction(i,False)
+                if len(data) !=3:
+                    data = data.T
+                data = numpy.asarray(data,order = "C", dtype = float )                
                 return data
-            except: 
+            except exceptionList: 
                 print "file not found" , i
                 return None
             
@@ -250,10 +246,10 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", 
                 b = give_radius_scaling(i,binsrg,ring = False)
             
             
-            if (mode == "chain") : a = give_dist_scaling(i, bins2,1.7,integrate,project=False)
-            if (mode == "ring"): a = give_dist_scaling(i, bins2,1.7,integrate,ring = True)
-            if (mode == "intring"): a = give_dist_scaling(i, bins2,1.7,integrate,ring = True,project=False,intContacts = True)             
-            if (mode == "project"): a = give_dist_scaling(i, bins2,1.450,integrate,project=True)
+            if (mode == "chain") : a = giveCpScaling(i, bins2,1.7,integrate)
+            if (mode == "ring"): a = giveCpScaling(i, bins2,1.7,integrate,ring = True)
+            if (mode == "intring"): a = giveCpScaling(i, bins2,1.7,integrate,ring = True,project=False,intContacts = True)             
+            if (mode == "project"): a = giveCpScaling(i, bins2,1.450,integrate,project=True)
             
             if (mode == "ring") or (mode == "intring"):
                 c = give_distance(i, bins2,ring = True)
@@ -281,40 +277,19 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", 
                     b[1][i] = b[1][i]  * ((2-2*e)/(2-e))**(1/3.)
                     e = (log(datlen) - log(c[0][i]))/(log(datlen) - log(1))
                     c[1][i] = c[1][i] * ((2-2*e)/(2-e))**(1/3.)                                     
-            return [a,b,c]
+            return numpy.array([a,b,c])
                 
         
-        parPlots = fmap(give_plots,files,n=7)
+        parPlots = fmap(give_plots,files,n=nproc)
         parPlots = filter(lambda x:x!=None,parPlots)
+        means = numpy.mean(parPlots,axis = 0)                
+        plotsBySlice.append([means,{"slice":cur_slice}])
+          
         
-        for i in xrange(len(parPlots)):
-            p1 = parPlots[i][0]
-            p2 = parPlots[i][1]
-            p3 = parPlots[i][2]
-            plots3.append(p3[1])
-            plots2.append(p2[1]) 
-            plots1.append(p1[1])
-            b3 = p3[0]
-            b2 = p2[0]
-            b1 = p1[0]
             
-        """
-        TODO: rewrite this!!!         
-        plot1 = plotting.plot([b1,plots1],"sigmaplot",label="t="+str(cur_slice))
-        plot1.base = base
-        plot1.multipliers = multipliers
-        plot1.mode = mode
-        plot1.runs = runs
-        plot2 = plotting.plot([b2,plots2],"sigmaplot",label="t="+str(cur_slice))
-        plot3 = plotting.plot([b3,plots3],"sigmaplot",label="t="+str(cur_slice))
-        sliceplots1.append(plot1)
-        sliceplots2.append(plot2)
-        sliceplots3.append(plot3)        
-    
-        """
-    cPickle.dump([sliceplots1,sliceplots2,sliceplots3],open(tosave,'wb'),-1)
+
+    cPickle.dump(plotsBySlice,open(tosave,'wb'),-1)
     print "Finished!!!"
-    return sliceplots1,sliceplots2,sliceplots3
 
 
 #give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run4eq/expandedDATA2.dat", 
@@ -372,3 +347,30 @@ give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run8_tin
              tosave  = "data/DNA_conf/plots/paper_scalings/ring2_eq", 
              slices = [9000], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
 """
+
+
+class h5dictLoad(object):
+    """A class to fetch h5dict values based on a fake filename. 
+    
+    It accepts filenames in a form
+    /path-to-h5dict/h5dictKey
+    
+    It automatically caches h5dicts that are already open
+    
+    use simpleFetch method for concurrent fetching using fmap
+    """
+    def __init__(self):
+        self.baseDict = {}
+    def fetch(self,filename, dummy = True ):
+        base,num = os.path.split(filename)
+                    
+        if base not in self.baseDict.keys():  
+            self.baseDict[base] = h5dict(base,mode = 'r')
+        return self.baseDict[base][num]
+    def simpleFetch(self,filename,dummy = True):
+        base,num = os.path.split(filename)
+        h5 = h5dict(base,mode = "r")
+        toret = h5[num]
+        del h5
+        return toret
+        

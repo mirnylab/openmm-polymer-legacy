@@ -1337,15 +1337,16 @@ class SimulationWithCrosslinks(Simulation):
                 self.addBond(a,b,0.5)
                 break
     
-    def addConsecutiveRandomBonds(self,bondlength,bondRange,distance,smeer = 0.2):
-        shift = int(bondlength * smeer)
+    def addConsecutiveRandomBonds(self,loopSize,bondWiggle,bondLength=0.,smeerLoopSize = 0.2):
+        shift = int(loopSize * smeerLoopSize)
+        assert shift>0        
         begin = numpy.random.randint(shift)
         while True:
             b1 = begin
-            b2 = begin + bondlength
+            b2 = begin + loopSize
             if b2 > self.N - 3: break
-            self.addBond(b1,b2,bondRange,distance)
-            begin = begin + bondlength + numpy.random.randint(shift) + shift/2
+            self.addBond(b1,b2,bondWiggle,bondLength)
+            begin = begin + loopSize + numpy.random.randint(shift) + shift/2
             if self.verbose == True: print "bond added between %d and %d" % (b1,b2)
             
     def addDoubleRandomLengthBonds(self,bondlength,bondRange,distance):
@@ -1525,6 +1526,9 @@ class YeastSimulation(Simulation):
         extforce3.addGlobalParameter("LAMtt",0.01*nm);
 
                       
+class GrandeSimulation(Simulation,SimulationWithCrosslinks,ExperimentalSimulation):
+    pass
+
                 
 #spiral = create_spiral(3,5.4,6000)        
 #rw = createRW(60000)

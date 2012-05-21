@@ -427,12 +427,15 @@ class Simulation():
                 mode = "joblib"
         if mode == "h5dict":
             if not hasattr(self,"storage"):
-                raise StandardError("Initialize storage first!")                            
+                raise StandardError("Cannot save to h5dict! Initialize storage first!")                            
             self.storage[str(self.step)] = self.getData()
             return
+        
+        
 
         if filename == None: 
-            f = os.path.join(self.folder , "block%d.dat" % self.step)
+            filename =  "block%d.dat" % self.step
+        
         else:
             f = os.path.join(self.folder , filename)
         
@@ -441,11 +444,12 @@ class Simulation():
             self.metadata["timestep"] = self.timestep / fs
             self.metadata["Collision rate"] = self.collisionRate / ps                 
             joblib.dump(self.metadata,filename = f,compress = 3)
+            
         elif mode == "txt":
             data = self.getData()
-            lines = [int(len(data))]
+            lines = [str(len(data)) + "\n"]
             for particle in data: 
-                lines.append("".join([str(j) + " " for j in particle]))
+                lines.append("".join([str(j) + " " for j in particle]) + "\n")
             with open(f,'w') as myfile:
                 myfile.writelines(lines)
         else:

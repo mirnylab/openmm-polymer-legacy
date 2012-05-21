@@ -35,7 +35,7 @@ import joblib
 import sys 
 import mirnylib
 
-from polymerScalings import load 
+from polymerutils import load 
 
 
 def Cload(filename,center = False):

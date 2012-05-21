@@ -63,7 +63,7 @@ def giveCpScaling(data, bins0, cutoff=1.1,integrate = False,ring=False,intContac
     if integrate == True: connections = numpy.cumsum(connections)/connections.sum() 
 
     a = [sqrt(i[0] * i[1]) for i in bins]
-    print connections
+    print list(connections) 
     return (a, connections)
 
 

@@ -35,48 +35,7 @@ import joblib
 import sys 
 import mirnylib
 
-
-
-def load(filename,center = False):
-    """loads joblib or xyz polymer file.      
-    
-    Parameters
-    ----------
-    Filename : str
-        Filename to load
-    center : bool, optional
-        Shift center of mass to zero, default = True. 
-    """
-    try: int(open(filename).readline())
-    except: 
-        data = joblib.load(filename)["data"]
-        if center == True: data -= numpy.mean(data,axis = 0)[None,:]
-        return data
-    
-    f = open(filename, 'r')
-    lines = f.readlines()
-    N = int(lines[0])            
-    datax = array('f', [0.] * N )
-    datay = array('f', [0.] * N )
-    dataz = array('f', [0.] * N )
-    for i in xrange(1, N + 1):
-        line = lines[i].split()
-        datax[i - 1] = float(line[0])
-        datay[i - 1] = float(line[1])
-        dataz[i - 1] = float(line[2])
-    if center==False:
-        return numpy.array([numpy.array(datax), numpy.array(datay), numpy.array(dataz)])
-    datax,datay,dataz = numpy.array(datax),numpy.array(datay),numpy.array(dataz)
-    diffs = (datax[0:N-1]-datax[1:N])**2+(datay[0:N-1]-datay[1:N])**2+(dataz[0:N-1]-dataz[1:N])**2
-    diffs = numpy.abs(1-numpy.sqrt(diffs))
-    if numpy.max(diffs) > 0.6:
-        print "error, %lf at %s" % (numpy.max(diffs),file)
-    datax,datay,dataz = numpy.array(datax),numpy.array(datay),numpy.array(dataz)
-    datax -= datax.mean()
-    datay -= datay.mean()
-    dataz -= dataz.mean()
-    return numpy.array([datax,datay,dataz])
-
+from polymerScalings import load 
 
 
 def Cload(filename,center = False):

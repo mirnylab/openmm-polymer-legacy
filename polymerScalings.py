@@ -1,5 +1,5 @@
 import mirnylib.systemutils
-from mirnylib.systemutils import fmap, fmapav
+from mirnylib.systemutils import fmap, fmapav, setExceptionHook
 mirnylib.systemutils.setExceptionHook() 
 from mirnylib.numutils import logbins
 from mirnylib.h5dict import h5dict
@@ -106,9 +106,8 @@ def give_radius_scaling(data, bins=None,ring = False):
     "main working horse for radius of gyration"
     "uses dymanic programming algorithm"
     
-    bins = [sqrt(bins[i]* bins[i + 1]) for i in xrange(len(bins) - 1)]
-    
-    
+    bins = [sqrt(bins[i]* bins[i + 1]) for i in xrange(len(bins) - 1)]    
+        
     data = numpy.array(data,float)
     coms = numpy.cumsum(data,1)   #cumulative sum of locations to calculate COM
     coms2 = numpy.cumsum(data**2,1)  #cumulative sum of locations^2 to calculate RG    
@@ -133,8 +132,8 @@ def give_radius_scaling(data, bins=None,ring = False):
         
     rads = [0. for i in xrange(len(bins))]
     for i in xrange(len(bins)):
-        rads[i] = radius_gyration(bins[i])
-    return (copy(bins), rads) 
+        rads[i] = radius_gyration(int(bins[i]))
+    return (copy(bins), rads)
 
 
 
@@ -217,6 +216,8 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", 
                 data =  loadFunction(i,False)
                 if len(data) !=3:
                     data = data.T
+                if len(data) != 3:
+                    raise StandardError("Wrong shape of data")
                 data = numpy.asarray(data,order = "C", dtype = float )                
                 return data
             except exceptionList: 
@@ -227,6 +228,7 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", 
         #use this for determining the file size 
         datas = filter(lambda x:x!=None,fmap(newload,files[::len(files)/20 + 1],n=3))
         datlen = len(datas[0][0])
+        
         if mode == "chain": bins2 =  logbins(4, datlen-100,1.25)        
         if mode == "parts": bins2 =  logbins(4, datlen-100,1.25)
         if (mode == "ring") or (mode == "intring"): 
@@ -235,8 +237,6 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", 
             print bins2
         binsrg = logbins(4, datlen-100,1.25)
         
-        
-         
         def give_plots(i):
             data = newload(i)
             if data == None: return None                  
@@ -279,19 +279,27 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", 
                     b[1][i] = b[1][i]  * ((2-2*e)/(2-e))**(1/3.)
                     e = (log(datlen) - log(c[0][i]))/(log(datlen) - log(1))
                     c[1][i] = c[1][i] * ((2-2*e)/(2-e))**(1/3.)                                     
+            a = numpy.array(a,dtype = float)
+            b = numpy.array(b,dtype = float)
+            c = numpy.array(c, dtype = float)  
+
+            
             return numpy.array([a,b,c])
                 
         
         parPlots = fmap(give_plots,files,n=nproc)
-        parPlots = filter(lambda x:x!=None,parPlots)
+        
+        parPlots = filter(lambda x:x!=None,parPlots)        
+        
         means = numpy.mean(parPlots,axis = 0)                
         plotsBySlice.append([means,{"slice":cur_slice}])
           
         
             
 
-    cPickle.dump(plotsBySlice,open(tosave,'wb'),-1)
+    if tosave != None: cPickle.dump(plotsBySlice,open(tosave,'wb'),-1)
     print "Finished!!!"
+    return plotsBySlice
 
 
 #give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run4eq/expandedDATA2.dat", 
@@ -377,3 +385,30 @@ class h5dictLoad(object):
         del h5
         return toret
         
+import joblib
+
+
+def _test():
+    def giveStraightChain(x,y):
+        N = 4000
+        a = numpy.zeros((N,3),float)
+        a[:,0] = numpy.arange(N)
+        return a 
+    
+    scalings = give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run8_tiny_eq/expandedDATA2.dat",
+                 tosave  = None, 
+                 slices = [9000], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.01), mode = "chain", loadFunction = giveStraightChain)
+
+scalings = give_slices(base = "/home/magus/HiC2011/openmm_simulations/02_nechaev_corsslinks/blockDATA2.dat",
+             tosave  = None, 
+             slices = [100,500], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.0001), mode = "chain", loadFunction = (lambda x,y:joblib.load(x)["data"]) )
+
+
+setExceptionHook()
+plt.plot(*scalings[0][0][0])
+plt.show()
+plt.plot(*scalings[0][0][1])
+plt.show()
+plt.plot(*scalings[0][0][2])
+plt.show()
+exit()

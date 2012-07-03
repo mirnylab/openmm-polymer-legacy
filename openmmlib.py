@@ -435,15 +435,16 @@ class Simulation():
 
         if filename == None: 
             filename =  "block%d.dat" % self.step
+            filename = os.path.join(self.folder , filename)
         
         else:
-            f = os.path.join(self.folder , filename)
+            filename = filename
         
         if mode == "joblib":
             self.metadata["data"] = self.getData()
             self.metadata["timestep"] = self.timestep / fs
             self.metadata["Collision rate"] = self.collisionRate / ps                 
-            joblib.dump(self.metadata,filename = f,compress = 3)
+            joblib.dump(self.metadata,filename = filename,compress = 3)
             
         elif mode == "txt":
             data = self.getData()

@@ -36,6 +36,8 @@ import sys
 import mirnylib
 
 from polymerutils import load 
+import warnings
+import polymerutils
 
 
 def Cload(filename,center = False):
@@ -178,9 +180,75 @@ def giveIntContacts(data):
     
 
 
+def giveContactsAny(data,cutoff=1.7,maxContacts = 100):
+    """Returns contacts of any sets of molecules with a given cutoff. 
+    Is slower than give_contacts, but can tolerate multiple chains. 
+    
+    Parameters
+    ----------
+    data : Nx3 or 3xN array
+        Polymer configuration. One chaon only. 
+    cutoff : float , optional
+        Cutoff distance that defines contact
+    maxContacts : int 
+        Maximum number of contacts per monomer. 
+        If total number of contacts exceeds maxContacts*N, program becomes uncontrollable. 
+        
+    Returns
+    -------
+    
+    k by 2 array of contacts. Each row corresponds to a contact. 
+    """    
+    data = numpy.asarray(data)
+    if len(data.shape) != 2: raise ValueError("Wrong dimensions of data")
+    if 3 not in data.shape: raise ValueError("Wrong size of data: %s,%s" % data.shape)
+    if data.shape[0] == 3: data = data.T
+    data = numpy.asarray(data,float,order = "C")
+    N = len(data) 
+    points = numpy.zeros((maxContacts*N,2),int,order = "C")
+    N #Eclipse warning remover 
+    
+    code = """
+    #line 50 "binary_search.py"
+        using namespace std;
+        double CUTOFF2 = cutoff * cutoff;     
+        
+        int counter  = 0;
+         
+        double  d;
+        for (int i=0;i<N;i++)
+            {
+            for (int j=i+1;j<N;j++)
+                {
+                 
+                if (dist(data,N,i,j) <= CUTOFF2) 
+                    {
+                    int t = j - i;                     
+                    points[2*counter] = i;
+                    points[2*counter + 1 ] = j; 
+                    counter ++ ;
+                    //cout << i << " "   << j  << " "  << d <<  " " << counter << endl;                   
+                    }
+            }
+            }
+       """
+    support = """
+        #include <math.h>        
+        double sq(double x) {return x*x;} 
+        double  dist(double* data, int N, int i,int j)
+        {
+        return (pow((data[3 * i]-data[3 * j]),2.) + pow((data[3 * i + 1] - data[3 * j + 1]),2.) + pow((data[3 * i + 2] - data[3 * j + 2]),2.)); 
+        }
+       """  
+    #
+    weave.inline(code, ['data', 'N' , 'cutoff' , 'points'], extra_compile_args=['-march=native -malign-double'],support_code =support )
+    k = numpy.max(numpy.nonzero(points[:,1]))
+    return points[:k+1,:]
+
+
 
  
-def giveContacts(data,cutoff=1.7,maxContacts = 40 ):
+def giveContacts(data,cutoff=1.7,maxContacts = 30 ):
     """Returns contacts of a single polymer with a given cutoff
     
     .. warning:: Use this only to find contacts of a single polymer chain with distance between monomers of 1. 
@@ -200,18 +268,29 @@ def giveContacts(data,cutoff=1.7,maxContacts = 40 ):
     -------
     
     k by 2 array of contacts. Each row corresponds to a contact. 
-    """
-    data = numpy.asarray(data)     
+    """    
+    data = numpy.asarray(data)
+    if max(data.shape) < 2000:
+        return giveContactsAny(data, cutoff, maxContacts)
+         
     if len(data.shape) != 2: raise ValueError("Wrong dimensions of data")
     if 3 not in data.shape: raise ValueError("Wrong size of data: %s,%s" % data.shape)
     if data.shape[0] == 3: data = data.T
-    data = numpy.asarray(data,float,order = "C")
     
-    ####---------------------------------------------------- Finish it!     
-#    dists2 = numpy.sum(numpy.diff(data,axis = 0)**2,axis = 1)
-#    if dists2.max() > 3:
-#        raise RuntimeError("Maximum distance for a ")
-    #-------------------------------------------------------------
+    
+     
+    dists2 = numpy.sqrt(numpy.sum(numpy.diff(data,axis = 0)**2,axis = 1))
+    maxRatio = dists2.max() / numpy.median(dists2) 
+    if maxRatio > 2:        
+        warnings.warn("\nPolymer does not seem continuous, falling back to arbitrary contact finger 'give_contacts_any' \n This is ok, just be aware of this! ")        
+        return giveContactsAny(data, cutoff, maxContacts)
+    else:        
+        safeDistance = numpy.percentile(dists2,99)
+        cutoff = cutoff / safeDistance
+        data = data / safeDistance 
+        
+                                     
+    data = numpy.asarray(data,float,order = "C")
     N = len(data)     
     points = numpy.zeros((maxContacts*N,2),int,order = "C")
     N #Eclipse warning remover 
@@ -254,71 +333,6 @@ def giveContacts(data,cutoff=1.7,maxContacts = 40 ):
     return points[:k+1,:]
 
  
-def giveContactsAny(data,cutoff=1.4,maxContacts = 100):
-    """Returns contacts of any sets of molecules with a given cutoff. 
-    Is slower than give_contacts, but can tolerate multiple chains. 
-    
-    Parameters
-    ----------
-    data : Nx3 or 3xN array
-        Polymer configuration. One chaon only. 
-    cutoff : float , optional
-        Cutoff distance that defines contact
-    maxContacts : int 
-        Maximum number of contacts per monomer. 
-        If total number of contacts exceeds maxContacts*N, program becomes uncontrollable. 
-        
-    Returns
-    -------
-    
-    k by 2 array of contacts. Each row corresponds to a contact. 
-    """    
-    data = numpy.asarray(data)
-    if len(data.shape) != 2: raise ValueError("Wrong dimensions of data")
-    if 3 not in data.shape: raise ValueError("Wrong size of data: %s,%s" % data.shape)
-    if data.shape[0] == 3: data = data.T
-    data = numpy.asarray(data,float,order = "C")
-    N = len(data) 
-    points = numpy.zeros((maxContacts*N,2),int,order = "C")
-    N #Eclipse warning remover 
-    
-    code = """
-    #line 50 "binary_search.py"
-        using namespace std; 
-    
-        
-        int counter  = 0;
-         
-        double  d;
-        for (int i=0;i<N;i++)
-            {
-            for (int j=i+1;j<N;j++)
-                {
-                 
-                if (dist(data,N,i,j) <= CUTOFF2) 
-                    {
-                    int t = j - i;                     
-                    points[2*counter] = i;
-                    points[2*counter + 1 ] = j; 
-                    counter ++ ;
-                    //cout << i << " "   << j  << " "  << d <<  " " << counter << endl;                   
-                    }
-            }
-            }
-       """
-    support = """
-        #include <math.h>
-        #define CUTOFF2  %lf
-        double sq(double x) {return x*x;} 
-        double  dist(double* data, int N, int i,int j)
-        {
-        return (pow((data[3 * i]-data[3 * j]),2.) + pow((data[3 * i + 1] - data[3 * j + 1]),2.) + pow((data[3 * i + 2] - data[3 * j + 2]),2.)); 
-        }
-       """ % (cutoff*cutoff) 
-    #
-    weave.inline(code, ['data', 'N' , 'cutoff' , 'points'], extra_compile_args=['-march=native -malign-double'],support_code =support )
-    k = numpy.max(numpy.nonzero(points[:,1]))
-    return points[:k+1,:]
 
 def giveDistanceMap(data,size = 1000):
     """returns  a distance map of a polymer with a given size"""    
@@ -793,3 +807,45 @@ def averageContactMap(filenames, resolution = 500 ,  cutoff = 1.7, usePureMap = 
             a = a + i
         return a
 
+
+def _test():
+    
+    print "----> Testing giveContacts subroutine"
+    try: 
+        c = polymerutils.load("/net/evolution/home/magus/trajectories/globule_creation/32000_RW/crumpled1.dat")
+        c = c[:16000]
+    except: 
+        N = 5000 
+        a = numpy.random.random((N,3))
+        b = numpy.sqrt(numpy.sum(a**2,axis = 1))        
+        a = a / b[:,None]
+        b = (numpy.random.randn(N) * 0.1 + 1)
+        a *= b[:,None]     
+             
+        c = numpy.cumsum(a,axis = 0)
+        c = numpy.asarray(c)
+        
+        
+    
+    c2 = giveContactsAny(c,cutoff = 2.2)
+    c2  #Simply initialize weave.inline first 
+    
+    from time import time
+    a = time() 
+    c2 = giveContacts(c,cutoff = 2.2)
+    print "time for giveContacts is: ",            
+    print time() - a
+    
+    c2 = c2[numpy.abs(c2[:,0] - c2[:,1]) > 1]
+        
+    a = time()
+    c1 = giveContactsAny(c,cutoff = 2.2)            
+    print "time for contactsAny is:", time() - a
+    c1 = c1[numpy.abs(c1[:,0] - c1[:,1]) > 1]
+    c1 = set([tuple(i) for i in c1])
+    c2 = set([tuple(i) for i in c2])
+    assert c1 == c2  
+    
+#_test()    
+
+    

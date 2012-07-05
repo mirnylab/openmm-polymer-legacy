@@ -385,7 +385,7 @@ class h5dictLoad(object):
         del h5
         return toret
         
-import joblib
+#import joblib
 
 
 def _test():
@@ -398,17 +398,25 @@ def _test():
     scalings = give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run8_tiny_eq/expandedDATA2.dat",
                  tosave  = None, 
                  slices = [9000], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.01), mode = "chain", loadFunction = giveStraightChain)
+    plt.plot(*scalings[0][0][0])
+    plt.show()
+    plt.plot(*scalings[0][0][1])
+    plt.show()
+    plt.plot(*scalings[0][0][2])
+    plt.show()
 
-scalings = give_slices(base = "/home/magus/HiC2011/openmm_simulations/02_nechaev_corsslinks/blockDATA2.dat",
-             tosave  = None, 
-             slices = [100,500], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.0001), mode = "chain", loadFunction = (lambda x,y:joblib.load(x)["data"]) )
 
 
-setExceptionHook()
-plt.plot(*scalings[0][0][0])
-plt.show()
-plt.plot(*scalings[0][0][1])
-plt.show()
-plt.plot(*scalings[0][0][2])
-plt.show()
-exit()
+#scalings = give_slices(base = "/home/magus/HiC2011/openmm_simulations/02_nechaev_corsslinks/blockDATA2.dat",
+#             tosave  = None, 
+#             slices = [100,500], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.0001), mode = "chain", loadFunction = (lambda x,y:joblib.load(x)["data"]) )
+
+
+#setExceptionHook()
+#plt.plot(*scalings[0][0][0])
+#plt.show()
+#plt.plot(*scalings[0][0][1])
+#plt.show()
+#plt.plot(*scalings[0][0][2])
+#plt.show()
+#exit()

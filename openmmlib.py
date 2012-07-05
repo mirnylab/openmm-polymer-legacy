@@ -437,8 +437,6 @@ class Simulation():
             filename =  "block%d.dat" % self.step
             filename = os.path.join(self.folder , filename)
         
-        else:
-            filename = filename
         
         if mode == "joblib":
             self.metadata["data"] = self.getData()
@@ -451,7 +449,7 @@ class Simulation():
             lines = [str(len(data)) + "\n"]
             for particle in data: 
                 lines.append("".join([str(j) + " " for j in particle]) + "\n")
-            with open(f,'w') as myfile:
+            with open(filename,'w') as myfile:
                 myfile.writelines(lines)
         else:
             raise ValueError("Unknown mode : %s, use h5dict, joblib or txt" % mode)

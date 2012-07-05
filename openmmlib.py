@@ -434,7 +434,7 @@ class Simulation():
         
 
         if filename == None: 
-            filename =  "block%d.dat" % self.step
+            filename =  "block%d.dat" % self.step        
             filename = os.path.join(self.folder , filename)
         
         

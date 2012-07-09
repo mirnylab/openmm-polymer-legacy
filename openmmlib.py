@@ -123,6 +123,7 @@ import time
 import joblib
 import tempfile
 from mirnylib.h5dict import h5dict
+import mirnylib
 os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda/lib64:/usr/local/openmm/lib"
 
 import simtk.openmm as openmm
@@ -376,6 +377,7 @@ class Simulation():
             data = filename
                     
         data = numpy.asarray(data,float)
+        
         if len(data) == 3: 
             data = numpy.transpose(data)
         if len(data[0]) != 3: 
@@ -389,7 +391,9 @@ class Simulation():
             minvalue = numpy.min(data,0)
             data -= minvalue
                                         
-        self.setData(data)                                     
+        self.setData(data)
+        if mirnylib.numutils.isInteger(data): self.randomizeData()
+                                             
         
         if self.verbose == True:
             print "center of mass is", numpy.mean(self.data,0)
@@ -508,7 +512,11 @@ class Simulation():
         """                 
         data = numpy.asarray(data,dtype = "float")
         self.data = units.Quantity(data,nm)
-        self.N = len(self.data)    
+        self.N = len(self.data)
+    def randomizeData(self):
+        data = self.getData()
+        data += numpy.random.randn(*data.shape) * 0.01    
+        self.setData(data)
             
     def RG(self):
         """
@@ -1020,6 +1028,20 @@ class Simulation():
             
         for i in xrange(self.N): extforce3.addParticle(i,[])
         self.forceDict["Gravity"] = extforce3
+        
+    def addPullForce(self,particles, forces):
+        """adds force pulling on each particle
+        When using cutoff, acts only when z>cutoff"""        
+        
+        extforce = self.mm.CustomExternalForce("PULLx * x + PULLy * y + PULLz * z")
+        extforce.addPerParticleParameter("PULLx")
+        extforce.addPerParticleParameter("PULLy")
+        extforce.addPerParticleParameter("PULLz")
+        for num,force in zip(particles, forces):
+            force = [float(i) * (self.kT / self.conlen)  for i in force]
+            extforce.addParticle(num,force) 
+        
+        
                                   
     def _applyForces(self):
         """Applies all the forces in the forcedict. 

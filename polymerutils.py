@@ -13,7 +13,7 @@ def load(filename, h5dictKey = None):
     """Universal load function for any type of data file"""
     
     if not os.path.exists(filename):
-        raise IOError("File not found :( ")
+        raise IOError("File not found :( \n %s" % filename)
     
                  
     try:

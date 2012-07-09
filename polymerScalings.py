@@ -1,5 +1,6 @@
- import mirnylib.systemutils
+import mirnylib.systemutils
 from mirnylib.systemutils import fmap, fmapav, setExceptionHook
+import polymerutils
 mirnylib.systemutils.setExceptionHook() 
 from mirnylib.numutils import logbins
 from mirnylib.h5dict import h5dict
@@ -14,7 +15,10 @@ import numpy
 
 import matplotlib.pyplot as plt 
 
-from copy import copy  
+from copy import copy
+
+
+  
 
 def giveCpScaling(data, bins0, cutoff=1.1,integrate = False,ring=False,intContacts = False):
     """
@@ -162,6 +166,108 @@ def give_radius_scaling_eig(data, bins=None):
         ret.append(av/1000)
     retret = (copy(bins),ret)
     return  retret
+
+
+def subchainDensityFunction(filenames,bins,normalize = "Rg",lengthmult  = 3, Nbins = 30,coverage = 1 ):
+    "Calculates density function of subchains"
+    
+    results = []
+    
+    for filename in filenames: 
+        newbins = zip(bins[::2],bins[1::2]) #bin start/end
+         
+        
+        data = polymerutils.load(filename)
+        N = len(data) 
+         
+        rgs = give_radius_scaling(data.T, bins, ring = False)[1][::2]          
+        curresults = []
+        labels = []
+        for bin,rg in zip(newbins,rgs):
+            labels.append("S = %.1lf; " % (numpy.mean(bin)) + " Rg=%.2lf" % rg)
+            lengthbins = numpy.linspace(0,lengthmult * rg,Nbins)
+            lengthBinMids = (lengthbins[:-1] + lengthbins[1:])*0.5
+            volumes = (4./3.) * 3.141592 * (lengthbins**3) 
+            volumes = numpy.diff(volumes)
+            count = int(N * coverage / numpy.mean(bin) + 1)
+            sphereCounts = numpy.zeros(len(volumes),float)
+            
+            for i in xrange(count):
+                size = numpy.random.randint(bin[0],bin[1])
+                start = numpy.random.randint(0,N-size)
+                subchain = data[start:start+size]
+                com = numpy.mean(subchain,axis = 0)
+                shifted = subchain - com[None,:]
+                dists = numpy.sqrt(numpy.sum(shifted**2,axis = 1))
+                sphereCounts += numpy.histogram(dists, lengthbins)[0]
+            sphereCounts /= (volumes * count)
+            #curresults.append(numpy.array([lengthBinMids/rg,sphereCounts]))
+            curresults.append(numpy.array([lengthBinMids,sphereCounts]))
+        results.append(curresults)
+    results = numpy.mean(numpy.array(results,float),axis = 0)
+    for i,label in zip(results,labels):
+        plt.plot(*i,label = label)
+    
+                 
+    
+    
+    plt.legend()
+      
+        
+            
+            
+        
+#filenames = ["/home/magus/evo/trajectories/globule_creation/32000_SAW/crumpled%d.dat" % i for i in xrange(1,20)]
+filenames = ["/home/magus/evo/topo37_256_battery/run%d/expanded%d.dat" % (i,j) for i in xrange(1,11) for j in [1000,1030,1060,1090]]
+
+
+"""
+filenames = ["/home/magus/evo/GO38_32k_diffusion/run%d/expanded%d.dat" % (i,j) for i in xrange(2,10) for j in [900,1000,10]]
+subchainDensityFunction(filenames,[1000,1200])
+filenames = ["/home/magus/evo/GO38_32k_diffusion/run%d/expanded%d.dat" % (i,j) for i in xrange(2,10) for j in [0]]
+subchainDensityFunction(filenames,[1000,1200])
+filenames = ["/home/magus/HiC2011/openmm_simulations/02_nechaev_corsslinks/trajectory%d/block%d.dat" % (i,j) for i in xrange(2,5) for j in range(100,200,10)]
+subchainDensityFunction(filenames,[1000,1200])
+
+filenames = ["/home/magus/evo/trajectories/globule_creation/32000_equilibrium/equilibrium%d.dat" % (i) for i in xrange(2,40)]
+subchainDensityFunction(filenames,[1000,1200])
+
+
+plt.show() 
+"""
+plt.subplot(121)
+plt.title("Mixed globule")
+filenames = ["/home/magus/evo/topo37_256_battery/run%d/expanded%d.dat" % (i,j) for i in xrange(1,11) for j in xrange(900,1000,10)]
+subchainDensityFunction(filenames,[100,120,1000,1200,10000,12000])
+
+plt.subplot(122)
+plt.title("Equilibrium globule")
+filenames = ["/home/magus/evo//topo371_256_equilibrium/run%d/expanded%d.dat" % (i,j) for i in xrange(1,11) for j in xrange(130,170,3)]
+subchainDensityFunction(filenames,[100,120,1000,1200,10000,12000])
+
+plt.show() 
+
+
+plt.subplot(121)
+plt.title("Mixed globule")
+filenames = ["/home/magus/evo/GO38_32k_diffusion/run%d/expanded%d.dat" % (i,j) for i in xrange(2,10) for j in [1000]]
+subchainDensityFunction(filenames,[10,15,100,120,1000,1200,10000,10200])
+
+plt.subplot(122)
+plt.title("Crumpled globule")
+filenames = ["/home/magus/evo/GO38_32k_diffusion/run%d/expanded%d.dat" % (i,j) for i in xrange(2,10) for j in [0]]
+subchainDensityFunction(filenames,[10,15,100,120,1000,1200,10000,10200])
+
+
+plt.show()
+
+exit()
+        
+         
+        
+    
+    
+    
 
 
 

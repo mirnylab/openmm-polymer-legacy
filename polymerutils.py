@@ -7,7 +7,7 @@ import joblib
 import sys 
 import mirnylib
 import os 
-from mirnylib.h5dict import h5dict
+
 
 def load(filename, h5dictKey = None):
     """Universal load function for any type of data file"""
@@ -43,7 +43,8 @@ def load(filename, h5dictKey = None):
          
 
     try:
-        "checking for h5dict file "                     
+        "checking for h5dict file "
+        from mirnylib.h5dict import h5dict                     
         mydict = h5dict(path = filename,mode = 'r')
         if h5dictKey == None: 
             keys = mydict.keys() 
@@ -65,6 +66,7 @@ def save(data, filename, mode = "txt", h5dictKey = "1" ):
     mode = mode.lower()
     
     if mode == "h5dict":
+        from mirnylib.h5dict import h5dict
         mydict = h5dict(filename, mode = "w")
         mydict[h5dictKey] = data                   
         return

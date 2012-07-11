@@ -4,6 +4,12 @@ import tempfile
 import os
 
 
+        
+    
+     
+
+
+
 
 def findSimplifiedPolymer(data):
     """a weave.inline wrapper for polymer simplification code
@@ -274,7 +280,6 @@ def expandPolymerRing(data, mode = "auto"):
     sim.energyMinimization(steps = 50, twoStage = True)
     for _ in xrange(200):
         sim.doBlock(500)
-    sim.show() 
     return sim.getData()
        
      

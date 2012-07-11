@@ -122,7 +122,6 @@ import sys,os
 import time
 import joblib
 import tempfile
-from mirnylib.h5dict import h5dict
 import mirnylib
 os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda/lib64:/usr/local/openmm/lib"
 
@@ -352,6 +351,7 @@ class Simulation():
             Indicates that you need to load from an h5dict
         """
         if h5dictKey != None:
+            from mirnylib.h5dict import h5dict
             mydict = h5dict(path = filename,mode = "r")
             data = h5dict[str(h5dictKey)]                         
         
@@ -429,7 +429,7 @@ class Simulation():
                 mode = "h5dict"
             else:
                 mode = "joblib"
-        if mode == "h5dict":
+        if mode == "h5dict":            
             if not hasattr(self,"storage"):
                 raise StandardError("Cannot save to h5dict! Initialize storage first!")                            
             self.storage[str(self.step)] = self.getData()
@@ -480,6 +480,7 @@ class Simulation():
             'w-' - Create file, fail if exists         (default)
             'r+' - Continue simulation, file must exist.
         """
+        from mirnylib.h5dict import h5dict
         
         if mode not in ['w','w-','r+']: raise ValueError("Wrong mode to open file. Only 'w','w-' and 'r+' are supported")
         if (mode == "w-") and os.path.exists(filename): raise IOError("Cannot create file... file already exists. Use mode ='w' to override")
@@ -1296,13 +1297,16 @@ class Simulation():
         for i in newData:                     
             towrite.write("CA\t%lf\t%lf\t%lf\t%d\n" % tuple(i)) 
         towrite.flush()
-        "TODO: rewrite using subprocess.popen" 
+        "TODO: rewrite using subprocess.popen"
+         
         if os.name == "posix":  #if linux 
             os.system("rasmol -xyz %s -script %s" % (towrite.name, rascript.name))
         else:     #if windows 
             os.system("C:/RasWin/raswin.exe -xyz %s -script %s" % (towrite.name, rascript.name))         #For windows you might need to change the place where your rasmol file is
         rascript.close()
         towrite.close() 
+
+
         
 
 class SimulationWithCrosslinks(Simulation):

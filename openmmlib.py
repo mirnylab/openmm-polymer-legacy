@@ -735,7 +735,7 @@ class Simulation():
         self.metadata["SimgleRepulsiveForce"] = {"cutoff":cutoff,"trunc":trunc,"rep":rep}
         nbCutOffDist = self.conlen * cutoff    #repulsive part saturates quickly 
         if trunc == None: repul_energy = 'REPepsilon*(REPsigma/r)^12'
-        else: repul_energy = '1/((1/REPcutoff) + (1/REPU + 0.0001 * REPcutoff));REPU=REPepsilon*(REPsigma/r)^12;r2 = (r^10. + (0.3 * REPs)^10.)^0.1 '
+        else: repul_energy = '1/((1/REPcutoff) + (1/REPU + 0.0001 * REPcutoff));REPU=REPepsilon*(REPsigma/r)^12;r2 = (r^10. + (0.3 * REPsigma)^10.)^0.1 '
         #last equation is to avoid NANs when r is close to zero  
         
         epsilonRep = rep * units.kilocalorie_per_mole

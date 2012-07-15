@@ -123,6 +123,7 @@ import time
 import joblib
 import tempfile
 import mirnylib
+import mirnylib.numutils 
 os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda/lib64:/usr/local/openmm/lib"
 
 import simtk.openmm as openmm
@@ -832,6 +833,9 @@ class Simulation():
         self.epsilonRep = epsilonRep                 
         repulforce = self.mm.NonbondedForce()
         
+        
+        
+        
         self.forceDict["Nonbonded"] = repulforce
         if domains == False:
             for i in xrange(self.N):
@@ -1395,7 +1399,27 @@ class SimulationWithCrosslinks(Simulation):
                 past = b1
             started = False
             begin = b2
+        
     
+    def addAttractionToTheCore(self,k,r0,coreParticles = []):
+            
+        "Attracts a subset of particles to the core, repells the rest from the core"
+                
+        attractForce = self.mm.CustomExternalForce(" COREk * (COREr - CORErn) ** 2  ;COREr = sqrt(x^2 + y^2 + COREtt^2)")
+        attractForce.addGlobalParameter("COREk",k*self.kT/(self.conlen*self.conlen))
+        attractForce.addGlobalParameter("CORErn",r0 * self.conlen)
+        attractForce.addGlobalParameter("COREtt",0.001 *  self.conlen)                
+        self.forceDict["CoreAttraction"] = attractForce        
+        for i in coreParticles: attractForce.addParticle(i,[])                
+        
+
+        excludeForce = self.mm.CustomExternalForce(" CORE2k * (CORE2r - CORE2rn) ** 2 * step(CORE2rn - CORE2r) ;CORE2r = sqrt(x^2 + y^2 + CORE2tt^2)")
+        excludeForce.addGlobalParameter("CORE2k",k*self.kT/(self.conlen*self.conlen))
+        excludeForce.addGlobalParameter("CORE2rn",r0 * self.conlen)
+        excludeForce.addGlobalParameter("CORE2tt",0.001 *  self.conlen)
+        self.forceDict["CoreExclusion"] = excludeForce
+        for i in xrange(self.N): excludeForce.addParticle(i,[])
+        
     
 
 class ExperimentalSimulation(Simulation):

@@ -87,6 +87,60 @@ def save(data, filename, mode = "txt", h5dictKey = "1" ):
         return 
     
     raise ValueError("Unknown mode : %s, use h5dict, joblib or txt" % mode)
+
+
+def generateRandomLooping(length = 10000, oneMoverPerBp = 1000 ,numSteps = 100):
+    
+    
+    N = length  
+    myarray = numpy.zeros(N,int)    
+    movers = []
+    onsetRate = length / float(oneMoverPerBp)
+    
+    def initMovers():
+        for i in movers:
+            myarray[i[0]] = 1
+            myarray[i[1]] = 1
+    
+    def addMovers():
+        for i in xrange(numpy.random.poisson(onsetRate)):
+            pos = numpy.random.randint(N-1)
+            if myarray[pos:pos+2].sum() == 0:
+                movers.append((pos,pos+1))
+                myarray[pos:pos+2] = 1
+        
+    def translocateMovers():
+        moved = False
+        for j,mover in enumerate(movers): 
+            left,right = mover             
+            if left > 0:
+                if myarray[left-1] == 0:                                         
+                    myarray[left] = 0
+                    myarray[left-1] = 1 
+                    left = left - 1
+                    moved = True 
+            if right < N-1:
+                if myarray[right + 1] == 0:                    
+                    myarray[right] = 0
+                    myarray[right+1] = 1
+                    right = right + 1
+                    moved = True
+            movers[j] = (left,right)
+        return moved 
+    
+    for i in xrange(numSteps):
+        addMovers()
+        translocateMovers()
+    while translocateMovers():
+        pass
+    return movers 
+             
+            
+    
+            
+
+                
+    
          
 def _test():
     

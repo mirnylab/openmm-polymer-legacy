@@ -572,7 +572,8 @@ class Simulation():
             self.domains = cPickle.load(open(domains))
         else: self.exit("You have to specify at least some domains!")
             
-        if len(self.domains) != self.N: self.exitProgram("Wrong domain lengths")                        
+        if len(self.domains) != self.N: self.exitProgram("Wrong domain lengths")
+                                
         cPickle.dump(self.domains,open(os.path.join(self.folder ,"domains.dat"),'wb'))
         if hasattr(self,"storage"):
             self.storage["domains"] = self.domains

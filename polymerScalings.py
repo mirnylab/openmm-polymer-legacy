@@ -217,52 +217,6 @@ def subchainDensityFunction(filenames,bins,normalize = "Rg",lengthmult  = 3, Nbi
             
             
         
-#filenames = ["/home/magus/evo/trajectories/globule_creation/32000_SAW/crumpled%d.dat" % i for i in xrange(1,20)]
-filenames = ["/home/magus/evo/topo37_256_battery/run%d/expanded%d.dat" % (i,j) for i in xrange(1,11) for j in [1000,1030,1060,1090]]
-
-
-"""
-filenames = ["/home/magus/evo/GO38_32k_diffusion/run%d/expanded%d.dat" % (i,j) for i in xrange(2,10) for j in [900,1000,10]]
-subchainDensityFunction(filenames,[1000,1200])
-filenames = ["/home/magus/evo/GO38_32k_diffusion/run%d/expanded%d.dat" % (i,j) for i in xrange(2,10) for j in [0]]
-subchainDensityFunction(filenames,[1000,1200])
-filenames = ["/home/magus/HiC2011/openmm_simulations/02_nechaev_corsslinks/trajectory%d/block%d.dat" % (i,j) for i in xrange(2,5) for j in range(100,200,10)]
-subchainDensityFunction(filenames,[1000,1200])
-
-filenames = ["/home/magus/evo/trajectories/globule_creation/32000_equilibrium/equilibrium%d.dat" % (i) for i in xrange(2,40)]
-subchainDensityFunction(filenames,[1000,1200])
-
-
-plt.show() 
-"""
-plt.subplot(121)
-plt.title("Mixed globule")
-filenames = ["/home/magus/evo/topo37_256_battery/run%d/expanded%d.dat" % (i,j) for i in xrange(1,11) for j in xrange(900,1000,10)]
-subchainDensityFunction(filenames,[100,120,1000,1200,10000,12000])
-
-plt.subplot(122)
-plt.title("Equilibrium globule")
-filenames = ["/home/magus/evo//topo371_256_equilibrium/run%d/expanded%d.dat" % (i,j) for i in xrange(1,11) for j in xrange(130,170,3)]
-subchainDensityFunction(filenames,[100,120,1000,1200,10000,12000])
-
-plt.show() 
-
-
-plt.subplot(121)
-plt.title("Mixed globule")
-filenames = ["/home/magus/evo/GO38_32k_diffusion/run%d/expanded%d.dat" % (i,j) for i in xrange(2,10) for j in [1000]]
-subchainDensityFunction(filenames,[10,15,100,120,1000,1200,10000,10200])
-
-plt.subplot(122)
-plt.title("Crumpled globule")
-filenames = ["/home/magus/evo/GO38_32k_diffusion/run%d/expanded%d.dat" % (i,j) for i in xrange(2,10) for j in [0]]
-subchainDensityFunction(filenames,[10,15,100,120,1000,1200,10000,10200])
-
-
-plt.show()
-
-exit()
-        
          
         
     
@@ -510,6 +464,9 @@ def _test():
     plt.show()
     plt.plot(*scalings[0][0][2])
     plt.show()
+    
+#_test()
+#exit()
 
 
 

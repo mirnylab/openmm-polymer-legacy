@@ -1,11 +1,5 @@
-from mirnylib import numutils  
 import numpy 
-from scipy import weave
-from math import sqrt
-from mirnylib.systemutils import fmapred,fmap , deprecate
 import joblib
-import sys 
-import mirnylib
 import os 
 
 

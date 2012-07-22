@@ -183,17 +183,17 @@ def subchainDensityFunction(filenames,bins,normalize = "Rg",lengthmult  = 3, Nbi
         rgs = give_radius_scaling(data.T, bins, ring = False)[1][::2]          
         curresults = []
         labels = []
-        for bin,rg in zip(newbins,rgs):
-            labels.append("S = %.1lf; " % (numpy.mean(bin)) + " Rg=%.2lf" % rg)
+        for onebin,rg in zip(newbins,rgs):
+            labels.append("S = %.1lf; " % (numpy.mean(onebin)) + " Rg=%.2lf" % rg)
             lengthbins = numpy.linspace(0,lengthmult * rg,Nbins)
             lengthBinMids = (lengthbins[:-1] + lengthbins[1:])*0.5
             volumes = (4./3.) * 3.141592 * (lengthbins**3) 
             volumes = numpy.diff(volumes)
-            count = int(N * coverage / numpy.mean(bin) + 1)
+            count = int(N * coverage / numpy.mean(onebin) + 1)
             sphereCounts = numpy.zeros(len(volumes),float)
             
             for i in xrange(count):
-                size = numpy.random.randint(bin[0],bin[1])
+                size = numpy.random.randint(onebin[0],onebin[1])
                 start = numpy.random.randint(0,N-size)
                 subchain = data[start:start+size]
                 com = numpy.mean(subchain,axis = 0)

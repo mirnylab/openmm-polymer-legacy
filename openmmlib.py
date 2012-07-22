@@ -122,8 +122,8 @@ import sys,os
 import time
 import joblib
 import tempfile
-import mirnylib
 import mirnylib.numutils 
+from mirnylib.systemutils import setExceptionHook
 os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda/lib64:/usr/local/openmm/lib"
 
 import simtk.openmm as openmm
@@ -183,7 +183,7 @@ class Simulation():
         self.folder = "."         
         self.metadata = {}
         
-    def setup(self,platform="OpenCL", PBC = False,PBCbox = None,GPU = "0",verbose = True):           
+    def setup(self,platform="OpenCL", PBC = False,PBCbox = None,GPU = "0",integrator = "langevin", verbose = True):           
         """Sets up the important low-level parameters of the platform. 
         Mandatory to run. 
         
@@ -225,7 +225,7 @@ class Simulation():
             if PBCbox == None:            
                 data = self.getData()
                 data -= numpy.min(data,axis = 0)
-                self.setData(data)
+                #self.setData(data)
                 datasize = 1.1 * (2+(numpy.max(self.getData(),axis = 0) - numpy.min(self.getData(),axis = 0))) #size of the system plus some overhead                          
                 self.SolventGridSize = (datasize / 1.1)  - 2                                                                
                 print "density is ", self.N / (datasize[0] * datasize[1] * datasize[2])
@@ -236,7 +236,7 @@ class Simulation():
             self.metadata["PBCbox"] = PBCbox
             self.system.setDefaultPeriodicBoxVectors([datasize[0],0.,0.],[0.,datasize[1],0.],[0.,0.,datasize[2]])
             self.BoxSizeReal = datasize 
-            print "system size is %lfx%lfx%lf nm, solvent grid size is   %lfx%lfx%lf in dimensionless units" % tuple(list(datasize) + list(self.SolventGridSize))
+            #print "system size is %lfx%lfx%lf nm, solvent grid size is   %lfx%lfx%lf in dimensionless units" % tuple(list(datasize) + list(self.SolventGridSize))
             time.sleep(5)
         
         
@@ -262,7 +262,9 @@ class Simulation():
                 self.system.addParticle(self.mass)
             print self.N, "particles loaded"
         except: pass                                 
-        self.integrator = self.mm.LangevinIntegrator(self.temperature, self.collisionRate, self.timestep)
+        
+        if integrator == "langevin": self.integrator = self.mm.LangevinIntegrator(self.temperature, self.collisionRate, self.timestep)
+        else: self.integrator = integrator 
 
     def saveFolder(self,folder):        
         """
@@ -397,7 +399,7 @@ class Simulation():
             data -= minvalue
                                         
         self.setData(data)
-        if mirnylib.numutils.isInteger(data): self.randomizeData()
+        #if mirnylib.numutils.isInteger(data): self.randomizeData()
                                              
         
         if self.verbose == True:
@@ -416,12 +418,17 @@ class Simulation():
     def save(self,mode = "auto",filename = None):                
         """Saves conformation plus some metadata. Metadata is not interpreted by this library, and is for your reference
         
+        If data is saved to the .vtf format, the same filename should be specified each time. 
+        .vtf format is then viewable by VMD. 
+        
         Parameters: 
             mode : str
                 "h5dict" : use build-in h5dict storage
                 "joblib" : use joblib storage
                 "txt" : use text file storage
+                "vtf" : append data to the .vtf trajectory file
                 "auto" : use h5dict if initialized, joblib otherwise
+                
             
             filename : str or None
                 Filename not needed for h5dict storage (use initStorage command)
@@ -429,6 +436,23 @@ class Simulation():
                 
         """
         mode = mode.lower()
+        
+        if mode == "vtf":
+            if not hasattr(self, "vtf"):             
+                with open(filename,'w') as ff:
+                    ff.write("atom 0:%d  radius 1.2 name H \n" % (self.N-1))
+                self.vtf = True 
+            with open(filename,'a') as ff: 
+                ff.write("timestep\n")
+                if self.PBC == True: ff.write("pbc %lf %lf %lf" % tuple([2*i for i in self.BoxSizeReal]))
+                data = 2 * self.getScaledData()
+                lines = ["%.2lf %.2lf %.2lf \n" % tuple(i) for i in data]
+                ff.writelines(lines)
+            return 
+             
+                
+            
+        
         if mode == "auto":
             if hasattr(self,"storage"):
                 mode = "h5dict"
@@ -437,27 +461,30 @@ class Simulation():
         if mode == "h5dict":            
             if not hasattr(self,"storage"):
                 raise StandardError("Cannot save to h5dict! Initialize storage first!")                            
-            self.storage[str(self.step)] = self.getData()
+            self.storage[str(self.step)] = self.getScaledData()
             return
         
         
 
         if filename == None: 
-            filename =  "block%d.dat" % self.step        
+            if mode == "xyz": filename =  "block%d.xyz" % self.step
+            else: filename =  "block%d.dat" % self.step        
             filename = os.path.join(self.folder , filename)
         
         
         if mode == "joblib":
-            self.metadata["data"] = self.getData()
+            self.metadata["data"] = self.getScaledData()
             self.metadata["timestep"] = self.timestep / fs
             self.metadata["Collision rate"] = self.collisionRate / ps                 
             joblib.dump(self.metadata,filename = filename,compress = 3)
             
-        elif mode == "txt":
-            data = self.getData()
+        elif (mode == "txt") or (mode == "xyz"):
+            data = self.getScaledData()
             lines = [str(len(data)) + "\n"]
-            for particle in data: 
-                lines.append("".join([str(j) + " " for j in particle]) + "\n")
+            if mode == "xyz": lines.append("\n")
+            for j,particle in enumerate(data): 
+                if mode == "txt": lines.append("".join([str(j) + " " for j in particle]) + "\n")
+                else: lines.append("CA " + "".join([str(j) + " " for j in particle]) + "\n")
             with open(filename,'w') as myfile:
                 myfile.writelines(lines)
         else:
@@ -494,6 +521,7 @@ class Simulation():
             maxkey = max(int(i) for i in self.storage.keys())
             self.step = maxkey - 1 
             self.setData(self.storage[str(maxkey-1)])
+    
              
         
     def getData(self):
@@ -502,10 +530,14 @@ class Simulation():
     
     def getScaledData(self):        
         """Returns data, scaled back to PBC box """
+        if self.PBC != True:             
+            return self.getData()        
         alldata = self.getData()
         boxsize = numpy.array(self.BoxSizeReal)
-        mults = numpy.array(alldata / boxsize[None,:],int)
-        return alldata - mults * boxsize[None,:]
+        mults = numpy.floor(alldata / boxsize[None,:])                 
+        toRet =  alldata - mults * boxsize[None,:]
+        assert toRet.min() >=0
+        return toRet
     
     def setData(self,data):
         """Sets particle positions
@@ -519,6 +551,8 @@ class Simulation():
         data = numpy.asarray(data,dtype = "float")
         self.data = units.Quantity(data,nm)
         self.N = len(self.data)
+        if hasattr(self,"context"): self.initPositions()
+        
     def randomizeData(self):
         data = self.getData()
         data += numpy.random.randn(*data.shape) * 0.01    
@@ -531,7 +565,8 @@ class Simulation():
         
         Gyration ratius in units of length (bondlength). 
         """
-        return numpy.sqrt(numpy.sum(numpy.var(numpy.array(self.data/nm) ,0)))
+        data = self.getScaledData()
+        return numpy.sqrt(numpy.sum(numpy.var(numpy.array(data) ,0)))
     
     def RMAX(self):
         """
@@ -540,7 +575,8 @@ class Simulation():
         Distance to the furthest from the origin particle. 
         
         """
-        return numpy.max(numpy.sqrt(numpy.sum((numpy.array(self.data/nm) )**2,1)))
+        data = self.getScaledData()
+        return numpy.max(numpy.sqrt(numpy.sum((numpy.array(data) )**2,1)))
         
     def dist(self,i,j):
         """
@@ -763,7 +799,7 @@ class Simulation():
         else: repulforce.setNonbondedMethod(self.mm.CustomNonbondedForce.CutoffNonPeriodic)
         repulforce.setCutoffDistance(nbCutOffDist)
     
-    def addGrosbergRepulsiveForce(self,trunc=None):
+    def addGrosbergRepulsiveForce(self,trunc=None, radiusMult = 1.):
         """This is the fastest repulsive force.
         
         Parameters
@@ -774,8 +810,9 @@ class Simulation():
              Value of 2.5 yields frequent passing, 4 - average passing, 6 - rare passing. 
         
         """
+        radius = self.conlen * radiusMult 
         self.metadata["GrosbergRepulsiveForce"] = {"trunc":trunc}            
-        nbCutOffDist = self.conlen * 2.**(1./6.)
+        nbCutOffDist = radius * 2.**(1./6.)
         if trunc == None:     
             repul_energy = "4 * REPe * ((REPs/r)^12 - (REPs/r)^6) + REPe"
         else: 
@@ -783,7 +820,7 @@ class Simulation():
         self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(repul_energy)
         repulforceGr = self.forceDict["Nonbonded"]
         repulforceGr.addGlobalParameter('REPe',self.kT)
-        repulforceGr.addGlobalParameter('REPs',self.conlen)
+        repulforceGr.addGlobalParameter('REPs',radius)
         if trunc != None: 
             repulforceGr.addGlobalParameter('REPcut',self.kT * trunc)        
             repulforceGr.addGlobalParameter('REPa',0.001)
@@ -921,17 +958,22 @@ class Simulation():
         for tt in xrange(j-length, j+length):
             repulforce.setParticleParameters(tt,0,self.conlen, self.epsilonRep)
 
-    def addCylindricalConfinement(self,r,bottom = True,k=0.1,weired = False):
+    def addCylindricalConfinement(self,r,bottom = None,k=0.1,weired = False,top = 9999):
         "As it says. Weird was used for Natasha simulations... and is weird."
         
         self.metadata["CylindricalConfinement"] = {"r":r,"bottom":bottom,"k":k,"weird":weired}
-        if bottom == True: extforce2 = self.mm.CustomExternalForce("step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) + step(-z) * CYLkb * (sqrt(z^2 + CYLt^2) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
-        else: extforce2 = self.mm.CustomExternalForce("step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)") 
+        if bottom != None: 
+            extforce2 = self.mm.CustomExternalForce(
+"step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) + step(-z + CYLbot) * CYLkb * (sqrt((z - CYLbot)^2 + CYLt^2) - CYLt) + step(z - CYLtop) * CYLkb * (sqrt((z - CYLtop)^2 + CYLt^2) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")                
+        else: extforce2 = self.mm.CustomExternalForce("step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
+         
         if weired == True: extforce2 = self.mm.CustomExternalForce(" 0.6 * CYLkt * CYLaa*CYLaa / (CYLaa * CYLaa + r * r) + step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa)  + CYLt*CYLt) - CYLt) + step(-z) * CYLkb * (sqrt(z^2 + CYLt^2) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
 
         self.forceDict["CylindricalConfinement"] = extforce2
         for i in xrange(self.N): extforce2.addParticle(i,[])
         extforce2.addGlobalParameter("CYLkb",k*self.kT/nm);
+        extforce2.addGlobalParameter("CYLtop",top*self.conlen);
+        extforce2.addGlobalParameter("CYLbot",top*self.conlen);
         extforce2.addGlobalParameter("CYLkt",self.kT);
         extforce2.addGlobalParameter("CYLweired",nm)
         extforce2.addGlobalParameter("CYLaa",(r - 1./k)*nm);
@@ -969,6 +1011,41 @@ class Simulation():
         spherForce.addGlobalParameter("SPHaa",(r - 1./k)*nm);
         spherForce.addGlobalParameter("SPHt",(1./k)*nm/10.);
         spherForce.addGlobalParameter("SPHtt",0.01*nm);
+
+    def excludeSphere(self,r=5,   #radius... by default uses certain density  
+                                 position = (0,0,0)):      #target density, measured in particles per cubic nanometer (bond size is 1 nm) 
+        """Constrain particles to be within a sphere. With no parameters creates sphere with density .3 
+        
+        Parameters
+        ----------
+        r : float or "density", optional
+            Radius of confining sphere. If "density" requires density, or assumes density = .3 
+        k : float, optional 
+            Steepness of the confining potential, in kT/nm 
+        density : float, optional, <1 
+            Density for autodetection of confining radius. 
+            Density is calculated in particles per nm^3, i.e. at density 1 each sphere has a 1x1x1 cube.             
+        """
+                
+
+        spherForce = self.mm.CustomExternalForce("step(EXaa-r) * EXkb * (sqrt((r-EXaa)*(r-EXaa) + EXt*EXt) - EXt) ;r = sqrt((x-EXx)^2 + (y-EXy)^2 + (z-EXz)^2 + EXtt^2)")
+        self.forceDict["ExcludeSphere"] = spherForce
+        
+        for i in xrange(self.N): spherForce.addParticle(i,[])
+             
+        self.sphericalConfinementRadius = r
+        if self.verbose == True: print "Spherical confinement with radius = %lf" % r 
+        #assigning parameters of the force 
+        spherForce.addGlobalParameter("EXkb",2*self.kT/nm);
+        spherForce.addGlobalParameter("EXaa",(r - 1./3)*nm);
+        spherForce.addGlobalParameter("EXt",(1./3)*nm/10.);
+        spherForce.addGlobalParameter("EXtt",0.01*nm);
+        spherForce.addGlobalParameter("EXx",position[0]*self.conlen);
+        spherForce.addGlobalParameter("EXy",position[1]*self.conlen);
+        spherForce.addGlobalParameter("EXz",position[2]*self.conlen);
+        
+        
+    
 
     def addLaminaAttraction(self,width = 1,depth = 1, r = None):
         """Attracts one domain to the lamina. Infers radius from spherical confinement, that has to be initialized already.
@@ -1082,6 +1159,7 @@ class Simulation():
             print "adding force ",i,self.system.addForce(self.forceDict[i])        
         self.context = self.mm.Context(self.system, self.integrator, self.platform)
         self.forcesApplied = True
+        self.initPositions()
         
     def initVelocities(self,mult=1):
         """Initializes particles velocities
@@ -1193,7 +1271,8 @@ class Simulation():
                 self.integrator.step(num)  #integrate!
                 print ".",
                 sys.stdout.flush()
-            self.integrator.step(steps%num)
+            if (steps % num) > 0:
+                self.integrator.step(steps%num)
             
             self.state = self.context.getState(getPositions=True,getEnergy = True)  #get state of a system: positions, energies
             b = time.time()
@@ -1236,6 +1315,7 @@ class Simulation():
         vel = state.getVelocities()         
         mass = self.system.getParticleMass(0)
         vkT = numpy.array(vel / units.sqrt(self.kT / mass),dtype = float)
+        self.velocs = vkT
         EkPerParticle = 0.5 * numpy.sum(vkT**2,axis = 1)
         EkSimulated = 0.5 * numpy.sum((numpy.random.randn(*vkT.shape)) **2, axis = 1)
         
@@ -1431,7 +1511,7 @@ class SimulationWithCrosslinks(Simulation):
         for i in xrange(self.N): excludeForce.addParticle(i,[])
         
     
-    def fixParticlesZCoordinate(self,particles,zCoordinates,k = 0.3, useOtherAxis = "z"):
+    def fixParticlesZCoordinate(self,particles,zCoordinates,k = 0.3, useOtherAxis = "z", mode = "abs", gap = None):
         """Limits position of a set of particles in z coordinate
         
         Parameters
@@ -1454,9 +1534,21 @@ class SimulationWithCrosslinks(Simulation):
             for par in particles:
                 zCoordinates.append(start + float(stop - start) * (par / float(self.N)))
                 
-        zFixForce = self.mm.CustomExternalForce("ZFIXk * (sqrt((%s - ZFIXr0)^2 + ZFIXa^2) - ZFIXa)" % (useOtherAxis,))
+        if (mode == "abs") and (gap == None): 
+            zFixForce = self.mm.CustomExternalForce("ZFIXk * (sqrt((%s - ZFIXr0)^2 + ZFIXa^2) - ZFIXa)" % (useOtherAxis,))
+            zFixForce.addGlobalParameter("ZFIXk", k * self.kT / (self.conlen))
+        elif (mode == "quadratic") and (gap == None):
+            zFixForce = self.mm.CustomExternalForce("ZFIXk * ((%s - ZFIXr0)^2)" % (useOtherAxis,))
+            zFixForce.addGlobalParameter("ZFIXk", k * self.kT / (self.conlen * self.conlen))
+        elif (mode == "quadratic") and (gap != None): 
+            zFixForce = self.mm.CustomExternalForce("ZFIXk * (step(%s - ZFIXr0 - ZFIXgap) * (%s - ZFIXr0 - ZFIXgap * 0.5)^2 +  step(-%s + ZFIXr0 - ZFIXgap) * (-%s + ZFIXr0 - ZFIXgap * 0.5)^2)" % (useOtherAxis,useOtherAxis,useOtherAxis,useOtherAxis))            
+            zFixForce.addGlobalParameter("ZFIXk", k * self.kT / (self.conlen * self.conlen))
+            zFixForce.addGlobalParameter("ZFIXgap", self.conlen * gap)
+            
+            
+        
         zFixForce.addPerParticleParameter("ZFIXr0")
-        zFixForce.addGlobalParameter("ZFIXk", k * self.kT / (self.conlen))
+        
         zFixForce.addGlobalParameter("ZFIXa", 0.05 * self.conlen)
         for par,zcoor in zip(particles,zCoordinates):
             zFixForce.addParticle(int(par),[float(zcoor)])
@@ -1629,6 +1721,9 @@ class YeastSimulation(Simulation):
 class GrandeSimulation(Simulation,SimulationWithCrosslinks,ExperimentalSimulation):
     pass
 
+
+
+    
                 
 #spiral = create_spiral(3,5.4,6000)        
 #rw = createRW(60000)

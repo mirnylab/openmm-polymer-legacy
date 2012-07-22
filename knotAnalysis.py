@@ -1,6 +1,5 @@
 import numpy 
 from scipy import weave
-import tempfile
 import os
 
 

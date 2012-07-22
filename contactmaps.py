@@ -24,14 +24,11 @@ Find average contact maps
 bla
 
 """
-
-from mirnylib import numutils  
-from array import array 
+   
 import numpy 
 from scipy import weave
 from math import sqrt
 from mirnylib.systemutils import fmapred,fmap , deprecate
-import joblib
 import sys 
 import mirnylib
 

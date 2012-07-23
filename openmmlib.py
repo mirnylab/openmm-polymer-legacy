@@ -122,7 +122,8 @@ import sys,os
 import time
 import joblib
 import tempfile
-import mirnylib.numutils 
+import mirnylib.numutils
+import warnings 
 from mirnylib.systemutils import setExceptionHook
 os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda/lib64:/usr/local/openmm/lib"
 
@@ -961,6 +962,10 @@ class Simulation():
     def addCylindricalConfinement(self,r,bottom = None,k=0.1,weired = False,top = 9999):
         "As it says. Weird was used for Natasha simulations... and is weird."
         
+        if bottom == True:
+            warnings.warn(DeprecationWarning("Use bottom=0 instead of bottom = True! "))
+            bottom = 0 
+        
         self.metadata["CylindricalConfinement"] = {"r":r,"bottom":bottom,"k":k,"weird":weired}
         if bottom != None: 
             extforce2 = self.mm.CustomExternalForce(
@@ -973,7 +978,7 @@ class Simulation():
         for i in xrange(self.N): extforce2.addParticle(i,[])
         extforce2.addGlobalParameter("CYLkb",k*self.kT/nm);
         extforce2.addGlobalParameter("CYLtop",top*self.conlen);
-        extforce2.addGlobalParameter("CYLbot",top*self.conlen);
+        extforce2.addGlobalParameter("CYLbot",bottom*self.conlen);
         extforce2.addGlobalParameter("CYLkt",self.kT);
         extforce2.addGlobalParameter("CYLweired",nm)
         extforce2.addGlobalParameter("CYLaa",(r - 1./k)*nm);
@@ -1223,7 +1228,7 @@ class Simulation():
     
         self.reinitialize()
         
-        for _ in xrange(10): 
+        for _ in xrange(5): 
             self.doBlock(steps = steps, increment = False)
             self.initVelocities()
             
@@ -1231,9 +1236,10 @@ class Simulation():
             self.integrator.setFriction(0.1)
             self.integrator.setStepSize(def_step/7.)
             self.reinitialize()
-            for _ in xrange(5):            
-                self.doBlock(steps = steps, increment = False)
-                self.initVelocities()
+        for _ in xrange(10):            
+            self.doBlock(steps = steps, increment = False)
+            self.initVelocities()
+            
 
         self.integrator.setFriction(def_fric)
         self.integrator.setStepSize(def_step)
@@ -1324,22 +1330,29 @@ class Simulation():
         dists = numpy.sqrt(numpy.sum(centredPos**2, axis = 1))
         per95 = numpy.percentile(dists, 95)
         den = (0.95 * self.N) / ((4. * numpy.pi * per95**3) / 3 )
+        x,y,z = pos[:,0],pos[:,1],pos[:,2]
+        minmedmax = lambda x:(x.min(), numpy.median(x), x.mean(), x.max())
         
         print
         print "Statistics for the simulation %s, number of particles: %d,  number of chains: %d,  mode:  %s" % (self.name, self.N, len(self.chains),self.mode)
         print
-        print "Mean position is: ", numpy.mean(pos,axis = 0), "  Rg = ",self.RG()
+        print "Statistics for particle position"
+        print "     mean position is: ", numpy.mean(pos,axis = 0), "  Rg = ",self.RG()
         print "     median bond size is ", numpy.median(bonds)
         print "     three shortest/longest (<10) bonds are ", sbonds[:3],"  ",sbonds[sbonds < 10][-3:]
         print "     95 percentile of distance to center is:   ",per95
-        print "     density of closest 95% monomers is:   ", den        
+        print "     density of closest 95% monomers is:   ", den
+        print "     min/median/mean/max coordinates are: "
+        print "     x: %.2lf, %.2lf, %.2lf, %.2lf" % minmedmax(x)        
+        print "     y: %.2lf, %.2lf, %.2lf, %.2lf" % minmedmax(y)
+        print "     z: %.2lf, %.2lf, %.2lf, %.2lf" % minmedmax(z)
         print
         print "Statistics for velocities:"      
         print "     mean kinetic energy is: ", numpy.mean(EkPerParticle), "should be:", 1.5 
-        print "     fastest particles are: ", numpy.sort(EkPerParticle)[-5:]
-        print "     fastest particles in simulated distribution:   ", numpy.sort(EkSimulated)[-5:]
-        print "     moments of velosities distribution are:", numpy.mean(EkPerParticle), numpy.var(EkPerParticle), ss.skew(EkPerParticle), scipy.stats.kurtosis(EkPerParticle)
-        print "     moments of simulated  distribution are:", numpy.mean(EkSimulated), numpy.var(EkSimulated), ss.skew(EkSimulated), scipy.stats.kurtosis(EkSimulated)
+        print "     fastest particles are (in kT): ", numpy.sort(EkPerParticle)[-5:]
+        #print "     fastest particles in simulated distribution:   ", numpy.sort(EkSimulated)[-5:]
+        #print "     moments of velosities distribution are:", numpy.mean(EkPerParticle), numpy.var(EkPerParticle), ss.skew(EkPerParticle), scipy.stats.kurtosis(EkPerParticle)
+        #print "     moments of simulated  distribution are:", numpy.mean(EkSimulated), numpy.var(EkSimulated), ss.skew(EkSimulated), scipy.stats.kurtosis(EkSimulated)
         print
         print "Statistics for the system:"
         print "     Forces are: ", self.forceDict.keys()
@@ -1459,16 +1472,16 @@ class SimulationWithCrosslinks(Simulation):
                 self.addBond(a,b,0.5)
                 break
     
-    def addConsecutiveRandomBonds(self,loopSize,bondWiggle,bondLength=0.,smeerLoopSize = 0.2):
+    def addConsecutiveRandomBonds(self,loopSize,bondWiggle,bondLength=0.,smeerLoopSize = 0.2, distanceBetweenBonds = 2):
         shift = int(loopSize * smeerLoopSize)
         assert shift>0        
         begin = numpy.random.randint(shift)
         while True:
             b1 = begin
-            b2 = begin + loopSize
+            b2 = begin + loopSize + numpy.random.randint(shift)
             if b2 > self.N - 3: break
             self.addBond(b1,b2,bondWiggle,bondLength)
-            begin = begin + loopSize + numpy.random.randint(shift) + shift/2
+            begin = b2 + numpy.random.randint(distanceBetweenBonds) 
             if self.verbose == True: print "bond added between %d and %d" % (b1,b2)
             
     def addDoubleRandomLengthBonds(self,bondlength,bondRange,distance):

@@ -634,6 +634,10 @@ class Simulation():
             bondforceGr.addGlobalParameter('GROSs',self.conlen)
             bondforceGr.addGlobalParameter("GROScut",self.conlen * 2.**(1./6.))
             self.forceDict["GrosbergBondForce"] = bondforceGr
+            
+    def addCenterOfMassRemover(self):
+        remover = self.mm.CMMotionRemover(10)
+        self.forceDict["CoM_Remover"] = remover 
                    
     def addBond(self,
                 i,j,   #particles connected by bond
@@ -1136,7 +1140,8 @@ class Simulation():
         pullForce.addPerParticleParameter("PULLz")
         for num,force in zip(particles, forces):
             force = [float(i) * (self.kT / self.conlen)  for i in force]
-            pullForce.addParticle(num,force) 
+            pullForce.addParticle(num,force)
+        self.forceDict["PullForce"] = pullForce  
         
         
                                   

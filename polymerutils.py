@@ -97,7 +97,7 @@ def generateRandomLooping(length = 10000, oneMoverPerBp = 1000 ,numSteps = 100):
             myarray[i[1]] = 1
     
     def addMovers():
-        for i in xrange(numpy.random.poisson(onsetRate)):
+        for _ in xrange(numpy.random.poisson(onsetRate)):
             pos = numpy.random.randint(N-1)
             if myarray[pos:pos+2].sum() == 0:
                 movers.append((pos,pos+1))
@@ -122,7 +122,7 @@ def generateRandomLooping(length = 10000, oneMoverPerBp = 1000 ,numSteps = 100):
             movers[j] = (left,right)
         return moved 
     
-    for i in xrange(numSteps):
+    for _ in xrange(numSteps):
         addMovers()
         translocateMovers()
     while translocateMovers():

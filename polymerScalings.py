@@ -1,17 +1,16 @@
 import mirnylib.systemutils
-from mirnylib.systemutils import fmap, fmapav, setExceptionHook
+from mirnylib.systemutils import fmap
 import polymerutils
 mirnylib.systemutils.setExceptionHook() 
 from mirnylib.numutils import logbins
 from mirnylib.h5dict import h5dict
 import os   
 import contactmaps 
-from contactmaps import Cload, giveContacts
-from polymerutils import load 
+from contactmaps import Cload, giveContacts 
 import cPickle  
-from math import exp,sqrt,log 
+from math import sqrt,log 
 
-import numpy
+import numpy as np 
 
 import matplotlib.pyplot as plt 
 
@@ -46,11 +45,11 @@ def giveCpScaling(data, bins0, cutoff=1.1,integrate = False,ring=False,intContac
     """
                  
     N = len(data[0])
-    bins0 = numpy.array(bins0)          
+    bins0 = np.array(bins0)          
     bins = [(bins0[i], bins0[i + 1]) for i in xrange(len(bins0) - 1)]    
     
     
-    if intContacts == False:   contacts = numpy.array(giveContacts(data,cutoff))      
+    if intContacts == False:   contacts = np.array(giveContacts(data,cutoff))      
     else:  contacts = contactmaps.giveIntContacts(data)           #integer contacts are faster
     
     contacts = contacts[:,1] - contacts[:,0]   #contact lengthes
@@ -58,13 +57,13 @@ def giveCpScaling(data, bins0, cutoff=1.1,integrate = False,ring=False,intContac
     if ring == True:
         mask = contacts > N/2         
         contacts[mask] = N - contacts[mask]       
-    scontacts = numpy.sort(contacts)   #sorted contact lengthes         
-    connections = 1.*numpy.diff(numpy.searchsorted(scontacts, bins0,side = "left"))   #binned contact lengthes
-    possible = numpy.diff(N * bins0 + 0.5 * bins0 - 0.5 * (bins0**2)) 
+    scontacts = np.sort(contacts)   #sorted contact lengthes         
+    connections = 1.*np.diff(np.searchsorted(scontacts, bins0,side = "left"))   #binned contact lengthes
+    possible = np.diff(N * bins0 + 0.5 * bins0 - 0.5 * (bins0**2)) 
     print "average contacts per monomer:", connections.sum() / N
     
     if integrate == False:  connections /= possible
-    if integrate == True: connections = numpy.cumsum(connections)/connections.sum() 
+    if integrate == True: connections = np.cumsum(connections)/connections.sum() 
 
     a = [sqrt(i[0] * i[1]) for i in bins]
     print list(connections) 
@@ -84,7 +83,7 @@ def give_distance(data, bins=None,ring = False ):
     """
     N = len(data[0])
     if ring == True:
-        data = numpy.concatenate([data,data],axis = 1)
+        data = np.concatenate([data,data],axis = 1)
     bins = [(bins[i], bins[i + 1]) for i in xrange(len(bins) - 1)]
     
     rads = [0. for i in xrange(len(bins))]  
@@ -95,9 +94,9 @@ def give_distance(data, bins=None,ring = False ):
         for j in xrange(oneBin[0],oneBin[1], (oneBin[1]-oneBin[0])/10 + 1):
             length = j 
             if ring == True: 
-                rad += numpy.mean(numpy.sqrt(numpy.sum((data[:,:N]-data[:,length:length+N])**2,0)))
+                rad += np.mean(np.sqrt(np.sum((data[:,:N]-data[:,length:length+N])**2,0)))
             else: 
-                rad += numpy.mean(numpy.sqrt(numpy.sum((data[:,:-length]-data[:,length:])**2,0))) 
+                rad += np.mean(np.sqrt(np.sum((data[:,:-length]-data[:,length:])**2,0))) 
             count += 1
          
         rads[i] = rad/count
@@ -112,9 +111,9 @@ def give_radius_scaling(data, bins=None,ring = False):
     
     bins = [sqrt(bins[i]* bins[i + 1]) for i in xrange(len(bins) - 1)]    
         
-    data = numpy.array(data,float)
-    coms = numpy.cumsum(data,1)   #cumulative sum of locations to calculate COM
-    coms2 = numpy.cumsum(data**2,1)  #cumulative sum of locations^2 to calculate RG    
+    data = np.array(data,float)
+    coms = np.cumsum(data,1)   #cumulative sum of locations to calculate COM
+    coms2 = np.cumsum(data**2,1)  #cumulative sum of locations^2 to calculate RG    
     def radius_gyration(len2):
         data 
         if ring == True:
@@ -122,8 +121,8 @@ def give_radius_scaling(data, bins=None,ring = False):
             coms2add = coms2[:,:len2].copy()
             comsadd += coms[:,-1][:,None]
             coms2add += coms2[:,-1][:,None]
-            comsw = numpy.concatenate([coms,comsadd],axis = 1)
-            coms2w = numpy.concatenate([coms2,coms2add],axis = 1)  #for rings we extend need longer chain
+            comsw = np.concatenate([coms,comsadd],axis = 1)
+            coms2w = np.concatenate([coms2,coms2add],axis = 1)  #for rings we extend need longer chain
         else:
             comsw = coms
             coms2w = coms2
@@ -131,8 +130,8 @@ def give_radius_scaling(data, bins=None,ring = False):
         coms2d = (-coms2w[:,:-len2]+coms2w[:,len2:])/len2
         comsd = ((comsw[:,:-len2]-comsw[:,len2:])/len2)**2
         diffs = coms2d - comsd
-        sums = numpy.sqrt(numpy.sum(diffs,0))
-        return numpy.mean(sums)
+        sums = np.sqrt(np.sum(diffs,0))
+        return np.mean(sums)
         
     rads = [0. for i in xrange(len(bins))]
     for i in xrange(len(bins)):
@@ -147,20 +146,20 @@ def give_radius_scaling_eig(data, bins=None):
     x,y,z = data[0],data[1],data[2]
     coords = [x,y,z]
     sums = [[i*j for j in coords] for i in coords]
-    sums = numpy.array(sums) 
+    sums = np.array(sums) 
     N = len(data[0])
-    coms = numpy.cumsum(data,1)
-    sums = numpy.cumsum(sums,2)
+    coms = np.cumsum(data,1)
+    sums = np.cumsum(sums,2)
     def tensor(a,b):        
         newsums = (sums[:,:,b]-sums[:,:,a])/float(b-a)
         newcoms = (coms[:,b] - coms[:,a])/float(b-a)
-        tensor =  newsums - numpy.outer(newcoms,newcoms)
-        return numpy.linalg.eigvalsh(tensor)
+        tensor =  newsums - np.outer(newcoms,newcoms)
+        return np.linalg.eigvalsh(tensor)
     ret = []
     for i in bins:
         av = 0.
         for j in xrange(1000):
-            t = numpy.random.randint(5,N-5-i)
+            t = np.random.randint(5,N-5-i)
             res = tensor(t,t+i)
             av += sqrt(3) * (res[0] * res[1] * res[2] * 1. )**(1/6.) 
         ret.append(av/1000)
@@ -168,67 +167,79 @@ def give_radius_scaling_eig(data, bins=None):
     return  retret
 
 
-def subchainDensityFunction(filenames,bins,normalize = "Rg",lengthmult  = 3, Nbins = 30,coverage = 1 ):
-    "Calculates density function of subchains"
+def subchainDensityFunction(filenames,bins,normalize = "Rg",lengthmult  = 3, Nbins = 30,coverage = 1. ):
+    """Calculates density function of subchains
+    That is, for each bin size, it calculates an average density profile 
+    for subchains of the size within the bin. 
+    Density profile is how density of a subchain depends on a distance from the center.  
+     
+    filenames : str 
+        Filenames to average density function
+    bins : iterable  
+         List of positions of bins (lengthes at which to evaluate).  
+    normalize : str, not implemented
+        How to normalize the subchain density function
+    lengthmult : int, optional
+        Calculate distribution to lengthmult*Rg distance only (default = 3) 
+    Nbins : int, optional 
+        Number of bins for each distribution (default = 30) 
+    coverage : float, optional 
+        Use each monomer 'coverage' times (on average) to calculate each distribution. Default = 1. 
+         
+    
+    """
     
     results = []
-    
+    newbins = [(i - 2, i + 2) for i in bins]
+    binsForRg = sum([list(i) for i in newbins], [])
+    midbins = [(i[0] + i[1])/2 for i in newbins]
     for filename in filenames: 
-        newbins = zip(bins[::2],bins[1::2]) #bin start/end
+        
          
         
         data = polymerutils.load(filename)
         N = len(data) 
          
-        rgs = give_radius_scaling(data.T, bins, ring = False)[1][::2]          
+        rgs = give_radius_scaling(data.T, binsForRg, ring = False)[1][::2]
         curresults = []
         labels = []
         for onebin,rg in zip(newbins,rgs):
-            labels.append("S = %.1lf; " % (numpy.mean(onebin)) + " Rg=%.2lf" % rg)
-            lengthbins = numpy.linspace(0,lengthmult * rg,Nbins)
+            labels.append("S = %.1lf; " % (np.mean(onebin)) + " Rg=%.2lf" % rg)            
+            lengthbins = np.linspace(0,lengthmult * rg,Nbins)
             lengthBinMids = (lengthbins[:-1] + lengthbins[1:])*0.5
             volumes = (4./3.) * 3.141592 * (lengthbins**3) 
-            volumes = numpy.diff(volumes)
-            count = int(N * coverage / numpy.mean(onebin) + 1)
-            sphereCounts = numpy.zeros(len(volumes),float)
+            volumes = np.diff(volumes)
+            count = int(N * coverage / np.mean(onebin) + 1)
+            sphereCounts = np.zeros(len(volumes),float)
             
             for i in xrange(count):
-                size = numpy.random.randint(onebin[0],onebin[1])
-                start = numpy.random.randint(0,N-size)
+                size = np.random.randint(onebin[0],onebin[1])
+                start = np.random.randint(0,N-size)
                 subchain = data[start:start+size]
-                com = numpy.mean(subchain,axis = 0)
+                com = np.mean(subchain,axis = 0)
                 shifted = subchain - com[None,:]
-                dists = numpy.sqrt(numpy.sum(shifted**2,axis = 1))
-                sphereCounts += numpy.histogram(dists, lengthbins)[0]
+                dists = np.sqrt(np.sum(shifted**2,axis = 1))
+                sphereCounts += np.histogram(dists, lengthbins)[0]
             sphereCounts /= (volumes * count)
-            #curresults.append(numpy.array([lengthBinMids/rg,sphereCounts]))
-            curresults.append(numpy.array([lengthBinMids,sphereCounts]))
+            #curresults.append(np.array([lengthBinMids/rg,sphereCounts]))
+            curresults.append(np.array([lengthBinMids,sphereCounts]))
         results.append(curresults)
-    results = numpy.mean(numpy.array(results,float),axis = 0)
+    results = np.mean(np.array(results,float),axis = 0)
     for i,label in zip(results,labels):
-        plt.plot(*i,label = label)
-    
-                 
-    
-    
+        plt.plot(*i,label = label)     
+                                 
     plt.legend()
+    return dict(zip(midbins, results)) 
       
-        
-            
-            
-        
-         
-        
     
-    
-    
+
 
 
 
 
 
 def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", loadFunction = Cload, integrate = False,normalize=False, exceptionList = [],nproc=4):
-    numpy.seterr(invalid='raise')
+    np.seterr(invalid='raise')
     
     plotsBySlice = []
 
@@ -278,7 +289,7 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", 
                     data = data.T
                 if len(data) != 3:
                     raise StandardError("Wrong shape of data")
-                data = numpy.asarray(data,order = "C", dtype = float )                
+                data = np.asarray(data,order = "C", dtype = float )                
                 return data
             except exceptionList: 
                 print "file not found" , i
@@ -289,13 +300,13 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", 
         datas = filter(lambda x:x!=None,fmap(newload,files[::len(files)/20 + 1],n=3))
         datlen = len(datas[0][0])
         
-        if mode == "chain": bins2 =  logbins(4, datlen-100,1.25)        
-        if mode == "parts": bins2 =  logbins(4, datlen-100,1.25)
+        if mode == "chain": bins2 =  logbins(4, datlen-100,1.15)        
+        if mode == "parts": bins2 =  logbins(4, datlen-100,1.15)
         if (mode == "ring") or (mode == "intring"): 
             b1 = logbins(2, datlen/4-1,1.34)
             bins2 =  [2*i for i in b1]
             print bins2
-        binsrg = logbins(4, datlen-100,1.25)
+        binsrg = logbins(4, datlen-100,1.15)
         
         def give_plots(i):
             data = newload(i)
@@ -339,19 +350,19 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", 
                     b[1][i] = b[1][i]  * ((2-2*e)/(2-e))**(1/3.)
                     e = (log(datlen) - log(c[0][i]))/(log(datlen) - log(1))
                     c[1][i] = c[1][i] * ((2-2*e)/(2-e))**(1/3.)                                     
-            a = numpy.array(a,dtype = float)
-            b = numpy.array(b,dtype = float)
-            c = numpy.array(c, dtype = float)  
+            a = np.array(a,dtype = float)
+            b = np.array(b,dtype = float)
+            c = np.array(c, dtype = float)  
 
             
-            return numpy.array([a,b,c])
+            return np.array([a,b,c])
                 
         
         parPlots = fmap(give_plots,files,n=nproc)
         
         parPlots = filter(lambda x:x!=None,parPlots)        
         
-        means = numpy.mean(parPlots,axis = 0)                
+        means = np.mean(parPlots,axis = 0)                
         plotsBySlice.append([means,{"slice":cur_slice}])
           
         
@@ -364,58 +375,58 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode = "chain", 
 
 #give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run4eq/expandedDATA2.dat", 
 #            tosave  = "data/DNA_conf/plots/paper_scalings/ring13eq", 
-#             slices = [11000], sliceParams = (1,1), multipliers = numpy.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
+#             slices = [11000], sliceParams = (1,1), multipliers = np.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
 
 #give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/runDATA1/expandedDATA2.dat",
 #             tosave  = "data/DNA_conf/plots/paper_scalings/ring13", 
-#             slices = [300,1000,70000], sliceParams = (3,4), multipliers = numpy.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
+#             slices = [300,1000,70000], sliceParams = (3,4), multipliers = np.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
 
 
 #give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run5eq/expandedDATA2.dat",
 #             tosave  = "data/DNA_conf/plots/paper_scalings/chain32eq", 
-#             slices = [7000], sliceParams = (1,1), multipliers = numpy.arange(0.5,1,0.0001), mode = "chain", loadFunction = Cload)
+#             slices = [7000], sliceParams = (1,1), multipliers = np.arange(0.5,1,0.0001), mode = "chain", loadFunction = Cload)
 
 #give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run5/expandedDATA2.dat",
 #             tosave  = "data/DNA_conf/plots/paper_scalings/chain32", 
-#             slices = [300,1000,30000], sliceParams = (1,1), multipliers = numpy.arange(0.5,1,0.0001), mode = "chain", loadFunction = Cload)
+#             slices = [300,1000,30000], sliceParams = (1,1), multipliers = np.arange(0.5,1,0.0001), mode = "chain", loadFunction = Cload)
 #  
 #give_slices(base = "/home/magus/evo/topo371_256_equilibrium/runDATA1/expandedDATA2.dat",
 #             tosave  = "data/DNA_conf/plots/paper_scalings/ring_256_eq", 
-#             slices = [2,3,7,13], sliceParams = (1,10), multipliers = numpy.arange(0.7,1,0.0001), mode = "intring", loadFunction = intload)
+#             slices = [2,3,7,13], sliceParams = (1,10), multipliers = np.arange(0.7,1,0.0001), mode = "intring", loadFunction = intload)
 
 #-------- equilibrium Rings low density -----------
 
 #give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run6_lowden/expandedDATA2.dat",
 #             tosave  = "data/DNA_conf/plots/paper_scalings/ring13_lowd", 
-#             slices = [6200], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
+#             slices = [6200], sliceParams = (3), multipliers = np.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
 
 
 #give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run6_eq/expandedDATA2.dat",
 #             tosave  = "data/DNA_conf/plots/paper_scalings/ring13_lowd_eq", 
-#             slices = [4600], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
+#             slices = [4600], sliceParams = (3), multipliers = np.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
 
 #---------------ETE distance for N=108000 ----------------
 #give_slices(base = "/home/magus/evo/topo36_108_grow/runDATA1/expandedDATA2.dat",
 #             tosave  = "data/DNA_conf/plots/paper_scalings/ring_108_eq", 
-#             slices = [20000], sliceParams = (1,10), multipliers = numpy.arange(0.7,1,0.01), mode = "intring", loadFunction = intload)
+#             slices = [20000], sliceParams = (1,10), multipliers = np.arange(0.7,1,0.01), mode = "intring", loadFunction = intload)
 
 #---------------------------Equilibrium rings, 4k ---------
 """give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run7_small/expandedDATA2.dat",
              tosave  = "/home/magus/workspace/testnucl2/data/DNA_conf/plots/paper_scalings/ring4", 
-             slices = [4000], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
+             slices = [4000], sliceParams = (3), multipliers = np.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
 
 give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run7_eq/expandedDATA2.dat",
              tosave  = "data/DNA_conf/plots/paper_scalings/ring4_eq", 
-             slices = [7000], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
+             slices = [7000], sliceParams = (3), multipliers = np.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
 
 give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run8_tiny/expandedDATA2.dat",
              tosave  = "data/DNA_conf/plots/paper_scalings/ring2", 
-             slices = [14000], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
+             slices = [14000], sliceParams = (3), multipliers = np.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
 
 
 give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run8_tiny_eq/expandedDATA2.dat",
              tosave  = "data/DNA_conf/plots/paper_scalings/ring2_eq", 
-             slices = [9000], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
+             slices = [9000], sliceParams = (3), multipliers = np.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
 """
 
 
@@ -451,13 +462,13 @@ class h5dictLoad(object):
 def _test():
     def giveStraightChain(x,y):
         N = 4000
-        a = numpy.zeros((N,3),float)
-        a[:,0] = numpy.arange(N)
+        a = np.zeros((N,3),float)
+        a[:,0] = np.arange(N)
         return a 
     
     scalings = give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run8_tiny_eq/expandedDATA2.dat",
                  tosave  = None, 
-                 slices = [9000], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.01), mode = "chain", loadFunction = giveStraightChain)
+                 slices = [9000], sliceParams = (3), multipliers = np.arange(0.5,1,0.01), mode = "chain", loadFunction = giveStraightChain)
     plt.plot(*scalings[0][0][0])
     plt.show()
     plt.plot(*scalings[0][0][1])
@@ -472,7 +483,7 @@ def _test():
 
 #scalings = give_slices(base = "/home/magus/HiC2011/openmm_simulations/02_nechaev_corsslinks/blockDATA2.dat",
 #             tosave  = None, 
-#             slices = [100,500], sliceParams = (3), multipliers = numpy.arange(0.5,1,0.0001), mode = "chain", loadFunction = (lambda x,y:joblib.load(x)["data"]) )
+#             slices = [100,500], sliceParams = (3), multipliers = np.arange(0.5,1,0.0001), mode = "chain", loadFunction = (lambda x,y:joblib.load(x)["data"]) )
 
 
 #setExceptionHook()

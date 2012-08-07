@@ -1,13 +1,11 @@
 import numpy 
 from scipy import weave
-import os
+import os,os.path
 
 
+folderName = os.path.split(__file__)[0]
+reduceKnotFilename = os.path.join(folderName,"Reduce_knot20")
         
-    
-     
-
-
 
 
 def findSimplifiedPolymer(data):
@@ -240,13 +238,10 @@ def getKnotNumber(data):
         name = newfile.name
         newfile.flush()
         
-        os.system("./Reduce_knot20 %s > %s_%s" % (name,name,"_output"))
+        os.system("%s %s > %s_%s" % (reduceKnotFilename, name,name,"_output"))
         lines = open("%s_%s" % (name,"_output")).readlines()
         os.remove("%s_%s" % (name,"_output"))
         return lines 
-    
-    
-        
     
 
 

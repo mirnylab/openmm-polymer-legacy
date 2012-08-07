@@ -116,15 +116,12 @@ Select timestep or collision rate - :py:class:`Simulation`
 
 
 import numpy
-import scipy.stats
 import cPickle
 import sys,os
 import time
 import joblib
 import tempfile
-import mirnylib.numutils
 import warnings 
-from mirnylib.systemutils import setExceptionHook
 os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda/lib64:/usr/local/openmm/lib"
 
 import simtk.openmm as openmm
@@ -1138,7 +1135,7 @@ class Simulation():
         pullForce.addPerParticleParameter("PULLx")
         pullForce.addPerParticleParameter("PULLy")
         pullForce.addPerParticleParameter("PULLz")
-        for num,force in zip(particles, forces):
+        for num,force in map(None,particles, forces):
             force = [float(i) * (self.kT / self.conlen)  for i in force]
             pullForce.addParticle(num,force)
         self.forceDict["PullForce"] = pullForce  
@@ -1315,8 +1312,7 @@ class Simulation():
     def printStats(self):
         """Prints detailed statistics of a system. 
         Will be run every 50 steps        
-        """
-        ss = scipy.stats #shortcut
+        """        
         state = self.context.getState(getPositions = True, getVelocities = True, getEnergy = True)
         
         eP = state.getPotentialEnergy()
@@ -1328,13 +1324,15 @@ class Simulation():
         vkT = numpy.array(vel / units.sqrt(self.kT / mass),dtype = float)
         self.velocs = vkT
         EkPerParticle = 0.5 * numpy.sum(vkT**2,axis = 1)
-        EkSimulated = 0.5 * numpy.sum((numpy.random.randn(*vkT.shape)) **2, axis = 1)
+        #EkSimulated = 0.5 * numpy.sum((numpy.random.randn(*vkT.shape)) **2, axis = 1)
         
         cm = numpy.mean(pos,axis = 0)
         centredPos = pos - cm[None,:]
         dists = numpy.sqrt(numpy.sum(centredPos**2, axis = 1))
         per95 = numpy.percentile(dists, 95)
         den = (0.95 * self.N) / ((4. * numpy.pi * per95**3) / 3 )
+        per5 = numpy.percentile(dists, 5)
+        den5 = (0.05 * self.N) / ((4. * numpy.pi * per5**3) / 3 )
         x,y,z = pos[:,0],pos[:,1],pos[:,2]
         minmedmax = lambda x:(x.min(), numpy.median(x), x.mean(), x.max())
         
@@ -1347,6 +1345,7 @@ class Simulation():
         print "     three shortest/longest (<10) bonds are ", sbonds[:3],"  ",sbonds[sbonds < 10][-3:]
         print "     95 percentile of distance to center is:   ",per95
         print "     density of closest 95% monomers is:   ", den
+        print "     density of the core monomers is:   ", den5
         print "     min/median/mean/max coordinates are: "
         print "     x: %.2lf, %.2lf, %.2lf, %.2lf" % minmedmax(x)        
         print "     y: %.2lf, %.2lf, %.2lf, %.2lf" % minmedmax(y)
@@ -1508,7 +1507,7 @@ class SimulationWithCrosslinks(Simulation):
             begin = b2
         
     
-    def addAttractionToTheCore(self,k,r0,coreParticles = []):
+    def     addAttractionToTheCore(self,k,r0,coreParticles = []):
             
         "Attracts a subset of particles to the core, repells the rest from the core"
                 
@@ -1518,15 +1517,16 @@ class SimulationWithCrosslinks(Simulation):
         attractForce.addGlobalParameter("COREtt",0.001 *  self.conlen)                
         self.forceDict["CoreAttraction"] = attractForce        
         for i in coreParticles:              
-            attractForce.addParticle(int(i),[])                
+            attractForce.addParticle(int(i),[])
         
-
-        excludeForce = self.mm.CustomExternalForce(" CORE2k * ((CORE2r - CORE2rn) ^ 2) * step(CORE2rn - CORE2r) ;CORE2r = sqrt(x^2 + y^2 + CORE2tt^2)")
-        excludeForce.addGlobalParameter("CORE2k",k*self.kT/(self.conlen*self.conlen))
-        excludeForce.addGlobalParameter("CORE2rn",r0 * self.conlen)
-        excludeForce.addGlobalParameter("CORE2tt",0.001 *  self.conlen)
-        self.forceDict["CoreExclusion"] = excludeForce
-        for i in xrange(self.N): excludeForce.addParticle(i,[])
+        if r0 > 0.1:                         
+    
+            excludeForce = self.mm.CustomExternalForce(" CORE2k * ((CORE2r - CORE2rn) ^ 2) * step(CORE2rn - CORE2r) ;CORE2r = sqrt(x^2 + y^2 + CORE2tt^2)")
+            excludeForce.addGlobalParameter("CORE2k",k*self.kT/(self.conlen*self.conlen))
+            excludeForce.addGlobalParameter("CORE2rn",r0 * self.conlen)
+            excludeForce.addGlobalParameter("CORE2tt",0.001 *  self.conlen)
+            self.forceDict["CoreExclusion"] = excludeForce
+            for i in xrange(self.N): excludeForce.addParticle(i,[])
         
     
     def fixParticlesZCoordinate(self,particles,zCoordinates,k = 0.3, useOtherAxis = "z", mode = "abs", gap = None):
@@ -1559,16 +1559,17 @@ class SimulationWithCrosslinks(Simulation):
             zFixForce = self.mm.CustomExternalForce("ZFIXk * ((%s - ZFIXr0)^2)" % (useOtherAxis,))
             zFixForce.addGlobalParameter("ZFIXk", k * self.kT / (self.conlen * self.conlen))
         elif (mode == "quadratic") and (gap != None): 
-            zFixForce = self.mm.CustomExternalForce("ZFIXk * (step(%s - ZFIXr0 - ZFIXgap) * (%s - ZFIXr0 - ZFIXgap * 0.5)^2 +  step(-%s + ZFIXr0 - ZFIXgap) * (-%s + ZFIXr0 - ZFIXgap * 0.5)^2)" % (useOtherAxis,useOtherAxis,useOtherAxis,useOtherAxis))            
+            zFixForce = self.mm.CustomExternalForce("ZFIXk * (step(%s - ZFIXr0 - ZFIXgap * 0.5) * (%s - ZFIXr0 - ZFIXgap * 0.5)^2 +  step(-%s + ZFIXr0 - ZFIXgap * 0.5) * (-%s + ZFIXr0 - ZFIXgap * 0.5)^2)" % (useOtherAxis,useOtherAxis,useOtherAxis,useOtherAxis))            
             zFixForce.addGlobalParameter("ZFIXk", k * self.kT / (self.conlen * self.conlen))
             zFixForce.addGlobalParameter("ZFIXgap", self.conlen * gap)
+        else: raise RuntimeError("Not implemented")
             
             
         
         zFixForce.addPerParticleParameter("ZFIXr0")
         
         zFixForce.addGlobalParameter("ZFIXa", 0.05 * self.conlen)
-        for par,zcoor in zip(particles,zCoordinates):
+        for par,zcoor in map(None,particles,zCoordinates):
             zFixForce.addParticle(int(par),[float(zcoor)])
         self.forceDict["fixZCoordinates"] = zFixForce
             

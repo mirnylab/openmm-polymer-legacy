@@ -1205,7 +1205,7 @@ class Simulation():
         self.initPositions()
         self.initVelocities(mult)
         
-    def energyMinimization(self,steps = 1000,twoStage = False,collisionRate = 1.3, initialDrop = None):
+    def energyMinimization(self,steps = 200,twoStage = False,collisionRate = 1.3, adaptive  = False):
         """Runs system at smaller timestep and higher collision rate to resolve possible conflicts.
         Does 10 or 15 (two-stage) blocks. 
         
@@ -1231,9 +1231,28 @@ class Simulation():
         
         def_fric = self.integrator.getFriction()
         
-        if not initialDrop == None:
-            self.integrator.setStepSize(def_step/float(initialDrop))        
-            self.integrator.setFriction(0.3)
+        if adaptive == True: 
+            drop = 100. 
+            while drop > 2:
+                self.integrator.setStepSize(def_step/float(drop))        
+                self.integrator.setFriction(1)
+                #self.reinitialize()
+                numAttempts = 30 
+                for attempt in xrange(numAttempts):
+                    a = self.doBlock(50, increment = False,reinitialize= False)
+                    if a == False:
+                        drop *= 2 
+                        print "Drop increased to {0}".format(drop)
+                        break
+                    if attempt == numAttempts -1:
+                        drop /= 2
+                        print "Drop decreased to {0}".format(drop)
+                    
+                        
+                
+                
+                
+            
             for _ in range(steps / 10):
                 self.doBlock(30, increment = False)
                 self.initVelocities()
@@ -1242,7 +1261,7 @@ class Simulation():
         self.integrator.setStepSize(def_step/15.)        
         self.integrator.setFriction(collisionRate)
     
-        self.reinitialize()
+        #self.reinitialize()
         
         for _ in xrange(5): 
             self.doBlock(steps = steps, increment = False)
@@ -1251,7 +1270,7 @@ class Simulation():
         if twoStage == True:
             self.integrator.setFriction(0.1)
             self.integrator.setStepSize(def_step/7.)
-            self.reinitialize()
+            #self.reinitialize()
         for _ in xrange(10):            
             self.doBlock(steps = steps, increment = False)
             self.initVelocities()
@@ -1262,7 +1281,7 @@ class Simulation():
         self.reinitialize()
         print "Finished energy minimization"
                 
-    def doBlock(self,steps = None,increment = True,num = None):
+    def doBlock(self,steps = None,increment = True,num = None, reinitialize = True):
         """performs one block of simulations, doing steps timesteps, or steps_per_block if not specified. 
         
         Parameters
@@ -1310,6 +1329,8 @@ class Simulation():
             if (numpy.isnan(newcoords).any()) or (eK > 20) or (numpy.isnan(eK) ) or (numpy.isnan(eP)):
                 self.context.setPositions(self.data)
                 self.initVelocities()
+                if reinitialize == False: 
+                    return False                 
                 print "trying one more time at step # %i" % self.step
             else:
                 dif = numpy.sqrt(numpy.mean(numpy.sum((newcoords - self.getData())**2,axis = 1)))
@@ -1322,6 +1343,7 @@ class Simulation():
                 self.energyMinimization(100)
             if attempt == 5:                                
                 self.exitProgram("exceeded number of attmpts")
+            return True 
                 
     def printStats(self):
         """Prints detailed statistics of a system. 

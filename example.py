@@ -26,7 +26,8 @@ def exampleOpenmm():
     a.addGrosbergRepulsiveForce()   #Fastest pure repulsive force
     #a.addGrosbergStiffness()
     a.addStiffness() 
-    a.energyMinimization(steps = 200,twoStage= True)
+    
+    a.energyMinimization(steps = 200,twoStage= True,adaptive = True )
             
     for _ in xrange(10):
         a.doBlock(3000)        

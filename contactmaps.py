@@ -31,7 +31,7 @@ from math import sqrt
 from mirnylib.systemutils import fmapred,fmap , deprecate
 import sys 
 import mirnylib
-
+import mirnylib.numutils
 from polymerutils import load 
 import warnings
 import polymerutils

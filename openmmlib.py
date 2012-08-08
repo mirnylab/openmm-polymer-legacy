@@ -1205,7 +1205,7 @@ class Simulation():
         self.initPositions()
         self.initVelocities(mult)
         
-    def energyMinimization(self,steps = 1000,twoStage = False,collisionRate = 1.3):
+    def energyMinimization(self,steps = 1000,twoStage = False,collisionRate = 1.3, initialDrop = None):
         """Runs system at smaller timestep and higher collision rate to resolve possible conflicts.
         Does 10 or 15 (two-stage) blocks. 
         
@@ -1223,9 +1223,23 @@ class Simulation():
         if self.forcesApplied == False:
             self._applyForces()
             self.forcesApplied = True
+        
+         
+            
+        
         def_step = self.integrator.getStepSize()
-        self.integrator.setStepSize(def_step/15.)
-        def_fric = self.integrator.getFriction()        
+        
+        def_fric = self.integrator.getFriction()
+        
+        if not initialDrop == None:
+            self.integrator.setStepSize(def_step/float(initialDrop))        
+            self.integrator.setFriction(0.3)
+            for _ in range(steps / 10):
+                self.doBlock(30, increment = False)
+                self.initVelocities()
+            
+            
+        self.integrator.setStepSize(def_step/15.)        
         self.integrator.setFriction(collisionRate)
     
         self.reinitialize()

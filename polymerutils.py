@@ -1,6 +1,8 @@
 import numpy 
 import joblib
 import os 
+from math import sqrt, sin, cos  
+from mirnylib.plotting import showPolymerRasmol
 
 
 def load(filename, h5dictKey = None):
@@ -75,7 +77,7 @@ def save(data, filename, mode = "txt", h5dictKey = "1" ):
     if  mode == "txt":        
         lines = [str(len(data)) + "\n"]
         for particle in data: 
-            lines.append("".join([str(j) + " " for j in particle]) + "\n")
+            lines.append("".join([str(j) + " " for j in particle]) + "\n")            
         with open(filename,'w') as myfile:
             myfile.writelines(lines)
         return 
@@ -130,8 +132,77 @@ def generateRandomLooping(length = 10000, oneMoverPerBp = 1000 ,numSteps = 100):
     return movers 
              
             
+def create_spiral(r1,r2,N):
+    Pi = 3.141592
+    points = []
+    finished = [False]
+    def rad(phi):
+        return phi/(2*Pi)
+    def ang(rad):
+        return 2*Pi*rad
+    def coord(phi):
+        r = rad(phi)
+        return (r*sin(phi),r*cos(phi))
+    def fullcoord(phi,z):
+        c = coord(phi)
+        return [c[0],c[1],z]
+    def dist(phi1,phi2):
+        c1 = coord(phi1)
+        c2 = coord(phi2)
+        d = sqrt((c1[1]-c2[1])**2+(c1[0]-c2[0])**2) 
+        return d
+    def nextphi(phi):        
+        phi1 = phi
+        phi2 = phi + 0.7*Pi
+        mid = phi2
+        while abs(dist(phi,mid)-1 ) > 0.00001:            
+            mid = (phi1 + phi2)/2.
+            if dist(phi,mid) > 1 : phi2 = mid
+            else: phi1 = mid
+        return mid
+    def prevphi(phi):
+        
+        phi1 = phi
+        phi2 = phi - 0.7*Pi
+        mid = phi2
+        
+        while abs(dist(phi,mid)-1 ) > 0.00001:            
+            mid = (phi1 + phi2)/2.
+            if dist(phi,mid) > 1 : phi2 = mid
+            else: phi1 = mid
+        return mid
     
+    def add_point(point,points=points,finished=finished):        
+        if (len(points) == N) or (finished[0] == True):
+            points = numpy.array(points)            
+            finished[0] = True
+            print "finished!!!"
+        else: 
+            points.append(point)
             
+    z = 0
+    forward = True
+    curphi = ang(r1)
+    add_point(fullcoord(curphi, z))
+    while True:
+        if finished[0] == True:
+            return numpy.transpose(points) 
+        if forward == True:
+            curphi = nextphi(curphi)
+            add_point(fullcoord(curphi, z))
+            if(rad(curphi) > r2):
+                forward = False
+                z+=1
+                add_point(fullcoord(curphi, z))
+        else: 
+            curphi = prevphi(curphi)
+            add_point(fullcoord(curphi, z))
+            if(rad(curphi) < r1):
+                forward = True
+                z+=1
+                add_point(fullcoord(curphi, z))
+
+
 
                 
     

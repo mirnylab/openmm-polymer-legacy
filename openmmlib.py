@@ -114,7 +114,7 @@ Select timestep or collision rate - :py:class:`Simulation`
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 
-
+ 
 import numpy
 import cPickle
 import sys,os
@@ -122,6 +122,8 @@ import time
 import joblib
 import tempfile
 import warnings 
+import string,random
+
 os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda/lib64:/usr/local/openmm/lib"
 
 import simtk.openmm as openmm
@@ -611,7 +613,7 @@ class Simulation():
         cPickle.dump(self.domains,open(os.path.join(self.folder ,"domains.dat"),'wb'))
         if hasattr(self,"storage"):
             self.storage["domains"] = self.domains
-                    
+            
                 
     def _initHarmonicBondForce(self):
         "Internal, inits harmonic forse for polymer and non-polymer bonds"
@@ -631,6 +633,32 @@ class Simulation():
             bondforceGr.addGlobalParameter('GROSs',self.conlen)
             bondforceGr.addGlobalParameter("GROScut",self.conlen * 2.**(1./6.))
             self.forceDict["GrosbergBondForce"] = bondforceGr
+
+    def _initAbsBondForce(self):        
+        "inits abs(x) FENE bond force"
+        if "AbsBondForce" not in self.forceDict.keys():
+            force = "(1. / ABSwiggle) * ABSunivK * (sqrt((r-ABSr0 * ABSconlen)*(r - ABSr0 * ABSconlen) + ABSa * ABSa) - ABSa)"
+            bondforceAbs  = self.mm.CustomBondForce(force)            
+            bondforceAbs.addPerBondParameter("ABSwiggle")
+            bondforceAbs.addPerBondParameter("ABSr0")            
+            bondforceAbs.addGlobalParameter("ABSunivK",self.kT / self.conlen)
+            bondforceAbs.addGlobalParameter("ABSa",0.02 * self.conlen)
+            bondforceAbs.addGlobalParameter("ABSconlen", self.conlen)
+            self.forceDict["AbsBondForce"] = bondforceAbs
+            
+    def _initAbsDistanceLimitation(self):        
+        "inits abs(x) FENE bond force"
+        if "AbsLimitation" not in self.forceDict.keys():
+            force = "(1. / ABSwiggle) * ABSunivK * step(r - ABSr0 * ABSconlen) *  (sqrt((r-ABSr0 * ABSconlen)*(r - ABSr0 * ABSconlen) + ABSa * ABSa) - ABSa) "
+            bondforceAbsLim  = self.mm.CustomBondForce(force)            
+            bondforceAbsLim.addPerBondParameter("ABSwiggle")
+            bondforceAbsLim.addPerBondParameter("ABSr0")            
+            bondforceAbsLim.addGlobalParameter("ABSunivK",self.kT / self.conlen)
+            bondforceAbsLim.addGlobalParameter("ABSa",0.02 * self.conlen)
+            bondforceAbsLim.addGlobalParameter("ABSconlen", self.conlen)
+            self.forceDict["AbsLimitation"] = bondforceAbsLim
+
+
             
     def addCenterOfMassRemover(self):
         remover = self.mm.CMMotionRemover(10)
@@ -638,7 +666,7 @@ class Simulation():
                    
     def addBond(self,
                 i,j,   #particles connected by bond
-                bondWiggleDistance,  # -----> Harmonic only!!! <--------  
+                bondWiggleDistance = 0.2,  # -----> Harmonic only!!! <--------  
                                      #Flexibility of the bond,  measured in distance at which energy equals kT
                 distance = None,     #Equilibrium length of the bond -----> Harmonic only!!! <--------
                 bondType = None,     #Harmonic or Grosberg  
@@ -658,8 +686,7 @@ class Simulation():
             Set this to False if you're in verbose mode and don't want to print "bond added" message
             
         """
-        
-        
+
         if verbose == None:
             verbose = self.verbose 
         if (i>=self.N) or (j>=self.N): 
@@ -667,8 +694,8 @@ class Simulation():
         bondSize = float(bondWiggleDistance)
         if distance == None: distance = self.conlen / nm
         else:  distance = self.conlen * distance / nm
+        distance  = float(distance)
         
-        distance  = float(distance)        
         if bondType == None: 
             bondType = self.bondType
                          
@@ -679,8 +706,15 @@ class Simulation():
             if verbose == True: print "Harmonic bond added between %d,%d, params %lf %lf" % (i,j,float(distance),float(kbond))
             
         elif bondType.lower() == "grosberg":
-            self.initGrosbergForce()
-            self.forceDict["GrosbergForce"].addBond(int(i),int(j),[])
+            self._initGrosbergBondForce()
+            self.forceDict["GrosbergBondForce"].addBond(int(i),int(j),[])
+        elif bondType.lower() == "abs":
+            self._initAbsBondForce()
+            self.forceDict["AbsBondForce"].addBond(int(i),int(j),[float(bondWiggleDistance),float(distance)])
+        elif bondType.lower() == "abslim":
+            self._initAbsDistanceLimitation()
+            self.forceDict["AbsLimitation"].addBond(int(i),int(j),[float(bondWiggleDistance),float(distance)])
+
         else: self.exitProgram("Bond type not known")
 
           
@@ -710,15 +744,14 @@ class Simulation():
         k : float, optional
             Arbitrary parameter; default value as in Grosberg paper.   
         
-         """
-        self._initGrosbergBondForce()
-        force = self.forceDict["GrosbergBondForce"]
+         """                
+         
         for i in self.chains:
             for j in xrange(i[0],i[1] - 1):
-                force.addBond(j,j+1,[])
+                self.addBond(j,j+1,bondType = "Grosberg")
                 self.bondsForException.append((j,j+1))               
             if self.mode == "ring":
-                force.addBond(i[0],i[1] - 1,[])
+                self.addBond(i[0],i[1] - 1,bondType  = "Grosberg")
                 self.bondsForException.append((i[0],i[1] - 1))
                 if self.verbose == True: print "ring bond added", i[0],i[1]-1
         self.metadata["GorsbergPolymerForce"] = {"k":k}
@@ -979,7 +1012,7 @@ class Simulation():
         for i in xrange(self.N): extforce2.addParticle(i,[])
         extforce2.addGlobalParameter("CYLkb",k*self.kT/nm);
         extforce2.addGlobalParameter("CYLtop",top*self.conlen);
-        extforce2.addGlobalParameter("CYLbot",bottom*self.conlen);
+        if bottom != None: extforce2.addGlobalParameter("CYLbot",bottom*self.conlen);
         extforce2.addGlobalParameter("CYLkt",self.kT);
         extforce2.addGlobalParameter("CYLweired",nm)
         extforce2.addGlobalParameter("CYLaa",(r - 1./k)*nm);
@@ -1143,6 +1176,10 @@ class Simulation():
         
                                   
     def _applyForces(self):
+        
+        
+        if self.forcesApplied == True:
+            return  
         """Applies all the forces in the forcedict. 
         Forces should not be modified after that, unless you do it carefully (see openmm reference)."""
         exc = self.bondsForException        
@@ -1153,7 +1190,7 @@ class Simulation():
             exc = numpy.sort(exc,axis = 1) 
             exc = [tuple(i) for i in exc]
             exc = list(set(exc)) #only unique pairs are left
-             
+
         for i in self.forceDict.keys():   #Adding exceptions 
             force = self.forceDict[i]
             if type(force) == self.mm.NonbondedForce:
@@ -1164,9 +1201,11 @@ class Simulation():
                     #force.addExclusion(*pair) 
                     force.addExclusion(int(pair[0]),int(pair[1]))                                     
             print "adding force ",i,self.system.addForce(self.forceDict[i])        
-        self.context = self.mm.Context(self.system, self.integrator, self.platform)
-        self.forcesApplied = True
+                                     
+        self.context = self.mm.Context(self.system, self.integrator, self.platform)        
         self.initPositions()
+        self.forcesApplied = True
+        
         
     def initVelocities(self,mult=1):
         """Initializes particles velocities
@@ -1187,10 +1226,15 @@ class Simulation():
     def initPositions(self):
         """Sends particle coordinates to OpenMM system. 
         If system has exploded, this is used in the code to reset coordinates. """
+        print "Positions... ",
+        try: self.context
+        except: raise ValueError("No context, cannot set velocs. Initialize context before that") 
+        
         self.context.setPositions(self.data)
+        print " loaded!",
         state = self.context.getState(getPositions=True,getEnergy = True)  #get state of a system: positions, energies
         eP = state.getPotentialEnergy()/self.N/self.kT        
-        print "Positions loaded, potential energy is %lf" % eP
+        print "potential energy is %lf" % eP
         
     def reinitialize(self,mult = 1):
         """Reinitializes the OpenMM context object. 
@@ -1219,16 +1263,10 @@ class Simulation():
             Override default collision rage. Can be used for heavy minimization. 
             
         """
-        print "Performing energy minimization"
-        if self.forcesApplied == False:
-            self._applyForces()
-            self.forcesApplied = True
+        print "Performing energy minimization"        
+        self._applyForces()        
         
-         
-            
-        
-        def_step = self.integrator.getStepSize()
-        
+        def_step = self.integrator.getStepSize()        
         def_fric = self.integrator.getFriction()
         
         if adaptive == True: 
@@ -1247,16 +1285,6 @@ class Simulation():
                     if attempt == numAttempts -1:
                         drop /= 2
                         print "Drop decreased to {0}".format(drop)
-                    
-                        
-                
-                
-                
-            
-            for _ in range(steps / 10):
-                self.doBlock(30, increment = False)
-                self.initVelocities()
-            
             
         self.integrator.setStepSize(def_step/15.)        
         self.integrator.setFriction(collisionRate)
@@ -1591,6 +1619,12 @@ class SimulationWithCrosslinks(Simulation):
         if (mode == "abs") and (gap == None): 
             zFixForce = self.mm.CustomExternalForce("ZFIXk * (sqrt((%s - ZFIXr0)^2 + ZFIXa^2) - ZFIXa)" % (useOtherAxis,))
             zFixForce.addGlobalParameter("ZFIXk", k * self.kT / (self.conlen))
+        elif (mode == "abs") and (gap != None): 
+            zFixForce = self.mm.CustomExternalForce("ZFIXk * step(%s - ZFIXr0 - ZFIXgap * 0.5) * (sqrt((%s - ZFIXr0 - ZFIXgap * 0.5)^2 + ZFIXa^2) - ZFIXa) + ZFIXk * step(-%s + ZFIXr0 - ZFIXgap * 0.5) * (sqrt((-%s + ZFIXr0 - ZFIXgap * 0.5)^2 + ZFIXa^2) - ZFIXa)" % (useOtherAxis,useOtherAxis,useOtherAxis,useOtherAxis))
+            zFixForce.addGlobalParameter("ZFIXk", k * self.kT / (self.conlen))
+            zFixForce.addGlobalParameter("ZFIXgap", self.conlen * gap)
+
+        
         elif (mode == "quadratic") and (gap == None):
             zFixForce = self.mm.CustomExternalForce("ZFIXk * ((%s - ZFIXr0)^2)" % (useOtherAxis,))
             zFixForce.addGlobalParameter("ZFIXk", k * self.kT / (self.conlen * self.conlen))

@@ -1,14 +1,15 @@
 '''Add the parent directory ../ to one of the bash settings files.
 '''
-import os, sys
+import os
+import sys
 
 libpath = os.getcwd()
 if libpath.startswith(os.path.expanduser('~')):
-    libpath = os.path.join(*(['$HOME',] + libpath.split(os.sep)[3:]))
+    libpath = os.path.join(*(['$HOME', ] + libpath.split(os.sep)[3:]))
 
 export_line = 'export PYTHONPATH="$PYTHONPATH:{0}"'.format(libpath)
 
-profiles = [os.path.expanduser(i) 
+profiles = [os.path.expanduser(i)
             for i in ['~/.bash_profile', '~/.bashrc']]
 
 # Do nothing if the library is already exported.
@@ -18,18 +19,15 @@ for profile_path in profiles:
         for line in open(profile_path):
             if export_line in line:
                 print 'The PYTHONPATH is already set in {0}'.format(
-                       profile_path)
-                setflag = 0 
-                break  
-                
+                    profile_path)
+                setflag = 0
+                break
+
     if setflag == 1:
 
         profile_file = open(profile_path, 'a')
         profile_file.writelines(
             ['\n# Added by the mirnylab install script.\n',
-             export_line, 
+             export_line,
              '\n'])
         print 'PYTHONPATH is added to {0}'.format(profile_path)
-
-
-

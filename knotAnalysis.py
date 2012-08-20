@@ -1,25 +1,27 @@
-import numpy 
+import numpy
 from scipy import weave
-import os,os.path
+import os
+import os.path
 
 
 folderName = os.path.split(__file__)[0]
-reduceKnotFilename = os.path.join(folderName,"Reduce_knot20")
-        
+reduceKnotFilename = os.path.join(folderName, "Reduce_knot20")
 
 
 def findSimplifiedPolymer(data):
     """a weave.inline wrapper for polymer simplification code
     Calculates a simplified topologically equivalent polymer ring"""
-    
-    if len(data) != 3: data = numpy.transpose(data)
-    if len(data) != 3: raise ValueError("Wrong dimensions of data")        
-    datax = numpy.array(data[0],float, order = "C")
-    datay = numpy.array(data[1], float,order = "C")
-    dataz = numpy.array(data[2], float,order = "C")
+
+    if len(data) != 3:
+        data = numpy.transpose(data)
+    if len(data) != 3:
+        raise ValueError("Wrong dimensions of data")
+    datax = numpy.array(data[0], float, order="C")
+    datay = numpy.array(data[1], float, order="C")
+    dataz = numpy.array(data[2], float, order="C")
     N = len(datax)
-    ret = numpy.array([1])    
-    datax,datay,dataz,N ##eclipse warning removal 
+    ret = numpy.array([1])
+    datax, datay, dataz, N  # eclipse warning removal
     code = r"""
     #line 290 "binary_search.py"
     int M = 0;
@@ -36,16 +38,16 @@ def findSimplifiedPolymer(data):
     {
     position[i].x = datax[i] +  0.00001*(rand()%1000);
     position[i].y = datay[i] +0.00001*(rand()%1000);
-    position[i].z  = dataz[i] +  0.00001*(rand()%1000);    
+    position[i].z  = dataz[i] +  0.00001*(rand()%1000);
     }
     todelete = vector <int> (N);
-    for (i=0;i<N;i++) todelete[i] == -2;    
+    for (i=0;i<N;i++) todelete[i] == -2;
     while (true)
         {
-        maxdist = 0; 
+        maxdist = 0;
         for (i=0;i<N-1;i++)
         {
-        if (dist(i,i+1) > maxdist) {maxdist = dist(i,i+1);}        
+        if (dist(i,i+1) > maxdist) {maxdist = dist(i,i+1);}
         }
         //printf ("maxdist = %lf\n",maxdist);
         turn++;
@@ -60,10 +62,11 @@ def findSimplifiedPolymer(data):
                 double dd = dist(j,k);
                 if (dd  < 3 * maxdist)
                 {
-        
+
                 if (k < j-2 || k > j+1)
                     {
-                    sum = intersect(position[j-1],position[j],position[j+1],position[k],position[k+1]);
+                    sum = intersect(position[j-1],position[j],position[
+                        j+1],position[k],position[k+1]);
                     if (sum!=0)
                         {
                         //printf("intersection at %d,%d\n",j,k);
@@ -90,7 +93,7 @@ def findSimplifiedPolymer(data):
             break;
             }
         for (int j=0;j<N;j++)
-            {            
+            {
             if (todelete[t] == j)
                 {
                 t++;
@@ -99,24 +102,24 @@ def findSimplifiedPolymer(data):
             else
                 {
                 newposition[s++] = position[j];
-                }            
+                }
             }
         N = s;
         M = 0;
         t = 0;
-        position = newposition;            
+        position = newposition;
         }
     ret[0] = N;
-    
+
     for (i=0;i<N;i++)
     {
     datax[i]  = position[i].x;
     datay[i]  = position[i].y;
-    dataz[i]  = position[i].z;            
-    }    
+    dataz[i]  = position[i].z;
+    }
     """
     support = r"""
-#line 400 "binary_search.py"    
+#line 400 "binary_search.py"
 #include <cstdlib>
 #include <iostream>
 #include <iomanip>
@@ -153,7 +156,7 @@ vector <point> position;
 vector <point> newposition;
 vector <int> todelete;
 int N;
-int i; 
+int i;
 double dist(int i,int j);
 double dotProduct(point a,point b);
 int intersect(point t1,point t2,point t3,point r1,point r2);
@@ -162,7 +165,7 @@ inline double sqr(double x){
     return x*x;
 }
 inline double dist(int i,int j){
-    return sqrt(dotProduct((position[i]-position[j]),(position[i]-position[j])));
+return sqrt(dotProduct((position[i]-position[j]),(position[i]-position[j])));
 }
 
 inline double dist(point a,point b){
@@ -216,39 +219,38 @@ else return -1;
 }
 }
 //DNA conformation
-"""    
-    weave.inline(code, ['datax', 'datay','dataz', 'N','ret'], extra_compile_args=['-malign-double'],support_code =support )
-    
-    data = numpy.array([datax,datay,dataz]).T
-    
+"""
+    weave.inline(code, ['datax', 'datay', 'dataz', 'N', 'ret'],
+                 extra_compile_args=['-malign-double'], support_code=support)
+
+    data = numpy.array([datax, datay, dataz]).T
+
     return data[:ret[0]]
-     
-
-
 
 
 def getKnotNumber(data):
     data = numpy.array(data)
-    if len(data) == 3: data = data.T
-    with  open("bla",'w') as newfile:
+    if len(data) == 3:
+        data = data.T
+    with  open("bla", 'w') as newfile:
         newfile.write("t=0\n\n%d\n" % len(data))
-        for j,i in enumerate(data):
-            newfile.write("%d %lf %lf %lf\n" % tuple([j+1] + list(i)))
-        
+        for j, i in enumerate(data):
+            newfile.write("%d %lf %lf %lf\n" % tuple([j + 1] + list(i)))
+
         name = newfile.name
         newfile.flush()
-        
-        os.system("%s %s > %s_%s" % (reduceKnotFilename, name,name,"_output"))
-        lines = open("%s_%s" % (name,"_output")).readlines()
-        os.remove("%s_%s" % (name,"_output"))
-        return lines 
-    
+
+        os.system("%s %s > %s_%s" % (reduceKnotFilename, name,
+                                     name, "_output"))
+        lines = open("%s_%s" % (name, "_output")).readlines()
+        os.remove("%s_%s" % (name, "_output"))
+        return lines
 
 
-def expandPolymerRing(data, mode = "auto"):
+def expandPolymerRing(data, mode="auto"):
     """
-    Expands polymer ring or chain using OpenMM. 
-    
+    Expands polymer ring or chain using OpenMM.
+
     Parameters
     ----------
     data : Nx3 or 3xN array of coordinates
@@ -256,43 +258,40 @@ def expandPolymerRing(data, mode = "auto"):
     mode : str, optional
         "ring", or "chain", default - autodetect
     """
-    
+
     from openmmlib import Simulation
-    sim = Simulation(timestep = 20,thermostat = 0.02,velocityReinitialize= True )
+    sim = Simulation(
+        timestep=20, thermostat=0.02, velocityReinitialize=True)
     sim.setup()
     sim.load(data)
     sim.randomizeData()
-    if mode == "auto":        
-        if sim.dist(0,sim.N - 1) < 2:
+    if mode == "auto":
+        if sim.dist(0, sim.N - 1) < 2:
             mode = "ring"
         else:
             mode = "chain"
-    sim.setLayout(mode = mode )
-    sim.addHarmonicPolymerBonds(wiggleDist= 0.1)
+    sim.setLayout(mode=mode)
+    sim.addHarmonicPolymerBonds(wiggleDist=0.1)
     sim.addGrosbergRepulsiveForce(trunc=10)
-    sim.addGrosbergStiffness(k = 4)
-    sim.energyMinimization(steps = 50, twoStage = True)
+    sim.addGrosbergStiffness(k=4)
+    sim.energyMinimization(steps=50, twoStage=True)
     for _ in xrange(200):
         sim.doBlock(500)
     return sim.getData()
-       
-     
-def analyzeKnot(data, useOpenmm = False):
-    
-    if useOpenmm == True: data = expandPolymerRing(data)
+
+
+def analyzeKnot(data, useOpenmm=False):
+
+    if useOpenmm == True:
+        data = expandPolymerRing(data)
     data = numpy.asarray(data)
     if len(data) == 3:
-        data = data.T    
-    
+        data = data.T
+
     t = findSimplifiedPolymer(data)
-    #t = data 
-    print "simplified to: %d monomers" % len(t) 
+    #t = data
+    print "simplified to: %d monomers" % len(t)
     number = getKnotNumber(t)
-    print number 
-    num =  float(number[0].split()[1]) 
-    return num 
-
-
-    
-        
-
+    print number
+    num = float(number[0].split()[1])
+    return num

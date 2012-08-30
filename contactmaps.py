@@ -603,15 +603,18 @@ def averageContactMap(filenames, resolution=500, cutoff=1.7,
             print i
             try:
                 data = loadFunction(i)  # load filename
-            except exceptionsToIgnore:        # if file faled to load, return empty map
+            except exceptionsToIgnore:
+                # if file faled to load, return empty map
                 print "file not found"
                 return numpy.zeros((Nbase, Nbase), "float")
             return rescaledMap(data, Nbase, cutoff)  # return rescaled map
-
-        return fmapred(action, filenames, n=n, exceptionList=exceptionsToIgnore)  # using simple fork-map-reduce with out exception list
+        
+        return fmapred(action, filenames, n=n, exceptionList=exceptionsToIgnore)
+        
     else:
         """
-        Now we actually need to modify our contact map by adding contacts from each new file to the contact map.
+        Now we actually need to modify our contact map by adding
+        contacts from each new file to the contact map.
         We do it this way because our contact map is huge (maybe a gigabyte!),
         so we can't just add many gigabyte-sized arrays together.
         Instead of this each worker creates an empty "average contact map",
@@ -654,7 +657,8 @@ def _test():
 
     print "----> Testing giveContacts subroutine"
     try:
-        c = polymerutils.load("/net/evolution/home/magus/trajectories/globule_creation/32000_RW/crumpled1.dat")
+        c = polymerutils.load("/net/evolution/home/magus/trajectories/"\
+                              "globule_creation/32000_RW/crumpled1.dat")
         c = c[:16000]
     except:
         N = 5000

@@ -1405,7 +1405,7 @@ class Simulation():
         self.name = "minim"
         if (steps != None) or (twoStage != None) or (collisionRate != None):
             warnings.warn(UserWarning(
-                "Energy minimization switched to adaptive algorithm!" \
+                "Energy minimization switched to adaptive algorithm! \n " \
                 "All original parameters are deprecated!"))
 
         def_step = self.integrator.getStepSize()
@@ -1438,7 +1438,7 @@ class Simulation():
 
         if failNotConverged and (minimizeDrop() == -1):
             raise RuntimeError(
-                "Reached maximum number of iterations\n"\
+                "Reached maximum number of iterations and still not converged\n"\
                 "increase maxIterations or set failNotConverged=False")
         self.name = oldName
         self.integrator.setFriction(def_fric)
@@ -1520,7 +1520,7 @@ class Simulation():
                 self.energyMinimization(100)
             if attempt == 5:
                 self.exitProgram("exceeded number of attmpts")
-            return True
+        return True
 
     def printStats(self):
         """Prints detailed statistics of a system.

@@ -899,7 +899,10 @@ class Simulation():
         if trunc is None:
             repul_energy = 'REPepsilon*(REPsigma/r)^12'
         else:
-            repul_energy = '1/((1/REPcutoff) + (1/REPU + 0.0001 * REPcutoff));REPU=REPepsilon*(REPsigma/r)^12;r2 = (r^10. + (0.3 * REPsigma)^10.)^0.1 '
+            repul_energy = '''step(REPcut2 - REPU) * REPU +'''\
+            ''' step(REPU - REPcut2) * REPcut2 * (1 + tanh(REPU/REPcut2 - 1));
+REPU = REPepsilon * (REPsigma / r) ^ 12;
+r2 = (r^10. + (REPsigma03)^10.)^0.1 '''
         #last equation is to avoid NANs when r is close to zero
 
         epsilonRep = rep * units.kilocalorie_per_mole
@@ -909,17 +912,13 @@ class Simulation():
         repulforce = self.forceDict["Nonbonded"]
         if trunc is not None:
             repulforce.addGlobalParameter('REPcutoff', trunc * self.kT)
+            repulforce.addGlobalParameter('REPcut2', 0.5 * trunc * self.kT)
         repulforce.addGlobalParameter('REPepsilon', epsilonRep)
         repulforce.addGlobalParameter('REPsigma', sigmaRep)
+        repulforce.addGlobalParameter('REPsigma03', 0.3 * sigmaRep)
         for _ in range(self.N):
             repulforce.addParticle(())
-        if self.PBC:
-            repulforce.setNonbondedMethod(
-                self.mm.CustomNonbondedForce.CutoffPeriodic)
-            print "Using periodic boundary conditions!!!!!!!!!!"
-        else:
-            repulforce.setNonbondedMethod(
-                self.mm.CustomNonbondedForce.CutoffNonPeriodic)
+            
         repulforce.setCutoffDistance(nbCutOffDist)
 
     def addGrosbergRepulsiveForce(self, trunc=None, radiusMult=1.):
@@ -940,24 +939,23 @@ class Simulation():
         if trunc is None:
             repul_energy = "4 * REPe * ((REPs/r)^12 - (REPs/r)^6) + REPe"
         else:
-            repul_energy = "1 / (1 / REPcut + 1 / (REPU0 + REPa * REPcut) ) - REPcut * (REPa/(REPa+1)) ;REPU0 = 4 * REPe * ((REPs/r2)^12 - (REPs/r2)^6) + REPe;r2 = (r^10. + (0.3 * REPs)^10.)^0.1"
+            repul_energy = '''step(REPcut2 - REPU) * REPU +'''\
+            ''' step(REPU - REPcut2) * REPcut2 * (1 + tanh(REPU/REPcut2 - 1));
+REPU = 4 * REPe * ((REPsigma/r2)^12 - (REPsigma/r2)^6) + REPe;
+r2 = (r^10. + (REPsigma03)^10.)^0.1 '''
         self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(
             repul_energy)
         repulforceGr = self.forceDict["Nonbonded"]
         repulforceGr.addGlobalParameter('REPe', self.kT)
-        repulforceGr.addGlobalParameter('REPs', radius)
+
+        repulforceGr.addGlobalParameter('REPsigma', radius)
+        repulforceGr.addGlobalParameter('REPsigma03', 0.3 * radius)
         if trunc is not None:
             repulforceGr.addGlobalParameter('REPcut', self.kT * trunc)
-            repulforceGr.addGlobalParameter('REPa', 0.001)
+            repulforceGr.addGlobalParameter('REPcut2', 0.5 * trunc * self.kT)
         for _ in range(self.N):
             repulforceGr.addParticle(())
-        if self.PBC:
-            repulforceGr.setNonbondedMethod(
-                self.mm.CustomNonbondedForce.CutoffPeriodic)
-            print "Using periodic boundary conditions!!!!!!!!11"
-        else:
-            repulforceGr.setNonbondedMethod(
-                self.mm.CustomNonbondedForce.CutoffNonPeriodic)
+
         repulforceGr.setCutoffDistance(nbCutOffDist)
 
     def addLennardJonesForce(
@@ -1018,29 +1016,47 @@ class Simulation():
         repulforce = self.mm.NonbondedForce()
 
         self.forceDict["Nonbonded"] = repulforce
-        if domains == False:
-            for i in xrange(self.N):
-                if numpy.random.random() > blindFraction:
-                    repulforce.addParticle(0, sigmaRep, epsilonRep)
-                else:
-                    repulforce.addParticle(0, 0, 0)
-        else:
-            for i in xrange(self.N):
-                if numpy.random.random() > blindFraction:
-                    if self.domains[i] == 0:
-                        repulforce.addParticle(0, sigmaRep, epsilonRep)
-                    else:
-                        repulforce.addParticle(0, sigmaAttr, epsilonAttr)
-                else:
-                    repulforce.addParticle(0, 0, 0)
-        if self.PBC:
-            repulforce.setNonbondedMethod(
-                self.mm.NonbondedForce.CutoffPeriodic)
-            print "Using periodic boundary conditions!!!!"
-        else:
-            repulforce.setNonbondedMethod(
-                self.mm.NonbondedForce.CutoffNonPeriodic)
+        for i in xrange(self.N):
+            particleParameters = [0., 0., 0.]
+
+            if numpy.random.random() > blindFraction:
+                particleParameters[1] = (sigmaRep)
+                particleParameters[2] = (epsilonRep)
+
+                if domains == True:
+                    if self.domains[i] != 0:
+                        particleParameters[1] = (sigmaAttr)
+                        particleParameters[2] = (epsilonAttr)
+
+            repulforce.addParticle(*particleParameters)
+
         repulforce.setCutoffDistance(nbCutOffDist)
+
+    def addSoftLennardJonesForce(self, epsilon=0.42, trunc=2, cutoff=2.5):
+        epsilon = epsilon * self.kT
+        trunc = trunc * self.kT
+        
+        nbCutOffDist = self.conlen * cutoff
+
+        repul_energy = '''step(REPcut2 - REPU) * REPU +'''\
+        ''' step(REPU - REPcut2) * REPcut2 * (1 + tanh(REPU/REPcut2 - 1));
+REPU = 4 * REPe * ((REPsigma/r2)^12 - (REPsigma/r2)^6);
+r2 = (r^10. + (REPsigma03)^10.)^0.1'''
+        self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(
+            repul_energy)
+        repulforceGr = self.forceDict["Nonbonded"]
+        repulforceGr.addGlobalParameter('REPe', epsilon)
+
+        repulforceGr.addGlobalParameter('REPsigma', self.conlen)
+        repulforceGr.addGlobalParameter('REPsigma03', 0.3 * self.conlen)        
+        repulforceGr.addGlobalParameter('REPcut', self.kT * trunc)
+        repulforceGr.addGlobalParameter('REPcut2', 0.5 * trunc * self.kT)
+        
+        for _ in range(self.N):
+            repulforceGr.addParticle(())
+
+        repulforceGr.setCutoffDistance(nbCutOffDist)
+
 
     def addMutualException(self, particles):
         """used to exclude a bunch of particles
@@ -1316,14 +1332,22 @@ class Simulation():
 
         for i in self.forceDict.keys():  # Adding exceptions
             force = self.forceDict[i]
-            if type(force) == self.mm.NonbondedForce:
+            if hasattr(force, "addException"):
                 for pair in exc:
                     force.addException(int(pair[0]),
                         int(pair[1]), 0, 0, 0, True)
-            elif type(force) == self.mm.CustomNonbondedForce:
+            elif hasattr(force, "addExclusion"):
                 for pair in exc:
                     #force.addExclusion(*pair)
                     force.addExclusion(int(pair[0]), int(pair[1]))
+
+            if hasattr(force, "CutoffNonPeriodic") and hasattr(
+                                                    force, "CutoffPeriodic"):
+                if self.PBC:
+                    force.setNonbondedMethod(force.CutoffPeriodic)
+                    print "Using periodic boundary conditions!!!!"
+                else:
+                    force.setNonbondedMethod(force.CutoffNonPeriodic)
             print "adding force ", i, self.system.addForce(self.forceDict[i])
 
         self.context = self.mm.Context(
@@ -1391,6 +1415,7 @@ class Simulation():
     def energyMinimization(self, steps=None, twoStage=None,
                            collisionRate=None,
                            maxIterations=1000,
+                           stepsPerIteration=100,
                            failNotConverged=True):
         """Runs system at smaller timestep and higher collision
         rate to resolve possible conflicts.
@@ -1422,7 +1447,7 @@ class Simulation():
                 #self.reinitialize()
                 numAttempts = 5
                 for attempt in xrange(numAttempts):
-                    a = self.doBlock(50, increment=False,
+                    a = self.doBlock(stepsPerIteration, increment=False,
                         reinitialize=False)
                     #self.initVelocities()
                     if a == False:
@@ -1498,7 +1523,7 @@ class Simulation():
             if self.velocityReinialize == True:
                 if eK > 2.4:
                     self.initVelocities()
-            print " Coord[1]=[%.1lf %.1lf %.1lf] " % tuple(newcoords[0]),
+            print " pos[1]=[%.1lf %.1lf %.1lf] " % tuple(newcoords[0]),
 
             if (numpy.isnan(newcoords).any()) or (eK > 20) or \
             (numpy.isnan(eK)) or (numpy.isnan(eP)):
@@ -1510,7 +1535,7 @@ class Simulation():
             else:
                 dif = numpy.sqrt(numpy.mean(numpy.sum((newcoords -
                     self.getData()) ** 2, axis=1)))
-                print "sq(MSD)=%.2lf" % (dif,),
+                print "shift=%.2lf" % (dif,),
                 self.data = coords
                 print " %.2lf kin, %.2lf pot, %.2lf tot," % (eK,
                     eP, eK + eP), " Rg=%.3lf" % self.RG(),
@@ -1722,12 +1747,16 @@ class SimulationWithCrosslinks(Simulation):
                                   smeerLoopSize=0.2, distanceBetweenBonds=2):
         shift = int(loopSize * smeerLoopSize)
         assert shift > 0
-        begin = numpy.random.randint(shift)
+        begin = numpy.random.randint(distanceBetweenBonds)
         while True:
             b1 = begin
             b2 = begin + loopSize + numpy.random.randint(shift)
             if b2 > self.N - 3:
-                break
+                if (self.N - b1) > (5 * distanceBetweenBonds + 5):
+                    b2 = self.N - 1 - numpy.random.randint(distanceBetweenBonds)
+                else:
+                    break
+
             self.addBond(b1, b2, bondWiggle, bondLength)
             begin = b2 + numpy.random.randint(distanceBetweenBonds)
             if self.verbose == True:

@@ -6,6 +6,7 @@ import sys
 import joblib
 
 
+
 def showData(data):
     #if you want to change positions of the spheres along each segment, change these numbers
     #e.g. [0,.1, .2 ...  .9] will draw 10 spheres, and this will look better

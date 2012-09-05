@@ -362,8 +362,8 @@ class Simulation():
         "returns configuration of chains"
         return self.chains
 
-    def load(self, filename,  # Input filename, or input data array
-             center=False,  # Shift center of mass to zero?
+    def load(self, filename, # Input filename, or input data array
+             center=False, # Shift center of mass to zero?
              h5dictKey=None
              ):
         """loads data from file.
@@ -446,7 +446,7 @@ class Simulation():
         except:
             pass
 
-    def save(self, mode="auto", filename=None):
+    def save(self, filename=None, mode="auto"):
         """Saves conformation plus some metadata.
         Metadata is not interpreted by this library, and is for your reference
 
@@ -687,7 +687,7 @@ class Simulation():
             force = "(1. / ABSwiggle) * ABSunivK * "\
             "(sqrt((r-ABSr0 * ABSconlen)* "\
             " (r - ABSr0 * ABSconlen) + ABSa * ABSa) - ABSa)"
-            
+
             bondforceAbs = self.mm.CustomBondForce(force)
             bondforceAbs.addPerBondParameter("ABSwiggle")
             bondforceAbs.addPerBondParameter("ABSr0")
@@ -714,12 +714,12 @@ class Simulation():
         self.forceDict["CoM_Remover"] = remover
 
     def addBond(self,
-                i, j,  # particles connected by bond
+                i, j, # particles connected by bond
                 bondWiggleDistance=0.2,
                 # Flexibility of the bond,
                 # measured in distance at which energy equals kT
-                distance=None,  # Equilibrium length of the bond
-                bondType=None,  # Harmonic, Grosberg, ABS
+                distance=None, # Equilibrium length of the bond
+                bondType=None, # Harmonic, Grosberg, ABS
                 verbose=None):  # Set this to False if you're in verbose mode
                 # and don't want to contaminate output by 10000 messages
         """Adds bond between two particles, allows to specify parameters
@@ -918,7 +918,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1 '''
         repulforce.addGlobalParameter('REPsigma03', 0.3 * sigmaRep)
         for _ in range(self.N):
             repulforce.addParticle(())
-            
+
         repulforce.setCutoffDistance(nbCutOffDist)
 
     def addGrosbergRepulsiveForce(self, trunc=None, radiusMult=1.):
@@ -960,7 +960,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1 '''
 
     def addLennardJonesForce(
         self, cutoff=2.5, domains=False, epsilonRep=0.24, epsilonAttr=0.27,
-        blindFraction=-1, sigmaRep=None, sigmaAttr=None):
+        blindFraction= -1, sigmaRep=None, sigmaAttr=None):
 
         """
         Adds a lennard-jones force, that allows for mutual attraction.
@@ -1035,7 +1035,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1 '''
     def addSoftLennardJonesForce(self, epsilon=0.42, trunc=2, cutoff=2.5):
         epsilon = epsilon * self.kT
         trunc = trunc * self.kT
-        
+
         nbCutOffDist = self.conlen * cutoff
 
         repul_energy = '''step(REPcut2 - REPU) * REPU +'''\
@@ -1048,10 +1048,10 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         repulforceGr.addGlobalParameter('REPe', epsilon)
 
         repulforceGr.addGlobalParameter('REPsigma', self.conlen)
-        repulforceGr.addGlobalParameter('REPsigma03', 0.3 * self.conlen)        
+        repulforceGr.addGlobalParameter('REPsigma03', 0.3 * self.conlen)
         repulforceGr.addGlobalParameter('REPcut', self.kT * trunc)
         repulforceGr.addGlobalParameter('REPcut2', 0.5 * trunc * self.kT)
-        
+
         for _ in range(self.N):
             repulforceGr.addParticle(())
 
@@ -1152,8 +1152,8 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         extforce2.addGlobalParameter("CYLtt", 0.01 * nm)
 
     def addSphericalConfinement(self,
-                r="density",  # radius... by default uses certain density
-                k=5.,  # How steep the walls are
+                r="density", # radius... by default uses certain density
+                k=5., # How steep the walls are
                 density=.3):  # target density, measured in particles
                                 #per cubic nanometer (bond size is 1 nm)
         """Constrain particles to be within a sphere.
@@ -1640,7 +1640,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
                     "Too many particles are close together. "\
                     "This will cause rasmol to choke")
 
-        rascript = tempfile.NamedTemporaryFile()  
+        rascript = tempfile.NamedTemporaryFile()
         # writing the rasmol script. Spacefill controls radius of the sphere.
         rascript.write("""wireframe off
         color temperature
@@ -1678,7 +1678,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
                 towrite.name, rascript.name))
         else:  # if windows
             os.system("C:/RasWin/raswin.exe -xyz %s -script %s" % (
-                                        towrite.name, rascript.name)) 
+                                        towrite.name, rascript.name))
 
         rascript.close()
         towrite.close()
@@ -1865,7 +1865,7 @@ class SimulationWithCrosslinks(Simulation):
             "step(-%s + ZFIXr0 - ZFIXgap * 0.5) * "\
             "(-%s + ZFIXr0 - ZFIXgap * 0.5)^2)" \
             % (useOtherAxis, useOtherAxis, useOtherAxis, useOtherAxis))
-            
+
             zFixForce.addGlobalParameter("ZFIXk", k * self.kT /
                 (self.conlen * self.conlen))
             zFixForce.addGlobalParameter("ZFIXgap", self.conlen * gap)

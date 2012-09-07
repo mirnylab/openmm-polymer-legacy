@@ -69,6 +69,38 @@ for compatibility with the systems used in Grosberg forces
 External forces include spherical confinement, cylindrical confinement,
 attraction to "lamina"- surface of a cylinder, gravity, etc.
 
+Information, printed on current step
+------------------------------------
+
+A sample line of information printed on each step looks like this:
+
+minim  bl=5 . . . . (i)  pos[1]=[99.2 52.1 52.4]  shift=0.54
+4.58 kin, 49.18 pot, 53.76 tot,  Rg=107.312 SPS=144:
+
+Let's go over it step by step.
+
+minim - simulation name (sim -default, minim - energy minimization.
+Other name can be provided in self.name).
+
+bl=5 - name of a current block
+
+. . . . . : each dot indicates current subblock. If dots stopped,
+maybe the system have crushed
+
+(i) indicate that velocity reinitialization was done at this step.
+You will simultaneously see that Ek is more than 2.4
+
+pos[1] is a position of a first monomer
+
+shift is sqrt(mean square displacement) of monomers, i.e.
+how much did a monomer shift on average.
+
+4.58 kin, 49.18 pot, 53.76 tot - energies: kinetic, potential, total
+
+Rg=107.312 - current radius of gyration (size of the system)
+
+SPS - steps per second
+
 
 Functions
 ---------
@@ -1437,7 +1469,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         def_fric = self.integrator.getFriction()
 
         def minimizeDrop():
-            drop = 100.
+            drop = 10.
             for dummy in xrange(maxIterations):
                 if drop < 1:
                     drop = 1.
@@ -1499,7 +1531,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
             self.printStats()
 
         for attempt in xrange(6):
-            print "%s  block=%d" % (self.name, self.step),
+            print "%s  bl=%d" % (self.name, self.step),
             if num is None:
                 num = steps / 5 + 1
             a = time.time()
@@ -1519,9 +1551,12 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
             newcoords = coords / nm
             eK = self.state.getKineticEnergy() / self.N / \
                 self.kT  # calculate energies in KT/particle
+
             eP = self.state.getPotentialEnergy() / self.N / self.kT
+
             if self.velocityReinialize == True:
                 if eK > 2.4:
+                    print "(i)",
                     self.initVelocities()
             print " pos[1]=[%.1lf %.1lf %.1lf] " % tuple(newcoords[0]),
 
@@ -1537,8 +1572,8 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
                     self.getData()) ** 2, axis=1)))
                 print "shift=%.2lf" % (dif,),
                 self.data = coords
-                print " %.2lf kin, %.2lf pot, %.2lf tot," % (eK,
-                    eP, eK + eP), " Rg=%.3lf" % self.RG(),
+                print " %.2lf kin, %.2lf pot," % (eK,
+                    eP), " Rg=%.3lf" % self.RG(),
                 print "SPS=%.0lf:" % (steps / (float(b - a)))
                 break
             if attempt in [3, 4]:
@@ -1744,7 +1779,8 @@ class SimulationWithCrosslinks(Simulation):
                 break
 
     def addConsecutiveRandomBonds(self, loopSize, bondWiggle, bondLength=0.,
-                                  smeerLoopSize=0.2, distanceBetweenBonds=2):
+                                  smeerLoopSize=0.2, distanceBetweenBonds=2,
+                                  verbose=False):
         shift = int(loopSize * smeerLoopSize)
         assert shift > 0
         begin = numpy.random.randint(distanceBetweenBonds)
@@ -1757,7 +1793,8 @@ class SimulationWithCrosslinks(Simulation):
                 else:
                     break
 
-            self.addBond(b1, b2, bondWiggle, bondLength)
+            self.addBond(b1, b2, bondWiggle, bondLength,
+                         verbose=verbose)
             begin = b2 + numpy.random.randint(distanceBetweenBonds)
             if self.verbose == True:
                 print "bond added between %d and %d" % (b1, b2)

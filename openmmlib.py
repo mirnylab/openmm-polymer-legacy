@@ -796,9 +796,6 @@ class Simulation():
                 ** 2) / (units.kilojoule_per_mole / nm ** 2)
             self.forceDict["HarmonicBondForce"].addBond(
                 int(i), int(j), float(distance), float(kbond))
-            if verbose == True:
-                print "Harmonic bond added between %d,%d, params %lf %lf" % (
-                    i, j, float(distance), float(kbond))
 
         elif bondType.lower() == "grosberg":
             self._initGrosbergBondForce()
@@ -814,6 +811,10 @@ class Simulation():
 
         else:
             self.exitProgram("Bond type not known")
+        if verbose == True:
+            print "%s bond added between %d,%d, wiggle %lf dist %lf" % (
+                bondType, i, j, float(bondWiggleDistance), float(distance))
+
 
     def addHarmonicPolymerBonds(self, wiggleDist=0.05):
         """Adds harmonic bonds connecting polymer chains
@@ -1537,7 +1538,6 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
             a = time.time()
             for _ in xrange(steps / num):
                 self.integrator.step(num)  # integrate!
-                print ".",
                 sys.stdout.flush()
             if (steps % num) > 0:
                 self.integrator.step(steps % num)
@@ -1558,7 +1558,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
                 if eK > 2.4:
                     print "(i)",
                     self.initVelocities()
-            print " pos[1]=[%.1lf %.1lf %.1lf] " % tuple(newcoords[0]),
+            print "pos[1]=[%.1lf %.1lf %.1lf]" % tuple(newcoords[0]),
 
             if (numpy.isnan(newcoords).any()) or (eK > 20) or \
             (numpy.isnan(eK)) or (numpy.isnan(eP)):
@@ -1570,11 +1570,11 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
             else:
                 dif = numpy.sqrt(numpy.mean(numpy.sum((newcoords -
                     self.getData()) ** 2, axis=1)))
-                print "shift=%.2lf" % (dif,),
+                print "disp=%.2lf" % (dif,),
                 self.data = coords
-                print " %.2lf kin, %.2lf pot," % (eK,
-                    eP), " Rg=%.3lf" % self.RG(),
-                print "SPS=%.0lf:" % (steps / (float(b - a)))
+                print "%.2lf kin %.2lf pot" % (eK,
+                    eP), "Rg=%.3lf" % self.RG(),
+                print "SPS=%.0lf" % (steps / (float(b - a)))
                 break
             if attempt in [3, 4]:
                 self.energyMinimization(100)

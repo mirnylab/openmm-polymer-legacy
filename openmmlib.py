@@ -871,12 +871,13 @@ class Simulation():
             Potential is k * alpha^2 * 0.5 * kT
         """
         stiffForce = self.mm.CustomAngleForce(
-            "k * (theta - 3.141592) * (theta - 3.141592) * (0.5)")
+            "kT*angK * (theta - 3.141592) * (theta - 3.141592) * (0.5)")
         self.forceDict["AngleForce"] = stiffForce
         for i in self.chains:
             for j in xrange(i[0] + 1, i[1] - 1):
-                stiffForce.addAngle(j - 1, j, j + 1, [])
-        stiffForce.addGlobalParameter("k", k * self.kT)
+                stiffForce.addAngle(j - 1, j, j + 1, [float(k)])
+        stiffForce.addGlobalParameter("kT", self.kT)
+        stiffForce.addPerAngleParameter("angK")
         self.metadata["AngleForce"] = {"stiffness": k}
 
     def addGrosbergStiffness(self, k=1.5):
@@ -894,12 +895,15 @@ class Simulation():
         """
 
         stiffForce = self.mm.CustomAngleForce(
-            "k * (1 - cos(theta - 3.141592))")
+            "GRk * kT * (1 - cos(theta - 3.141592))")
         self.forceDict["AngleForce"] = stiffForce
+
+        stiffForce.addGlobalParameter("kT", self.kT)
+        stiffForce.addPerAngleParameter("GRk")
         for i in self.chains:
             for j in xrange(i[0] + 1, i[1] - 1):
-                stiffForce.addAngle(j - 1, j, j + 1, [])
-        stiffForce.addGlobalParameter("k", k * self.kT)
+                stiffForce.addAngle(j - 1, j, j + 1, [k])
+
         self.metadata["GrosbergAngleForce"] = {"stiffness": k}
 
     def addSimpleRepulsiveForce(self, cutoff=1.7, trunc=None, rep=0.26):
@@ -1570,7 +1574,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
             else:
                 dif = numpy.sqrt(numpy.mean(numpy.sum((newcoords -
                     self.getData()) ** 2, axis=1)))
-                print "disp=%.2lf" % (dif,),
+                print "dr=%.2lf" % (dif,),
                 self.data = coords
                 print "%.2lf kin %.2lf pot" % (eK,
                     eP), "Rg=%.3lf" % self.RG(),

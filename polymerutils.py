@@ -2,7 +2,7 @@ import numpy
 import joblib
 import os
 from math import sqrt, sin, cos
-from mirnylib.plotting import showPolymerRasmol
+
 
 
 def load(filename, h5dictKey=None):

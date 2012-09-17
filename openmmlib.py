@@ -1304,10 +1304,13 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
             but will make tethering rock solid.
         """
         self.metadata["TetheredParticles"] = {"particles": particles, "k": k}
+        if "Tethering Force" not in self.forceDict:            
+            tetherForce = self.mm.CustomExternalForce(
+              " TETHkb * ((x - TETHx0)^2 + (y - TETHy0)^2 + (z - TETHz0)^2)")
+            self.forceDict["Tethering Force"] = tetherForce
+        else:
+            tetherForce = self.forceDict["Tethering Force"]
 
-        tetherForce = self.mm.CustomExternalForce(
-          " TETHkb * ((x - TETHx0)^2 + (y - TETHy0)^2 + (z - TETHz0)^2)")
-        self.forceDict["Tethering Force"] = tetherForce
 
         #assigning parameters of the force
         tetherForce.addGlobalParameter("TETHkb", k * self.kT / nm)
@@ -1315,7 +1318,8 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         tetherForce.addPerParticleParameter("TETHy0")
         tetherForce.addPerParticleParameter("TETHz0")
         for i in particles:  # adding all the particles on which force acts
-            coordinates = self.data[i]
+            i = int(i)            
+            coordinates = self.data[i]            
             tetherForce.addParticle(i, list(coordinates))
             if self.verbose == True:
                 print "particle %d tethered! " % i

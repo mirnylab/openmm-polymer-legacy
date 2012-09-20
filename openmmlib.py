@@ -1497,12 +1497,14 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
                     if a == False:
                         drop *= 2
                         print "Drop increased to {0}".format(drop)
+                        self.initVelocities()
                         break
                     if attempt == numAttempts - 1:
                         if drop == 1.:
                             return 0
                         drop /= 2
                         print "Drop decreased to {0}".format(drop)
+                        self.initVelocities()
             return -1
 
         if failNotConverged and (minimizeDrop() == -1):

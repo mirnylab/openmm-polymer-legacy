@@ -418,7 +418,7 @@ class Simulation():
         if h5dictKey is not None:
             from mirnylib.h5dict import h5dict
             mydict = h5dict(path=filename, mode="r")
-            data = h5dict[str(h5dictKey)]
+            data = mydict[str(h5dictKey)]
 
         elif type(filename) == str:
             try:

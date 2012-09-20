@@ -183,7 +183,7 @@ def example_pymol():
                 colors=colors,
                 transparencies=transp)
 
-
+example_pymol()
 
 
 def show_chain(data, chain_radius=0.1, support=""):

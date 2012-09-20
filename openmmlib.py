@@ -974,7 +974,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1 '''
         self.metadata["GrosbergRepulsiveForce"] = {"trunc": trunc}
         nbCutOffDist = radius * 2. ** (1. / 6.)
         if trunc is None:
-            repul_energy = "4 * REPe * ((REPs/r)^12 - (REPs/r)^6) + REPe"
+            repul_energy = "4 * REPe * ((REPsigma/r)^12 - (REPsigma/r)^6) + REPe"
         else:
             repul_energy = '''step(REPcut2 - REPU) * REPU +'''\
             ''' step(REPU - REPcut2) * REPcut2 * (1 + tanh(REPU/REPcut2 - 1));
@@ -1304,7 +1304,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
             but will make tethering rock solid.
         """
         self.metadata["TetheredParticles"] = {"particles": particles, "k": k}
-        if "Tethering Force" not in self.forceDict:            
+        if "Tethering Force" not in self.forceDict:
             tetherForce = self.mm.CustomExternalForce(
               " TETHkb * ((x - TETHx0)^2 + (y - TETHy0)^2 + (z - TETHz0)^2)")
             self.forceDict["Tethering Force"] = tetherForce
@@ -1318,8 +1318,8 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         tetherForce.addPerParticleParameter("TETHy0")
         tetherForce.addPerParticleParameter("TETHz0")
         for i in particles:  # adding all the particles on which force acts
-            i = int(i)            
-            coordinates = self.data[i]            
+            i = int(i)
+            coordinates = self.data[i]
             tetherForce.addParticle(i, list(coordinates))
             if self.verbose == True:
                 print "particle %d tethered! " % i

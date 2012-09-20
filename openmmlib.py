@@ -1482,6 +1482,9 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
             for dummy in xrange(maxIterations):
                 if drop < 1:
                     drop = 1.
+                if drop > 10000:
+                    raise RuntimeError("Timestep too low. Perhaps, "\
+                                       "something is wrong!")
 
                 self.integrator.setStepSize(def_step / float(drop))
                 self.integrator.setFriction(1)

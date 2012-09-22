@@ -1585,12 +1585,13 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
                     self.getData()) ** 2, axis=1)))
                 print "dr=%.2lf" % (dif,),
                 self.data = coords
-                print "%.2lf kin %.2lf pot" % (eK,
+                print "kin=%.2lf pot=%.2lf" % (eK,
                     eP), "Rg=%.3lf" % self.RG(),
                 print "SPS=%.0lf" % (steps / (float(b - a)))
                 break
             if attempt in [3, 4]:
-                self.energyMinimization(100)
+                self.energyMinimization(stepsPerIteration=30,
+                                        failNotConverged=True)
             if attempt == 5:
                 self.exitProgram("exceeded number of attmpts")
         return True

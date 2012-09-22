@@ -183,22 +183,24 @@ def example_pymol():
                 colors=colors,
                 transparencies=transp)
 
-example_pymol()
 
 
-def show_chain(data, chain_radius=0.1, support=""):
+def show_chain(data, chain_radius=0.003, dataMult=1, support=""):
     """This was meant to show rainbow colored worms. 
     Not sure if it still works, but you can try
     """
+    data *= dataMult
+
     #regions = [(10,20),(120,140),(180,250)]
-    outfile = "/home/magus/workspace/scripts/py_ra/rascript2"
+    dataFile = NamedTemporaryFile()
+    out = NamedTemporaryFile()
+    convert_xyz(data, dataFile)
     bgcolor = "grey"
     pdbname = "1pdb"
-    out = open(outfile, 'w')
     out.write("hide all\n")
     out.write("bg white\n")
 
-    #out.write("hide all\n")
+    out.write("hide all\n")
     out.write("set cartoon_trace_atoms,1,%s\n" % pdbname)
     out.write("cartoon tube,%s\n" % pdbname)
     out.write("set cartoon_tube_radius,%f,%s\n" % (chain_radius, pdbname))
@@ -206,14 +208,10 @@ def show_chain(data, chain_radius=0.1, support=""):
     out.write("show cartoon,name ca\n")
     out.write("zoom %s" % pdbname)
     out.write(support)
-    out.close()
+    out.flush()
 
-
-    save("/home/magus/workspace/scripts/py_ra/regionsdata.xyz", data)
-    os.system("python /home/magus/workspace/scripts/py_ra/convert.py /home/magus/workspace/scripts/py_ra/regionsdata.xyz /home/magus/workspace/scripts/py_ra/1pdb")
-    os.system("pymol /home/magus/workspace/scripts/py_ra/1pdb -u /home/magus/workspace/scripts/py_ra/rascript2")
+    os.system("pymol {0} -u {1}".format(dataFile.name, out.name))
     #out.close()
-
 
 
 

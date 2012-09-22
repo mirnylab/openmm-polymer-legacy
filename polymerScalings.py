@@ -238,7 +238,10 @@ def subchainDensityFunction(filenames, bins, normalize="Rg", lengthmult=3, Nbins
     return dict(zip(midbins, results))
 
 
-def give_slices(base, tosave, slices, sliceParams, multipliers, mode="chain", loadFunction=Cload, integrate=False, normalize=False, exceptionList=[], nproc=4):
+def give_slices(base, tosave, slices, sliceParams,
+                multipliers, mode="chain", loadFunction=Cload,
+                integrate=False, normalize=False, exceptionList=[],
+                nproc=4, cutoff=1.7):
     np.seterr(invalid='raise')
 
     plotsBySlice = []
@@ -328,11 +331,11 @@ def give_slices(base, tosave, slices, sliceParams, multipliers, mode="chain", lo
                 b = give_radius_scaling(i, binsrg, ring=False)
 
             if (mode == "chain"):
-                a = giveCpScaling(i, bins2, 1.7, integrate)
+                a = giveCpScaling(i, bins2, cutoff, integrate)
             if (mode == "ring"):
-                a = giveCpScaling(i, bins2, 1.7, integrate, ring=True)
+                a = giveCpScaling(i, bins2, cutoff, integrate, ring=True)
             if (mode == "intring"):
-                a = giveCpScaling(i, bins2, 1.7, integrate, ring=True,
+                a = giveCpScaling(i, bins2, cutoff, integrate, ring=True,
                                   project=False, intContacts=True)
             if (mode == "project"):
                 a = giveCpScaling(i, bins2, 1.450, integrate, project=True)
@@ -479,7 +482,7 @@ def _test():
 
     scalings = give_slices(base="/home/magus/evo/GO37_6k_diffusion/equilibration_new/run8_tiny_eq/expandedDATA2.dat",
                            tosave=None,
-                           slices=[9000], sliceParams=(3), multipliers = np.arange(0.5, 1, 0.01), mode = "chain", loadFunction = giveStraightChain)
+                           slices=[9000], sliceParams=(3), multipliers=np.arange(0.5, 1, 0.01), mode="chain", loadFunction=giveStraightChain)
     plt.plot(*scalings[0][0][0])
     plt.show()
     plt.plot(*scalings[0][0][1])

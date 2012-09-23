@@ -206,7 +206,7 @@ def example_pymol():
                 colors=colors,
                 transparencies=transp,
                 spherePositions=[500, 600])
-example_pymol()
+
 
 
 def show_chain(data, chain_radius=0.003, dataMult=1, support=""):

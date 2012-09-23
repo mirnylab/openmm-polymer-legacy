@@ -57,7 +57,9 @@ def create_regions(a):
 def do_coloring(data, regions, colors, transparencies,
                 chain_radius=0.02, subchain_radius=0.04,
                 chain_transparency=0.5, support="",
-                multiplier=.4):
+                multiplier=.4,
+                spherePositions=[],
+                sphereRadius=.3):
 
     """
     !!! Please read this completely. Otherwise you'll suck :( !!!
@@ -119,6 +121,7 @@ def do_coloring(data, regions, colors, transparencies,
     data *= multiplier
     chain_radius *= multiplier
     subchain_radius *= multiplier
+    sphereRadius *= multiplier
 
     #starting background check
     N = len(data)
@@ -161,7 +164,11 @@ def do_coloring(data, regions, colors, transparencies,
         out.write("set cartoon_tube_radius,%f,%s\n" % (subchain_radius, name))
         out.write("color %s,subchain%s\n" % (colors[i], names[i]))
         out.write("set cartoon_transparency,%f,%s\n" % (transparencies[i], name))
+    for i  in spherePositions:
+        out.write("show spheres, i. {0}-{0}\n".format(i))
+        out.write("set sphere_color, grey60 \n")
 
+    out.write("alter all, vdw={0} \n".format(sphereRadius))
     out.write("show cartoon,name ca\n")
     out.write("zoom %s" % pdbname)
     out.write(support)
@@ -197,7 +204,8 @@ def example_pymol():
                 data=rw,
                 regions=regions,
                 colors=colors,
-                transparencies=transp)
+                transparencies=transp,
+                spherePositions=[500, 600])
 example_pymol()
 
 

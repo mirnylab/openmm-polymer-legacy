@@ -68,7 +68,7 @@ def do_coloring(data, regions, colors, transparencies,
     It is meant to be thin, gray and transparent (overall, here transparency 1
     means transparent, transparency 0 means fully visible). A subchain
     consists of a certain number of regions, each has it's own color, trans
-    parency, etc., probably of a bigger region.
+    parency, etc.
     
     Parameters
     ----------
@@ -76,6 +76,9 @@ def do_coloring(data, regions, colors, transparencies,
     data : an Nx3 array of XYZ coordinates
     
     regions : a list of tuples (start, end)
+        Note that rasmol acceps subchains in a format 
+        (first monomer, last monomer), not the usual python 
+        convention (first, last+1)!!! An overlap check will watch this. 
     
     colors : a list of colors ("red", "green", "blue", etc.)  for each region
     
@@ -117,6 +120,17 @@ def do_coloring(data, regions, colors, transparencies,
     chain_radius *= multiplier
     subchain_radius *= multiplier
 
+    #starting background check
+    N = len(data)
+    nregions = np.array(regions)
+    if nregions.min() < 0 or nregions.max() >= N:
+        raise ValueError("region boundaries should be between 0 and N-1")
+    covered = np.zeros(len(data), int)
+    for i in regions:
+        covered[i[0]:i[1] + 1] += 1
+    if covered.max() > 1:
+        raise ValueError("Overlapped regions detected! Rasmol will not work"\
+                         " Note that regions is (first,last), not last+1!")
     bgcolor = "grey"
     letters = [i for i in "abcdefghigklmnopqrstuvwxyz"]
     names = [i + j for i in letters for j in letters]
@@ -163,6 +177,8 @@ def do_coloring(data, regions, colors, transparencies,
     print os.system("pymol {1} -u {0}".format(out.name, pdbFile.name))
 
 
+
+
 def example_pymol():
     #Creating a random walk
     rw = .4 * np.cumsum(np.random.random((1000, 3)) - 0.5, axis=0)
@@ -182,7 +198,7 @@ def example_pymol():
                 regions=regions,
                 colors=colors,
                 transparencies=transp)
-
+example_pymol()
 
 
 def show_chain(data, chain_radius=0.003, dataMult=1, support=""):

@@ -394,21 +394,35 @@ def giveDistanceMap(data, size=1000):
     return toret
 
 
-def rescalePoints(points, res=100):
+def rescalePoints(points, binSize,chains ):
     "converts array of contacts to the reduced resolution contact map"
-    a = numpy.histogram2d(points[:, 0], points[:, 1], res)[0]
+    
+    chains = numpy.asarray(chains)
+    chainBinNums = (numpy.ceil( (chains[:,1] - chains[:,0]) / (0.0+binSize)))
+    bins = []
+    for i in xrange(len(chainBinNums)): bins.append(binSize*(numpy.arange(int(chainBinNums[i]))) + chains[i,0])
+    bins.append(numpy.array([chains[-1,1]+1]))
+    bins = numpy.concatenate(bins)
+    
+    a = numpy.histogram2d(points[:, 0], points[:, 1], bins-.5)[0]
     a = a + numpy.transpose(a)
+        
     return a
 
 
-def rescaledMap(data, res, cutoff=1.4):
+def rescaledMap(data,chains,binSize, cutoff=1.4):
     """calculates a rescaled contact map of a structure
     Parameters
     ----------
     data : Nx3 or 3xN array
         polymer conformation
-    res : int
-        size of the map to return.
+    
+    chains : list of tuples or Nx2 array
+        (start,end+1) of each chain   
+    
+    binSize : int
+        size of each bin in monomers
+        
     cutoff : float, optional
         cutoff for contacts
 
@@ -416,9 +430,16 @@ def rescaledMap(data, res, cutoff=1.4):
     -------
         resXres array with the contact map
     """
+    
+    try:
+        chains[0]
+    except:
+        print "resolution parameter deprecated, specify chains & binSize"
+        raise ValueError("need to specify chains & bin size")
+
 
     t = giveContacts(data, cutoff)
-    return rescalePoints(t, res)
+    return rescalePoints(t, binSize, chains)
 
 
 def pureMap(data, cutoff=1.4, contactMap=None):
@@ -603,11 +624,15 @@ def averageContactMap(filenames, resolution=500, cutoff=1.7,
             print i
             try:
                 data = loadFunction(i)  # load filename
+                
+                
             except exceptionsToIgnore:
                 # if file faled to load, return empty map
                 print "file not found"
                 return numpy.zeros((Nbase, Nbase), "float")
             return rescaledMap(data, Nbase, cutoff)  # return rescaled map
+        
+        
         
         return fmapred(action, filenames, n=n, exceptionList=exceptionsToIgnore)
         

@@ -57,7 +57,9 @@ def create_regions(a):
 def do_coloring(data, regions, colors, transparencies,
                 chain_radius=0.02, subchain_radius=0.04,
                 chain_transparency=0.5, support="",
-                multiplier=.4):
+                multiplier=.4,
+                spherePositions=[],
+                sphereRadius=.3):
 
     """
     !!! Please read this completely. Otherwise you'll suck :( !!!
@@ -68,7 +70,7 @@ def do_coloring(data, regions, colors, transparencies,
     It is meant to be thin, gray and transparent (overall, here transparency 1
     means transparent, transparency 0 means fully visible). A subchain
     consists of a certain number of regions, each has it's own color, trans
-    parency, etc., probably of a bigger region.
+    parency, etc.
     
     Parameters
     ----------
@@ -76,6 +78,9 @@ def do_coloring(data, regions, colors, transparencies,
     data : an Nx3 array of XYZ coordinates
     
     regions : a list of tuples (start, end)
+        Note that rasmol acceps subchains in a format 
+        (first monomer, last monomer), not the usual python 
+        convention (first, last+1)!!! An overlap check will watch this. 
     
     colors : a list of colors ("red", "green", "blue", etc.)  for each region
     
@@ -116,7 +121,19 @@ def do_coloring(data, regions, colors, transparencies,
     data *= multiplier
     chain_radius *= multiplier
     subchain_radius *= multiplier
+    sphereRadius *= multiplier
 
+    #starting background check
+    N = len(data)
+    nregions = np.array(regions)
+    if nregions.min() < 0 or nregions.max() >= N:
+        raise ValueError("region boundaries should be between 0 and N-1")
+    covered = np.zeros(len(data), int)
+    for i in regions:
+        covered[i[0]:i[1] + 1] += 1
+    if covered.max() > 1:
+        raise ValueError("Overlapped regions detected! Rasmol will not work"\
+                         " Note that regions is (first,last), not last+1!")
     bgcolor = "grey"
     letters = [i for i in "abcdefghigklmnopqrstuvwxyz"]
     names = [i + j for i in letters for j in letters]
@@ -147,7 +164,11 @@ def do_coloring(data, regions, colors, transparencies,
         out.write("set cartoon_tube_radius,%f,%s\n" % (subchain_radius, name))
         out.write("color %s,subchain%s\n" % (colors[i], names[i]))
         out.write("set cartoon_transparency,%f,%s\n" % (transparencies[i], name))
+    for i  in spherePositions:
+        out.write("show spheres, i. {0}-{0}\n".format(i))
+        out.write("set sphere_color, grey60 \n")
 
+    out.write("alter all, vdw={0} \n".format(sphereRadius))
     out.write("show cartoon,name ca\n")
     out.write("zoom %s" % pdbname)
     out.write(support)
@@ -161,6 +182,8 @@ def do_coloring(data, regions, colors, transparencies,
     sleep(0.5)
 
     print os.system("pymol {1} -u {0}".format(out.name, pdbFile.name))
+
+
 
 
 def example_pymol():
@@ -181,7 +204,8 @@ def example_pymol():
                 data=rw,
                 regions=regions,
                 colors=colors,
-                transparencies=transp)
+                transparencies=transp,
+                spherePositions=[500, 600])
 
 
 

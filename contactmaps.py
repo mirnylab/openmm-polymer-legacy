@@ -394,21 +394,24 @@ def giveDistanceMap(data, size=1000):
     return toret
 
 
-def rescalePoints(points, res=100):
+def rescalePoints(points, bins ):
     "converts array of contacts to the reduced resolution contact map"
-    a = numpy.histogram2d(points[:, 0], points[:, 1], res)[0]
+    a = numpy.histogram2d(points[:, 0], points[:, 1], bins)[0]
     a = a + numpy.transpose(a)
+        
     return a
 
 
-def rescaledMap(data, res, cutoff=1.4):
+def rescaledMap(data,bins, cutoff=1.4):
     """calculates a rescaled contact map of a structure
     Parameters
     ----------
     data : Nx3 or 3xN array
         polymer conformation
-    res : int
-        size of the map to return.
+    
+    bins : Lx1 array
+        bin starts
+    
     cutoff : float, optional
         cutoff for contacts
 
@@ -416,9 +419,9 @@ def rescaledMap(data, res, cutoff=1.4):
     -------
         resXres array with the contact map
     """
-
+    
     t = giveContacts(data, cutoff)
-    return rescalePoints(t, res)
+    return rescalePoints(t, bins)
 
 
 def pureMap(data, cutoff=1.4, contactMap=None):
@@ -556,101 +559,173 @@ def cool_trunk(data):
     return [datax[f1 - 2:f2 + 3], datay[f1 - 2:f2 + 3], dataz[f1 - 2:f2 + 3]]
 
 
-def averageContactMap(filenames, resolution=500, cutoff=1.7,
-                      usePureMap=False, n=4,  # Num threads
+def averageContactMap(*args,**kvargs):
+    print 'please use averageBinnedContactMap or averagePureContactMap'
+    raise Exception('deprecated function')
+
+def averageBinnedContactMap(filenames,chains = None, binSize = None,cutoff=1.7,
+                      n=4,  # Num threads
                       loadFunction=load,
                       exceptionsToIgnore=None):
     """
     Returns an average contact map of a set of conformations.
     Non-existing files are ignored if exceptionsToIgnore is set to IOError.
-    Can use both rescaled or pure contact map.
     example:\n
     filenames = ["/home/magus/evo/GO41_interaction_test/different_strength
     /expanded%d.dat" % i for i in xrange(100)] \n
-    mat_img(numpy.log( averageContactMap(filenames,500,usePureMap = True) +1))
-
+    mat_img(numpy.log( averageBinnedContactMap(filenames) +1))
 
     Parameters
     ----------
     filenames : list of strings
         Filenames to average map over
-    resolution : int, optional
-        Resolution for rescaled map, not needed for pure map
+    chains : list of tuples or Nx2 array
+        (start,end+1) of each chain   
+    binSize : int
+        size of each bin in monomers
     cutoff : float, optional
         Cutoff to calculate contacts
-    usePureMap : bool, optional
-        Calculate a pure (NxN) contact map. This may be slow for N>5000
+    n : int, optional
+        Number of threads to use. 
+        By default 4 to minimize RAM consumption.
+    exceptionsToIgnore : list of Exceptions
+        List of exceptions to ignore when finding the contact map.
+        Put IOError there if you want it to ignore missing files.
+
+    Returns
+    -------
+    tuple of two values:
+    (i) MxM numpy array with the conntact map binned to binSize resolution.
+    (ii) chromosomeStarts a list of start sites for binned map.
+    
+    """
+
+
+    getResolution = 0
+    fileInd = 0
+    while getResolution == 0:
+        try:
+            data = loadFunction(filenames[fileInd])  # load filename
+            getResolution = 1
+        except:
+            fileInd = fileInd+1
+        if fileInd >= len(filenames):
+            print "no valid files found in filenames"
+            raise ValueError("no valid files found in filenames")
+
+    if chains == None:
+        chains = [[0,len(data)]]
+    if binSize == None:
+        binSize = int(numpy.floor(len(data)/500))
+
+    bins = []
+    chains = numpy.asarray(chains)
+    chainBinNums = (numpy.ceil( (chains[:,1] - chains[:,0]) / (0.0+binSize)))
+    for i in xrange(len(chainBinNums)): bins.append(binSize*(numpy.arange(int(chainBinNums[i]))) + chains[i,0])
+    bins.append(numpy.array([chains[-1,1]+1]))
+    bins = numpy.concatenate(bins)
+    bins = bins - .5
+    Nbase = len(bins)-1
+    
+    if Nbase > 10000:
+        warnings.warn(UserWarning('very large contact map'
+        ' may be difficult to visualize'))
+    
+    chromosomeStarts = numpy.cumsum( chainBinNums)
+    chromosomeStarts = numpy.hstack((0,chromosomeStarts))
+    
+    def action(i):  # Fetch rescale map from filename.
+        print i
+        try:
+            data = loadFunction(i)  # load filename
+            
+        except exceptionsToIgnore:
+            # if file faled to load, return empty map
+            print "file not found"
+            return numpy.zeros((Nbase, Nbase), "float")
+        return rescaledMap(data,bins, cutoff=1.4)
+       
+    return fmapred(action, filenames, n=n, exceptionList=exceptionsToIgnore), chromosomeStarts[0:-1]
+ 
+ 
+def averagePureContactMap(filenames,
+                      cutoff=1.7,
+                      n=4,  # Num threads
+                      loadFunction=load,
+                      exceptionsToIgnore=None):
+    """
+        Parameters
+    ----------
+    filenames : list of strings
+        Filenames to average map over
+    cutoff : float, optional
+        Cutoff to calculate contacts
     n : int, optional
         Number of threads to use. 
         By default 4 to minimize RAM consumption with pure maps.
     exceptionsToIgnore : list of Exceptions
         List of exceptions to ignore when finding the contact map.
         Put IOError there if you want it to ignore missing files.
-
-
+        
     Returns
     -------
 
-    An resolutionXresolution or NxN (for pure map) numpy array 
-    with the conntact map.
-
+    An NxN (for pure map) numpy array with the contact map.
     """
+    
+    """
+    Now we actually need to modify our contact map by adding
+    contacts from each new file to the contact map.
+    We do it this way because our contact map is huge (maybe a gigabyte!),
+    so we can't just add many gigabyte-sized arrays together.
+    Instead of this each worker creates an empty "average contact map",
+    and then loads files one by one and adds contacts from each file to a contact map.
+    Maps from different workers are then added together manually.
+    """
+    
+    
+    
+    n = min(n, len(filenames))
+    subvalues = [filenames[i::n] for i in xrange(n)]
 
-    Nbase = resolution
-    if usePureMap == False:
-
-        def action(i):  # Fetch rescale map from filename.
-            print i
+    def myaction(values):  # our worker receives some filenames
+        mysum = None  # future contact map.
+        for i in values:
             try:
-                data = loadFunction(i)  # load filename
+                data = loadFunction(i)
+                print i
             except exceptionsToIgnore:
-                # if file faled to load, return empty map
-                print "file not found"
-                return numpy.zeros((Nbase, Nbase), "float")
-            return rescaledMap(data, Nbase, cutoff)  # return rescaled map
-        
-        return fmapred(action, filenames, n=n, exceptionList=exceptionsToIgnore)
-        
-    else:
-        """
-        Now we actually need to modify our contact map by adding
-        contacts from each new file to the contact map.
-        We do it this way because our contact map is huge (maybe a gigabyte!),
-        so we can't just add many gigabyte-sized arrays together.
-        Instead of this each worker creates an empty "average contact map",
-        and then loads files one by one and adds contacts from each file to a contact map.
-        Maps from different workers are then added together manually.
-        """
-        n = min(n, len(filenames))
-        subvalues = [filenames[i::n] for i in xrange(n)]
+                print "file not found", i
+                continue
+            except:
+                print "Unexpected error:", sys.exc_info()[0]
+                print "File is: ", i
+                return -1
+                
+            if data.shape[0] == 3:
+                data = data.T
+            if mysum is None:  # if it's the first filename,
 
-        def myaction(values):  # our worker receives some filenames
-            mysum = None  # future contact map.
-            for i in values:
-                try:
-                    data = loadFunction(i)
-                    print i
-                except exceptionsToIgnore:
-                    print "file not found", i
-                    continue
-                except:
-                    print "Unexpected error:", sys.exc_info()[0]
-                    print "File is: ", i
-                    return -1
-                if data.shape[0] == 3:
-                    data = data.T
-                if mysum is None:  # if it's the first filename,
-                    mysum = pureMap(data, cutoff)  # create a map
-                else:  # if not
-                    pureMap(data, cutoff, mysum)  # use existing map and fill in contacts
-            return mysum
+                if len(data) > 6000:
+                    warnings.warn(UserWarning('very large contact map'
+                    ' may cause errors. these may be fixed with n=1 threads.'))
+                if len(data) > 20000:
+                    warnings.warn(UserWarning('very large contact map'
+                    ' may be difficult to visualize.'))    
+                                    
+                mysum = pureMap(data, cutoff)  # create a map
+                
+            else:  # if not
+                pureMap(data, cutoff, mysum)  # use existing map and fill in contacts
+                
+        return mysum
 
-        blocks = fmap(myaction, subvalues)
-        blocks = [i for i in blocks if i is not None]
-        a = blocks[0]
-        for i in blocks[1:]:
-            a = a + i
-        return a
+    blocks = fmap(myaction, subvalues)
+    blocks = [i for i in blocks if i is not None]
+    a = blocks[0]
+    for i in blocks[1:]:
+        a = a + i
+    return a
 
 
 def _test():

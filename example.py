@@ -29,6 +29,7 @@ def exampleOpenmm():
     a.addHarmonicPolymerBonds()
     a.addGrosbergRepulsiveForce()  # Fastest pure repulsive force
     #a.addGrosbergStiffness()
+    stiffArray = numpy.random.random(a.N) + 1
     a.addStiffness()
 
     a.addBond(0, 5999, 0.05, 1)

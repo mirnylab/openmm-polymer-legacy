@@ -6,6 +6,58 @@ import cPickle
 #from polymerutils import save, load
 from tempfile import NamedTemporaryFile
 from polymerutils import save
+from scipy.interpolate.interpolate import interp1d
+from scipy.interpolate.fitpack2 import InterpolatedUnivariateSpline
+
+def interpolateData(data, targetN=90000):
+
+    fineGrain = 10
+
+    N = len(data)
+    targetDataSize = targetN * fineGrain
+
+    evaluateRange = np.arange(N)
+    targetRange = np.arange(0, N - 1, N / float(targetDataSize))
+
+    splined = np.zeros((len(targetRange), 3), float)
+    for coor in xrange(3):
+        spline = InterpolatedUnivariateSpline(evaluateRange,
+                                        data[:, coor], k=3)
+        evaled = spline(targetRange)
+        splined[:, coor] = evaled
+
+    dists = np.sqrt(np.sum(np.diff(splined, 1, axis=0) ** 2, axis=1))
+    totalDist = np.sum(dists)
+    mult = totalDist / targetN
+    splined /= mult
+    dists /= mult
+    cumDists = np.cumsum(dists)
+    searched = np.searchsorted(cumDists, np.arange(1, targetN))
+    v1 = cumDists[searched]
+    v2 = cumDists[searched - 1]
+    vals = np.floor(v1)
+    p1 = (v1 - vals) / (v1 - v2)
+    p2 = 1 - p1
+
+
+    evaled = p2[:, None] * splined[searched] + \
+    p1[:, None] * splined[searched - 1]
+    return evaled
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def convert_xyz(data, out_file):
     "Converts an XYZ data to a fake pdb file"
@@ -140,7 +192,7 @@ def do_coloring(data, regions, colors, transparencies,
 
     out = NamedTemporaryFile()
     pdbFile = NamedTemporaryFile()
-    pdbname = os.path.split(pdbFile.name)[1]
+    pdbname = os.path.split(pdbFile.name)[-1]
 
     out.write("hide all\n")
     out.write("bg white\n")
@@ -209,18 +261,20 @@ def example_pymol():
 
 
 
-def show_chain(data, chain_radius=0.003, dataMult=1, support=""):
+def show_chain(data, chain_radius=0.3, dataMult=1, support=""):
     """This was meant to show rainbow colored worms. 
     Not sure if it still works, but you can try
     """
     data *= dataMult
+    data -= np.min(data, axis=0)[None, :]
+    print data.min()
 
     #regions = [(10,20),(120,140),(180,250)]
     dataFile = NamedTemporaryFile()
     out = NamedTemporaryFile()
     convert_xyz(data, dataFile)
     bgcolor = "grey"
-    pdbname = "1pdb"
+    pdbname = dataFile.name.split("/")[-1]
     out.write("hide all\n")
     out.write("bg white\n")
 

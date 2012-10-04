@@ -863,19 +863,29 @@ class Simulation():
 
     def addStiffness(self, k=1.5):
         """Adds harmonic angle bonds. k specifies energy in kT at one radian
+        If k is an array, it has to be of the length N.
+        Xth value then specifies stiffness of the angle centered at
+        monomer number X.
+        Values for ends of the chain will be simply ignored.
 
         Parameters
         ----------
 
-        k : float
+        k : float or list of length N 
+            Stiffness of the bond. 
+            If list, then determines stiffness of the bond at monomer i. 
             Potential is k * alpha^2 * 0.5 * kT
         """
+        try:
+            k[0]
+        except:
+            k = numpy.zeros(self.N, float) + k
         stiffForce = self.mm.CustomAngleForce(
             "kT*angK * (theta - 3.141592) * (theta - 3.141592) * (0.5)")
         self.forceDict["AngleForce"] = stiffForce
         for i in self.chains:
             for j in xrange(i[0] + 1, i[1] - 1):
-                stiffForce.addAngle(j - 1, j, j + 1, [float(k)])
+                stiffForce.addAngle(j - 1, j, j + 1, [float(k[j])])
         stiffForce.addGlobalParameter("kT", self.kT)
         stiffForce.addPerAngleParameter("angK")
         self.metadata["AngleForce"] = {"stiffness": k}
@@ -884,16 +894,24 @@ class Simulation():
         """Adds stiffness according to the Grosberg paper.
         Parameters are synchronized with normal stiffness
 
+        If k is an array, it has to be of the length N.
+        Xth value then specifies stiffness of the angle centered at
+        monomer number X.
+        Values for ends of the chain will be simply ignored.
+
         Parameters
         ----------
 
-        k : float
+        k : float or N-long list of floats
             Synchronized with regular stiffness.
             Default value is very flexible, as in Grosberg paper.
             Default value maximizes entanglement length.
 
         """
-
+        try:
+            k[0]
+        except:
+            k = numpy.zeros(self.N, float) + k
         stiffForce = self.mm.CustomAngleForce(
             "GRk * kT * (1 - cos(theta - 3.141592))")
         self.forceDict["AngleForce"] = stiffForce
@@ -902,7 +920,7 @@ class Simulation():
         stiffForce.addPerAngleParameter("GRk")
         for i in self.chains:
             for j in xrange(i[0] + 1, i[1] - 1):
-                stiffForce.addAngle(j - 1, j, j + 1, [k])
+                stiffForce.addAngle(j - 1, j, j + 1, [k[j]])
 
         self.metadata["GrosbergAngleForce"] = {"stiffness": k}
 

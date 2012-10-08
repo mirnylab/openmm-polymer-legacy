@@ -8,23 +8,59 @@ from tempfile import NamedTemporaryFile
 from polymerutils import save
 from scipy.interpolate.interpolate import interp1d
 from scipy.interpolate.fitpack2 import InterpolatedUnivariateSpline
+from mirnylib.systemutils import deprecate
 
-def interpolateData(data, targetN=90000):
+
+
+
+
+def interpolateData(data, targetN=90000, colorArrays=[]):
+    """
+    Converts a polymer of any length to a smoothed chain with (hopefully)
+    fixed distance between neighboring monomers. Does it by cubic spline
+    interpolation as following.
+
+    1. Interpolate the data using cubic spline \n
+    2. Evaluate cubic spline at targetN*10 values \n
+    3. Rescale the evaluated spline such that total distance is targetN \n
+    4. Select targetN points along the path with distance between
+    neighboring points _along the chain_ equal to 1. 
+    
+    Parameters
+    ----------
+    data : Nx3 array
+        Input xyz coordinates
+    targetN : int
+        Length of output polymer. 
+        It is not adviced to make it many times less than N
+    
+    Returns
+    -------
+    (about targetN) x 3 array
+    """
 
     fineGrain = 10
 
     N = len(data)
+    numDim = len(data[0])
     targetDataSize = targetN * fineGrain
 
     evaluateRange = np.arange(N)
     targetRange = np.arange(0, N - 1, N / float(targetDataSize))
 
-    splined = np.zeros((len(targetRange), 3), float)
-    for coor in xrange(3):
+    splined = np.zeros((len(targetRange), numDim), float)
+    colorsSplined = []
+    for coor in xrange(numDim):
         spline = InterpolatedUnivariateSpline(evaluateRange,
                                         data[:, coor], k=3)
         evaled = spline(targetRange)
         splined[:, coor] = evaled
+
+    for color in colorArrays:
+        spline = InterpolatedUnivariateSpline(evaluateRange,
+                                        color, k=1)
+        evaled = spline(targetRange)
+        colorsSplined.append(evaled)
 
     dists = np.sqrt(np.sum(np.diff(splined, 1, axis=0) ** 2, axis=1))
     totalDist = np.sum(dists)
@@ -39,10 +75,11 @@ def interpolateData(data, targetN=90000):
     p1 = (v1 - vals) / (v1 - v2)
     p2 = 1 - p1
 
+    colorReturn = [i[searched] for i in colorsSplined]
 
     evaled = p2[:, None] * splined[searched] + \
     p1[:, None] * splined[searched - 1]
-    return evaled
+    return evaled, colorReturn
 
 
 
@@ -96,10 +133,15 @@ def convert_xyz(data, out_file):
 
 
 def create_regions(a):
-    "creates array of uniform regions"
+    """
+    Creates array of non-zero regions of a.
+    if a is 0 1 1 0 1 0 
+    result will be (1,3), (4,5), because elements 1,2 and 4 are non-zero.     
+     
+    """
 
-    a = np.array(a, int)
-    a = np.concatenate([np.array([0], int), a, np.array([0], int)])
+    a = a > 0
+    a = np.r_[False, a, False]
     a1 = np.nonzero(a[1:] * (1 - a[:-1]))[0]
     a2 = np.nonzero(a[:-1] * (1 - a[1:]))[0]
 
@@ -111,7 +153,8 @@ def do_coloring(data, regions, colors, transparencies,
                 chain_transparency=0.5, support="",
                 multiplier=.4,
                 spherePositions=[],
-                sphereRadius=.3):
+                sphereRadius=.3,
+                misc_arguments=""):
 
     """
     !!! Please read this completely. Otherwise you'll suck :( !!!
@@ -150,6 +193,8 @@ def do_coloring(data, regions, colors, transparencies,
         Increasing it makes chain more smooth
         Decreasing it makes it more kinky, but may cause bugs
         or even missing chain regions
+    misc_arguments : str
+        Misc arguments to pymol command at the very end (mainly >/dev/null)
     
     .. warning :: Do not call this scripy "pymol.py!"
     
@@ -178,8 +223,9 @@ def do_coloring(data, regions, colors, transparencies,
     #starting background check
     N = len(data)
     nregions = np.array(regions)
-    if nregions.min() < 0 or nregions.max() >= N:
-        raise ValueError("region boundaries should be between 0 and N-1")
+    if len(nregions) > 0:
+        if nregions.min() < 0 or nregions.max() >= N:
+            raise ValueError("region boundaries should be between 0 and N-1")
     covered = np.zeros(len(data), int)
     for i in regions:
         covered[i[0]:i[1] + 1] += 1
@@ -187,8 +233,8 @@ def do_coloring(data, regions, colors, transparencies,
         raise ValueError("Overlapped regions detected! Rasmol will not work"\
                          " Note that regions is (first,last), not last+1!")
     bgcolor = "grey"
-    letters = [i for i in "abcdefghigklmnopqrstuvwxyz"]
-    names = [i + j for i in letters for j in letters]
+    letters = [i for i in "1234567890abcdefghijklmnopqrstuvwxyz"]
+    names = [i + j + k for i in letters for j in letters for k in letters]
 
     out = NamedTemporaryFile()
     pdbFile = NamedTemporaryFile()
@@ -233,7 +279,8 @@ def do_coloring(data, regions, colors, transparencies,
     from time import sleep
     sleep(0.5)
 
-    print os.system("pymol {1} -u {0}".format(out.name, pdbFile.name))
+    print os.system("pymol {1} -u {0} {2}".format(out.name, pdbFile.name,
+                                                  misc_arguments))
 
 
 

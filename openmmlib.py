@@ -1505,7 +1505,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
                                        "something is wrong!")
 
                 self.integrator.setStepSize(def_step / float(drop))
-                self.integrator.setFriction(1)
+                self.integrator.setFriction(def_fric * drop)
                 #self.reinitialize()
                 numAttempts = 5
                 for attempt in xrange(numAttempts):

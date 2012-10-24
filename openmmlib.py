@@ -1814,7 +1814,8 @@ class SimulationWithCrosslinks(Simulation):
                                   smeerLoopSize=0.2, distanceBetweenBonds=2,
                                   verbose=False):
         shift = int(loopSize * smeerLoopSize)
-        assert shift > 0
+        if shift == 0:
+            shift = 1
         begin = numpy.random.randint(distanceBetweenBonds)
         while True:
             b1 = begin

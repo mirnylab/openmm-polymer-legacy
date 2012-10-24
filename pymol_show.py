@@ -154,6 +154,7 @@ def do_coloring(data, regions, colors, transparencies,
                 multiplier=.4,
                 spherePositions=[],
                 sphereRadius=.3,
+                force=False,
                 misc_arguments=""):
 
     """
@@ -229,7 +230,8 @@ def do_coloring(data, regions, colors, transparencies,
     covered = np.zeros(len(data), int)
     for i in regions:
         covered[i[0]:i[1] + 1] += 1
-    if covered.max() > 1:
+    if (covered.max() > 1) and (force == True):
+
         raise ValueError("Overlapped regions detected! Rasmol will not work"\
                          " Note that regions is (first,last), not last+1!")
     bgcolor = "grey"
@@ -308,7 +310,10 @@ def example_pymol():
 
 
 
-def show_chain(data, chain_radius=0.3, dataMult=1, support=""):
+def show_chain(data, chain_radius=0.3, dataMult=1, support="",
+                spherePositions=[],
+                sphereRadius=.3,
+               ):
     """This was meant to show rainbow colored worms. 
     Not sure if it still works, but you can try
     """
@@ -332,6 +337,9 @@ def show_chain(data, chain_radius=0.3, dataMult=1, support=""):
     out.write("spectrum\n")
     out.write("show cartoon,name ca\n")
     out.write("zoom %s" % pdbname)
+    for i  in spherePositions:
+        out.write("show spheres, i. {0}-{0}\n".format(i))
+        out.write("set sphere_color, grey60 \n")
     out.write(support)
     out.flush()
 

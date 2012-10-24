@@ -300,13 +300,13 @@ def give_slices(base, tosave, slices, sliceParams,
                     raise StandardError("Wrong shape of data")
                 data = np.asarray(data, order="C", dtype=float)
                 return data
-            except exceptionList:
+            except tuple(exceptionList):
                 print "file not found", i
                 return None
 
         #use this for determining the file size
         datas = filter(lambda x: x is not None, fmap(newload, files[::
-                                                                    len(files) / 20 + 1], n=3))
+                                            len(files) / 20 + 1], n=3))
         datlen = len(datas[0][0])
 
         if mode == "chain":

@@ -296,10 +296,11 @@ def giveContacts(data, cutoff=1.7, maxContacts=30):
 
     dists2 = numpy.sqrt(numpy.sum(numpy.diff(data, axis=0) ** 2, axis=1))
     maxRatio = dists2.max() / numpy.median(dists2)
-    if maxRatio > 2:
+    if maxRatio > 3:
         warnings.warn("\nPolymer does not seem continuous, falling back"\
                       "to arbitrary contact finger 'give_contacts_any'"\
                       "\n This is ok, just be aware of this! ")
+        print "ratio of smaller to larger bonds is {0}".format(maxRatio)
         return giveContactsAny(data, cutoff, maxContacts)
     else:
         safeDistance = numpy.percentile(dists2, 99)
@@ -394,15 +395,15 @@ def giveDistanceMap(data, size=1000):
     return toret
 
 
-def rescalePoints(points, bins ):
+def rescalePoints(points, bins):
     "converts array of contacts to the reduced resolution contact map"
     a = numpy.histogram2d(points[:, 0], points[:, 1], bins)[0]
     a = a + numpy.transpose(a)
-        
+
     return a
 
 
-def rescaledMap(data,bins, cutoff=1.4):
+def rescaledMap(data, bins, cutoff=1.4):
     """calculates a rescaled contact map of a structure
     Parameters
     ----------
@@ -419,7 +420,7 @@ def rescaledMap(data,bins, cutoff=1.4):
     -------
         resXres array with the contact map
     """
-    
+
     t = giveContacts(data, cutoff)
     return rescalePoints(t, bins)
 
@@ -512,13 +513,13 @@ def cool_trunk(data):
                 break
         if exitflag == 1:
             break
-    for i in xrange(N - 1, 0, - 1):
+    for i in xrange(N - 1, 0, -1):
         exitflag = 0
         pace = 0.25 / dist(i)
         for j in numpy.arange(1, 10, pace):
             #print j
             escapeflag = 1
-            for k in xrange(N - 1, 0, - 1):
+            for k in xrange(N - 1, 0, -1):
                 if k == i:
                     continue
                 escapeflag, breakflag
@@ -559,12 +560,12 @@ def cool_trunk(data):
     return [datax[f1 - 2:f2 + 3], datay[f1 - 2:f2 + 3], dataz[f1 - 2:f2 + 3]]
 
 
-def averageContactMap(*args,**kvargs):
+def averageContactMap(*args, **kvargs):
     print 'please use averageBinnedContactMap or averagePureContactMap'
     raise Exception('deprecated function')
 
-def averageBinnedContactMap(filenames,chains = None, binSize = None,cutoff=1.7,
-                      n=4,  # Num threads
+def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
+                      n=4, # Num threads
                       loadFunction=load,
                       exceptionsToIgnore=None):
     """
@@ -608,49 +609,49 @@ def averageBinnedContactMap(filenames,chains = None, binSize = None,cutoff=1.7,
             data = loadFunction(filenames[fileInd])  # load filename
             getResolution = 1
         except:
-            fileInd = fileInd+1
+            fileInd = fileInd + 1
         if fileInd >= len(filenames):
             print "no valid files found in filenames"
             raise ValueError("no valid files found in filenames")
 
     if chains == None:
-        chains = [[0,len(data)]]
+        chains = [[0, len(data)]]
     if binSize == None:
-        binSize = int(numpy.floor(len(data)/500))
+        binSize = int(numpy.floor(len(data) / 500))
 
     bins = []
     chains = numpy.asarray(chains)
-    chainBinNums = (numpy.ceil( (chains[:,1] - chains[:,0]) / (0.0+binSize)))
-    for i in xrange(len(chainBinNums)): bins.append(binSize*(numpy.arange(int(chainBinNums[i]))) + chains[i,0])
-    bins.append(numpy.array([chains[-1,1]+1]))
+    chainBinNums = (numpy.ceil((chains[:, 1] - chains[:, 0]) / (0.0 + binSize)))
+    for i in xrange(len(chainBinNums)): bins.append(binSize * (numpy.arange(int(chainBinNums[i]))) + chains[i, 0])
+    bins.append(numpy.array([chains[-1, 1] + 1]))
     bins = numpy.concatenate(bins)
     bins = bins - .5
-    Nbase = len(bins)-1
-    
+    Nbase = len(bins) - 1
+
     if Nbase > 10000:
         warnings.warn(UserWarning('very large contact map'
         ' may be difficult to visualize'))
-    
-    chromosomeStarts = numpy.cumsum( chainBinNums)
-    chromosomeStarts = numpy.hstack((0,chromosomeStarts))
-    
+
+    chromosomeStarts = numpy.cumsum(chainBinNums)
+    chromosomeStarts = numpy.hstack((0, chromosomeStarts))
+
     def action(i):  # Fetch rescale map from filename.
         print i
         try:
             data = loadFunction(i)  # load filename
-            
+
         except exceptionsToIgnore:
             # if file faled to load, return empty map
             print "file not found"
             return numpy.zeros((Nbase, Nbase), "float")
-        return rescaledMap(data,bins, cutoff=1.4)
-       
+        return rescaledMap(data, bins, cutoff=1.4)
+
     return fmapred(action, filenames, n=n, exceptionList=exceptionsToIgnore), chromosomeStarts[0:-1]
- 
- 
+
+
 def averagePureContactMap(filenames,
                       cutoff=1.7,
-                      n=4,  # Num threads
+                      n=4, # Num threads
                       loadFunction=load,
                       exceptionsToIgnore=None):
     """
@@ -672,7 +673,7 @@ def averagePureContactMap(filenames,
 
     An NxN (for pure map) numpy array with the contact map.
     """
-    
+
     """
     Now we actually need to modify our contact map by adding
     contacts from each new file to the contact map.
@@ -682,9 +683,9 @@ def averagePureContactMap(filenames,
     and then loads files one by one and adds contacts from each file to a contact map.
     Maps from different workers are then added together manually.
     """
-    
-    
-    
+
+
+
     n = min(n, len(filenames))
     subvalues = [filenames[i::n] for i in xrange(n)]
 
@@ -701,7 +702,7 @@ def averagePureContactMap(filenames,
                 print "Unexpected error:", sys.exc_info()[0]
                 print "File is: ", i
                 return -1
-                
+
             if data.shape[0] == 3:
                 data = data.T
             if mysum is None:  # if it's the first filename,
@@ -711,13 +712,13 @@ def averagePureContactMap(filenames,
                     ' may cause errors. these may be fixed with n=1 threads.'))
                 if len(data) > 20000:
                     warnings.warn(UserWarning('very large contact map'
-                    ' may be difficult to visualize.'))    
-                                    
+                    ' may be difficult to visualize.'))
+
                 mysum = pureMap(data, cutoff)  # create a map
-                
+
             else:  # if not
                 pureMap(data, cutoff, mysum)  # use existing map and fill in contacts
-                
+
         return mysum
 
     blocks = fmap(myaction, subvalues)

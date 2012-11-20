@@ -1,4 +1,5 @@
 #!/bin/bash -e
+# This script was downloaded from http://www.pymolwiki.org/index.php/Linux_Install
 pymoldir=$HOME/programming/pymol
 modules=$pymoldir/modules
 svnpymol=svnpymol
@@ -8,6 +9,9 @@ pymolscriptrepo=Pymol-script-repo
 ###################################################
 [ -d $pymoldir ] || mkdir -p $pymoldir
 [ -d $HOME/bin ] || mkdir $HOME/bin
+
+###### Install required system packages
+sudo apt-get install subversion build-essential python-dev python-pmw libglew-dev freeglut3-dev libpng-dev libfreetype6-dev
 
 ###### Checkout pymol svn
 svn co https://pymol.svn.sourceforge.net/svnroot/pymol/trunk/pymol $pymoldir/$svnpymol

@@ -1,18 +1,14 @@
 import os.path
 import sys
+import tempfile 
+import cPickle
 
 import numpy as np
-import cPickle
-#from polymerutils import save, load
-from tempfile import NamedTemporaryFile
-from polymerutils import save
 from scipy.interpolate.interpolate import interp1d
 from scipy.interpolate.fitpack2 import InterpolatedUnivariateSpline
+
 from mirnylib.systemutils import deprecate
-
-
-
-
+import polymerutils
 
 def interpolateData(data, targetN=90000, colorArrays=[]):
     """
@@ -81,57 +77,6 @@ def interpolateData(data, targetN=90000, colorArrays=[]):
     p1[:, None] * splined[searched - 1]
     return evaled, colorReturn
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def convert_xyz(data, out_file):
-    "Converts an XYZ data to a fake pdb file"
-
-    data = data - np.min(data, axis=0)[None, :]
-
-    N = len(data)
-    retret = ""
-    for i, line in enumerate(data):
-        def add(st, n):
-            if len(st) > n: return st[:n]
-            else:
-
-                return st + " "*(n - len(st))
-
-
-        line = [1. * (float(j) + 1) for j in line]
-        ret = add("ATOM", 7)
-        ret = add(ret + "%i" % (i + 1), 13)
-        ret = add(ret + "CA", 17)
-        ret = add(ret + "ALA", 22)
-
-        ret = add(ret + "%i" % (i), 30)
-        ret = add(ret + ("%8.3f" % line[0]), 37)
-        ret = add(ret + ("%8.3f" % line[1]), 45)
-        ret = add(ret + ("%8.3f" % line[2]), 53)
-        ret = add(ret + (" 1.00"), 61)
-        ret = add(ret + str(float(i % 8 > 4)), 67)
-        retret += (ret + "\n")
-
-    f = out_file
-    f.write(retret)
-    f.flush()
-    #print retret
-
-
-
 def create_regions(a):
     """
     Creates array of non-zero regions of a.
@@ -146,7 +91,6 @@ def create_regions(a):
     a2 = np.nonzero(a[:-1] * (1 - a[1:]))[0]
 
     return np.transpose(np.array([a1, a2]))
-
 
 def do_coloring(data, regions, colors, transparencies,
                 chain_radius=0.02, subchain_radius=0.04,
@@ -165,13 +109,13 @@ def do_coloring(data, regions, colors, transparencies,
     A chain is a grey polymer, that is meant to resemble the main chain.
     It is meant to be thin, gray and transparent (overall, here transparency 1
     means transparent, transparency 0 means fully visible). A subchain
-    consists of a certain number of regions, each has it's own color, trans
-    parency, etc.
+    consists of a certain number of regions, each has it's own color, 
+    transparency, etc.
     
     Parameters
     ----------
     
-    data : an Nx3 array of XYZ coordinates
+    data : an Nx3 array of XYZ coordinates 
     
     regions : a list of tuples (start, end)
         Note that rasmol acceps subchains in a format 
@@ -190,10 +134,12 @@ def do_coloring(data, regions, colors, transparencies,
     
     support : code to put at the end of the script
         put all the "save" or "ray" commands here if you want automation
+
     multiplier : a number, probably between .1 and 3
         Increasing it makes chain more smooth
         Decreasing it makes it more kinky, but may cause bugs
         or even missing chain regions
+
     misc_arguments : str
         Misc arguments to pymol command at the very end (mainly >/dev/null)
     
@@ -221,6 +167,12 @@ def do_coloring(data, regions, colors, transparencies,
     subchain_radius *= multiplier
     sphereRadius *= multiplier
 
+    tmpPdbFile = tempfile.NamedTemporaryFile()
+    tmpPdbFilename = tmpPdbFile.name
+    pdbname = os.path.split(tmpPdbFilename)[-1]
+    tmpPdbFile.close()
+    polymerutils.save(data, tmpPdbFilename, mode='pdb')
+
     #starting background check
     N = len(data)
     nregions = np.array(regions)
@@ -238,15 +190,12 @@ def do_coloring(data, regions, colors, transparencies,
     letters = [i for i in "1234567890abcdefghijklmnopqrstuvwxyz"]
     names = [i + j + k for i in letters for j in letters for k in letters]
 
-    out = NamedTemporaryFile()
-    pdbFile = NamedTemporaryFile()
-    pdbname = os.path.split(pdbFile.name)[-1]
+    out = tempfile.NamedTemporaryFile()
 
     out.write("hide all\n")
     out.write("bg white\n")
 
     for i in xrange(len(regions)):
-
         out.write("select %s, resi %d-%d\n" % (names[i], regions[i][0], regions[i][1]))
         out.write("create subchain%s,%s\n" % (names[i], names[i]))
         #out.write("remove subchain%s in %s\n"%(names[i],pdbname))
@@ -276,16 +225,12 @@ def do_coloring(data, regions, colors, transparencies,
 
     #saving data
 
-    convert_xyz(data, pdbFile)
 
     from time import sleep
     sleep(0.5)
 
-    print os.system("pymol {1} -u {0} {2}".format(out.name, pdbFile.name,
+    print os.system("pymol {1} -u {0} {2}".format(out.name, tmpPdbFilename,
                                                   misc_arguments))
-
-
-
 
 def example_pymol():
     #Creating a random walk
@@ -308,43 +253,52 @@ def example_pymol():
                 transparencies=transp,
                 spherePositions=[500, 600])
 
+def show_chain(data, show_gui=True, save_to=None, **kwargs):
+    """Shows a single rainbow-colored chain using PyMOL.
 
+    Arguments:
+    gui - if True then show the GUI.
+    save_to - a path to a saved .png figure
 
-def show_chain(data, chain_radius=0.3, dataMult=1, support="",
-                spherePositions=[],
-                sphereRadius=.3,
-               ):
-    """This was meant to show rainbow colored worms. 
-    Not sure if it still works, but you can try
+    Keywords arguments:
+    chain_radius : the radius of the displayed chain. Default: 0.4
     """
-    data *= dataMult
+    chain_radius = kwargs.get('chain_radius', 0.4)
     data -= np.min(data, axis=0)[None, :]
     print data.min()
 
-    #regions = [(10,20),(120,140),(180,250)]
-    dataFile = NamedTemporaryFile()
-    out = NamedTemporaryFile()
-    convert_xyz(data, dataFile)
-    bgcolor = "grey"
-    pdbname = dataFile.name.split("/")[-1]
-    out.write("hide all\n")
-    out.write("bg white\n")
+    tmpPdb = tempfile.NamedTemporaryFile()
+    tmpPdbPath = tmpPdb.name
+    pdbname = os.path.split(tmpPdbPath)[-1]
+    tmpPdb.close()
+    polymerutils.save(data, tmpPdbPath, mode="pdb")
 
-    out.write("hide all\n")
-    out.write("set cartoon_trace_atoms,1,%s\n" % pdbname)
-    out.write("cartoon tube,%s\n" % pdbname)
-    out.write("set cartoon_tube_radius,%f,%s\n" % (chain_radius, pdbname))
-    out.write("spectrum\n")
-    out.write("show cartoon,name ca\n")
-    out.write("zoom %s" % pdbname)
-    for i  in spherePositions:
-        out.write("show spheres, i. {0}-{0}\n".format(i))
-        out.write("set sphere_color, grey60 \n")
-    out.write(support)
-    out.flush()
+    tmpScript = tempfile.NamedTemporaryFile()
+    tmpScript.write("hide all\n")
+    tmpScript.write("bg white\n")
+    tmpScript.write("enable {}\n".format(pdbname))
 
-    os.system("pymol {0} -u {1}".format(dataFile.name, out.name))
-    #out.close()
+    # Spectrum coloring.
+    tmpScript.write("set cartoon_trace_atoms,1,%s\n" % pdbname)
+    tmpScript.write("spectrum\n")
 
+    # Change the size of the spheres.
+    tmpScript.write("alter {}, vdw=1.0\n".format(pdbname))
+    tmpScript.write("show spheres\n")
+    tmpScript.write("zoom {}\n".format(pdbname))
+    if not (save_to is None):
+        tmpScript.write("viewport 1200,1200\n")
+        tmpScript.write("png {}\n".format(save_to))
+    if not show_gui:
+        tmpScript.write("quit\n")
+    #for i  in spherePositions:
+    #    tmpScript.write("show spheres, i. {0}-{0}\n".format(i))
+    #    tmpScript.write("set sphere_color, grey60 \n")
+    tmpScript.flush()
 
+    os.system("pymol {} {} -u {}".format(
+        tmpPdbPath, 
+        '' if show_gui else '-c',
+        tmpScript.name))
+    tmpScript.close()
 

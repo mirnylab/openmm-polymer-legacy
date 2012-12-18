@@ -121,6 +121,9 @@ def do_coloring(data, regions, colors, transparencies,
         Note that rasmol acceps subchains in a format
         (first monomer, last monomer), not the usual python
         convention (first, last+1)!!! An overlap check will watch this.
+        If you want two colorings to gradually transition into each other,
+        then you should use ((0,10),(10,25),(25,...)).
+
 
     colors : a list of colors ("red", "green", "blue", etc.)  for each region
 
@@ -179,13 +182,23 @@ def do_coloring(data, regions, colors, transparencies,
     if len(nregions) > 0:
         if nregions.min() < 0 or nregions.max() >= N:
             raise ValueError("region boundaries should be between 0 and N-1")
-    covered = np.zeros(len(data), int)
-    for i in regions:
-        covered[i[0]:i[1] + 1] += 1
-    if (covered.max() > 1) and (force == True):
+    regions = np.array(regions)
+    regions = np.sort(regions, axis=1)
 
-        raise ValueError("Overlapped regions detected! Rasmol will not work"\
-                         " Note that regions is (first,last), not last+1!")
+    args = np.argsort(regions[:, 0])[::-1]
+    regions = regions[args]
+    colors = [colors[i] for i in args]
+    transparencies = [transparencies[i] for i in args]
+
+    ends = regions[1:, 1]
+    starts = regions[:-1, 0]
+
+
+
+    if (force is False) and (starts < ends).any():
+        raise ValueError("Overlapped regions detected! Rasmol will not work. "\
+                         "E.g. valid regions are ((0,10),(10,20)), but not ((0,10),(9,20))")
+
     bgcolor = "grey"
     letters = [i for i in "1234567890abcdefghijklmnopqrstuvwxyz"]
     names = [i + j + k for i in letters for j in letters for k in letters]
@@ -238,7 +251,7 @@ def example_pymol():
     rw = .4 * np.cumsum(np.random.random((1000, 3)) - 0.5, axis=0)
 
     #Highlighting first 100 monomers and then 200-400
-    regions = [(0, 100), (200, 400)]
+    regions = [(000, 100), (100, 200)]
 
     #Coloring them red and blue
     colors = ["red", "green"]
@@ -253,6 +266,8 @@ def example_pymol():
                 colors=colors,
                 transparencies=transp,
                 spherePositions=[500, 600])
+
+#example_pymol()
 
 def show_chain(data, showGui=True, saveTo=None, showChain="worm", **kwargs):
     """Shows a single rainbow-colored chain using PyMOL.

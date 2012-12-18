@@ -7,7 +7,7 @@ import joblib
 
 
 
-def showData(data):
+def showData(data, rotate=(0,0,0)):
     #if you want to change positions of the spheres along each segment, change these numbers
     #e.g. [0,.1, .2 ...  .9] will draw 10 spheres, and this will look better
     shifts = [0., 0.2, 0.4, 0.6, 0.8]
@@ -20,11 +20,17 @@ def showData(data):
 
     #writing the rasmol script. Spacefill controls radius of the sphere.
     rascript = tempfile.NamedTemporaryFile()
-    rascript.write("""wireframe off
-    color temperature
-    spacefill 100
-    background white
-    """)
+    script = ("""set write on
+        wireframe off
+        color temperature
+        spacefill 100
+        background white
+        rotate x {0}
+        rotate y {1}
+        rotate z {1}
+
+        """.format(rotate[0], rotate[1], rotate[2]))
+    rascript.write(script)
     rascript.flush()
 
     #creating the array, linearly chanhing from -225 to 225, to serve as an array of colors
@@ -87,6 +93,8 @@ def load(filename):
         return data
 
 
+if len(sys.argv) > 2:
+    showData(load(sys.argv[1]), (sys.argv[2], sys.argv[3], sys.argv[4]))
 try:
     showData(load(sys.argv[1]))
     exit()

@@ -1,9 +1,7 @@
-import numpy
+import numpy as np
 import joblib
 import os
 from math import sqrt, sin, cos
-
-
 
 def load(filename, h5dictKey=None):
     """Universal load function for any type of data file"""
@@ -23,7 +21,7 @@ def load(filename, h5dictKey=None):
 
         if len(data) != N:
             raise ValueError("N does not correspond to the number of lines!")
-        return numpy.array(data)
+        return np.array(data)
 
     except TypeError:
         pass
@@ -52,9 +50,7 @@ def load(filename, h5dictKey=None):
     except IOError:
         raise IOError("Failed to open file")
 
-
 def save(data, filename, mode="txt", h5dictKey="1"):
-
     h5dictKey = str(h5dictKey)
     mode = mode.lower()
 
@@ -64,13 +60,13 @@ def save(data, filename, mode="txt", h5dictKey="1"):
         mydict[h5dictKey] = data
         return
 
-    if mode == "joblib":
+    elif mode == "joblib":
         metadata = {}
         metadata["data"] = data
         joblib.dump(metadata, filename=filename, compress=3)
         return
 
-    if  mode == "txt":
+    elif mode == "txt":
         lines = [str(len(data)) + "\n"]
         for particle in data:
             lines.append("".join([str(j) + " " for j in particle]) + "\n")
@@ -78,13 +74,44 @@ def save(data, filename, mode="txt", h5dictKey="1"):
             myfile.writelines(lines)
         return
 
-    raise ValueError("Unknown mode : %s, use h5dict, joblib or txt" % mode)
+    elif mode == 'pdb':
+        data = data - np.min(data, axis=0)[None, :]
 
+        N = len(data)
+        retret = ""
+
+        def add(st, n):
+            if len(st) > n: 
+                return st[:n]
+            else:
+                return st + " " * (n - len(st))
+
+        for i, line in enumerate(data):
+            line = [1. * (float(j) + 1) for j in line]
+            ret = add("ATOM", 7)
+            ret = add(ret + "%i" % (i + 1), 13)
+            ret = add(ret + "CA", 17)
+            ret = add(ret + "ALA", 22)
+
+            ret = add(ret + "%i" % (i), 30)
+            ret = add(ret + ("%8.3f" % line[0]), 37)
+            ret = add(ret + ("%8.3f" % line[1]), 45)
+            ret = add(ret + ("%8.3f" % line[2]), 53)
+            ret = add(ret + (" 1.00"), 61)
+            ret = add(ret + str(float(i % 8 > 4)), 67)
+            retret += (ret + "\n")
+
+        f = open(filename, 'w')
+        f.write(retret)
+        f.flush()
+
+    else: 
+        raise ValueError("Unknown mode : %s, use h5dict, joblib, txt or pdb" % mode)
 
 def generateRandomLooping(length=10000, oneMoverPerBp=1000, numSteps=100):
 
     N = length
-    myarray = numpy.zeros(N, int)
+    myarray = np.zeros(N, int)
     movers = []
     onsetRate = length / float(oneMoverPerBp)
 
@@ -94,8 +121,8 @@ def generateRandomLooping(length=10000, oneMoverPerBp=1000, numSteps=100):
             myarray[i[1]] = 1
 
     def addMovers():
-        for _ in xrange(numpy.random.poisson(onsetRate)):
-            pos = numpy.random.randint(N - 1)
+        for _ in xrange(np.random.poisson(onsetRate)):
+            pos = np.random.randint(N - 1)
             if myarray[pos:pos + 2].sum() == 0:
                 movers.append((pos, pos + 1))
                 myarray[pos:pos + 2] = 1
@@ -180,7 +207,7 @@ def create_spiral(r1, r2, N):
 
     def add_point(point, points=points, finished=finished):
         if (len(points) == N) or (finished[0] == True):
-            points = numpy.array(points)
+            points = np.array(points)
             finished[0] = True
             print "finished!!!"
         else:
@@ -192,7 +219,7 @@ def create_spiral(r1, r2, N):
     add_point(fullcoord(curphi, z))
     while True:
         if finished[0] == True:
-            return numpy.transpose(points)
+            return np.transpose(points)
         if forward == True:
             curphi = nextphi(curphi)
             add_point(fullcoord(curphi, z))
@@ -212,7 +239,7 @@ def create_spiral(r1, r2, N):
 def _test():
 
     print "testing save/load"
-    a = numpy.random.random((20000, 3))
+    a = np.random.random((20000, 3))
     save(a, "bla", mode="txt")
     b = load("bla")
     assert abs(b.mean() - a.mean()) < 0.00001

@@ -3,7 +3,7 @@ import sys
 
 import numpy as np
 import cPickle
-#from polymerutils import save, load
+# from polymerutils import save, load
 from tempfile import NamedTemporaryFile
 from polymerutils import save
 from scipy.interpolate.interpolate import interp1d
@@ -24,16 +24,16 @@ def interpolateData(data, targetN=90000, colorArrays=[]):
     2. Evaluate cubic spline at targetN*10 values \n
     3. Rescale the evaluated spline such that total distance is targetN \n
     4. Select targetN points along the path with distance between
-    neighboring points _along the chain_ equal to 1. 
-    
+    neighboring points _along the chain_ equal to 1.
+
     Parameters
     ----------
     data : Nx3 array
         Input xyz coordinates
     targetN : int
-        Length of output polymer. 
+        Length of output polymer.
         It is not adviced to make it many times less than N
-    
+
     Returns
     -------
     (about targetN) x 3 array
@@ -128,16 +128,16 @@ def convert_xyz(data, out_file):
     f = out_file
     f.write(retret)
     f.flush()
-    #print retret
+    # print retret
 
 
 
 def create_regions(a):
     """
     Creates array of non-zero regions of a.
-    if a is 0 1 1 0 1 0 
-    result will be (1,3), (4,5), because elements 1,2 and 4 are non-zero.     
-     
+    if a is 0 1 1 0 1 0
+    result will be (1,3), (4,5), because elements 1,2 and 4 are non-zero.
+
     """
 
     a = a > 0
@@ -159,7 +159,7 @@ def do_coloring(data, regions, colors, transparencies,
 
     """
     !!! Please read this completely. Otherwise you'll suck :( !!!
-    
+
     Creates a PDB file and a rasmol script that shows an XYZ polymer
     using pymol. Polymer consists of two parts: chain and subchain.
     A chain is a grey polymer, that is meant to resemble the main chain.
@@ -167,27 +167,27 @@ def do_coloring(data, regions, colors, transparencies,
     means transparent, transparency 0 means fully visible). A subchain
     consists of a certain number of regions, each has it's own color, trans
     parency, etc.
-    
+
     Parameters
     ----------
-    
+
     data : an Nx3 array of XYZ coordinates
-    
+
     regions : a list of tuples (start, end)
-        Note that rasmol acceps subchains in a format 
-        (first monomer, last monomer), not the usual python 
-        convention (first, last+1)!!! An overlap check will watch this. 
-    
+        Note that rasmol acceps subchains in a format
+        (first monomer, last monomer), not the usual python
+        convention (first, last+1)!!! An overlap check will watch this.
+
     colors : a list of colors ("red", "green", "blue", etc.)  for each region
-    
+
     transparencies : a list of floats between 0 and 1. 0 is fully visible
-    
+
     chain_radius : radius of a main chain in arbitraty units
-    
+
     subchain_radius : radius of a subchain in arbitrary units
-    
+
     chain_transparency : transparency of a main chain
-    
+
     support : code to put at the end of the script
         put all the "save" or "ray" commands here if you want automation
     multiplier : a number, probably between .1 and 3
@@ -196,15 +196,15 @@ def do_coloring(data, regions, colors, transparencies,
         or even missing chain regions
     misc_arguments : str
         Misc arguments to pymol command at the very end (mainly >/dev/null)
-    
+
     .. warning :: Do not call this scripy "pymol.py!"
-    
+
     .. warning ::
-        Please resize the window to the needed size and run 
+        Please resize the window to the needed size and run
         "ray" command (press "ray" button) to get a nice image.
         Then DO NOT MOVE the image and find "export" in the menu.
         Otherwise your image will be not that high quality
-        
+
     .. note ::
         performance of "ray" command depends on two things.
         First is resolution : it is more than quadratic in that
@@ -213,7 +213,7 @@ def do_coloring(data, regions, colors, transparencies,
         Though it actually looks awesome then!
 
     Run an example method below to see how the code works.
-    See full automation examples below. 
+    See full automation examples below.
     """
     data = np.array(data)
     data *= multiplier
@@ -221,7 +221,7 @@ def do_coloring(data, regions, colors, transparencies,
     subchain_radius *= multiplier
     sphereRadius *= multiplier
 
-    #starting background check
+    # starting background check
     N = len(data)
     nregions = np.array(regions)
     if len(nregions) > 0:
@@ -244,12 +244,13 @@ def do_coloring(data, regions, colors, transparencies,
 
     out.write("hide all\n")
     out.write("bg white\n")
+    out.write("set ray_opaque_background, off\n")
 
     for i in xrange(len(regions)):
 
         out.write("select %s, resi %d-%d\n" % (names[i], regions[i][0], regions[i][1]))
         out.write("create subchain%s,%s\n" % (names[i], names[i]))
-        #out.write("remove subchain%s in %s\n"%(names[i],pdbname))
+        # out.write("remove subchain%s in %s\n"%(names[i],pdbname))
 
     out.write("set cartoon_trace_atoms,1,%s\n" % pdbname)
     out.write("cartoon tube,%s\n" % pdbname)
@@ -274,7 +275,7 @@ def do_coloring(data, regions, colors, transparencies,
     out.write(support)
     out.flush()
 
-    #saving data
+    # saving data
 
     convert_xyz(data, pdbFile)
 
@@ -288,19 +289,19 @@ def do_coloring(data, regions, colors, transparencies,
 
 
 def example_pymol():
-    #Creating a random walk
+    # Creating a random walk
     rw = .4 * np.cumsum(np.random.random((1000, 3)) - 0.5, axis=0)
 
-    #Highlighting first 100 monomers and then 200-400
+    # Highlighting first 100 monomers and then 200-400
     regions = [(0, 100), (200, 400)]
 
-    #Coloring them red and blue
+    # Coloring them red and blue
     colors = ["red", "green"]
 
-    #Making red semi-transparent
+    # Making red semi-transparent
     transp = [0.7, 0]
 
-    #Running the script with default chain radiuses
+    # Running the script with default chain radiuses
     do_coloring(
                 data=rw,
                 regions=regions,
@@ -313,15 +314,16 @@ def example_pymol():
 def show_chain(data, chain_radius=0.3, dataMult=1, support="",
                 spherePositions=[],
                 sphereRadius=.3,
+                sphereColor="grey60"
                ):
-    """This was meant to show rainbow colored worms. 
+    """This was meant to show rainbow colored worms.
     Not sure if it still works, but you can try
     """
     data *= dataMult
     data -= np.min(data, axis=0)[None, :]
     print data.min()
 
-    #regions = [(10,20),(120,140),(180,250)]
+    # regions = [(10,20),(120,140),(180,250)]
     dataFile = NamedTemporaryFile()
     out = NamedTemporaryFile()
     convert_xyz(data, dataFile)
@@ -329,7 +331,7 @@ def show_chain(data, chain_radius=0.3, dataMult=1, support="",
     pdbname = dataFile.name.split("/")[-1]
     out.write("hide all\n")
     out.write("bg white\n")
-
+    out.write("set ray_opaque_background, off\n")
     out.write("hide all\n")
     out.write("set cartoon_trace_atoms,1,%s\n" % pdbname)
     out.write("cartoon tube,%s\n" % pdbname)
@@ -339,12 +341,12 @@ def show_chain(data, chain_radius=0.3, dataMult=1, support="",
     out.write("zoom %s" % pdbname)
     for i  in spherePositions:
         out.write("show spheres, i. {0}-{0}\n".format(i))
-        out.write("set sphere_color, grey60 \n")
+        out.write("set sphere_color, %s \n" % sphereColor)
     out.write(support)
     out.flush()
 
     os.system("pymol {0} -u {1}".format(dataFile.name, out.name))
-    #out.close()
+    # out.close()
 
 
 

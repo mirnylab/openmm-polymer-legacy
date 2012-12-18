@@ -241,7 +241,7 @@ def subchainDensityFunction(filenames, bins, normalize="Rg", lengthmult=3, Nbins
 def give_slices(base, tosave, slices, sliceParams,
                 multipliers, mode="chain", loadFunction=Cload,
                 integrate=False, normalize=False, exceptionList=[],
-                nproc=4, cutoff=1.7):
+                nproc=4, cutoff=1.7, binstep=1.15):
     np.seterr(invalid='raise')
 
     plotsBySlice = []
@@ -310,14 +310,14 @@ def give_slices(base, tosave, slices, sliceParams,
         datlen = len(datas[0][0])
 
         if mode == "chain":
-            bins2 = logbins(4, datlen - 100, 1.15)
+            bins2 = logbins(4, datlen - 100, binstep)
         if mode == "parts":
-            bins2 = logbins(4, datlen - 100, 1.15)
+            bins2 = logbins(4, datlen - 100, binstep)
         if (mode == "ring") or (mode == "intring"):
-            b1 = logbins(2, datlen / 4 - 1, 1.34)
+            b1 = logbins(2, datlen / 4 - 1, binstep)
             bins2 = [2 * i for i in b1]
             print bins2
-        binsrg = logbins(4, datlen - 100, 1.15)
+        binsrg = logbins(4, datlen - 100, binstep)
 
         def give_plots(i):
             data = newload(i)

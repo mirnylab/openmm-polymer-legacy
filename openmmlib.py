@@ -370,21 +370,24 @@ class Simulation():
             E.g. if you have 3 chains of length 5,10,15,
             chains should be [(0,5),(5,15),(15,30)]
 
-
         Nchains : int
             Number of chains, if they all are of the same lengths.
             Ignored if chains is specified exactly.
 
+
         """
-        N = self.N
+
         if mode in ["chain", "ring"]:
+
             if chains is not None:
                 self.chains = chains
             else:
+                if not hasattr(self, "N"):
+                    raise ValueError("Load the chain first, or provide chain length")
                 self.chains = []
                 for i in xrange(Nchains):
-                    self.chains.append(((N * i) /
-                        Nchains, (N * (i + 1)) / Nchains))
+                    self.chains.append(((self.N * i) /
+                        Nchains, (self.N * (i + 1)) / Nchains))
         self.mode = mode
         #print self.N, chains
         layout = {"chains": chains, "mode": mode, "Nchains": Nchains}
@@ -454,7 +457,8 @@ class Simulation():
             self.exitProgram("strange data file")
         if numpy.isnan(data).any():
             self.exitProgram("\n!!!!!!!!!!file contains NANS!!!!!!!!!\n")
-        if center == True:
+
+        if center is True:
             av = numpy.mean(data, 0)
             data -= av
 
@@ -463,7 +467,7 @@ class Simulation():
             data -= minvalue
 
         self.setData(data)
-        #if mirnylib.numutils.isInteger(data): self.randomizeData()
+        self.randomizeData()
 
         if self.verbose == True:
             print "center of mass is", numpy.mean(self.data, 0)
@@ -632,7 +636,7 @@ class Simulation():
 
     def randomizeData(self):
         data = self.getData()
-        data += numpy.random.randn(*data.shape) * 0.01
+        data += numpy.random.randn(*data.shape) * 0.0001
         self.setData(data)
 
     def RG(self):
@@ -871,9 +875,9 @@ class Simulation():
         Parameters
         ----------
 
-        k : float or list of length N 
-            Stiffness of the bond. 
-            If list, then determines stiffness of the bond at monomer i. 
+        k : float or list of length N
+            Stiffness of the bond.
+            If list, then determines stiffness of the bond at monomer i.
             Potential is k * alpha^2 * 0.5 * kT
         """
         try:
@@ -1247,7 +1251,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         spherForce.addGlobalParameter("SPHtt", 0.01 * nm)
 
     def excludeSphere(self, r=5, position=(0, 0, 0)):
-        """Excludes particles from a sphere of radius r at certain position. 
+        """Excludes particles from a sphere of radius r at certain position.
         """
 
         spherForce = self.mm.CustomExternalForce("step(EXaa-r) * EXkb * (sqrt((r-EXaa)*(r-EXaa) + EXt*EXt) - EXt) ;r = sqrt((x-EXx)^2 + (y-EXy)^2 + (z-EXz)^2 + EXtt^2)")
@@ -1458,7 +1462,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
 
     def reinitialize(self, mult=1):
         """Reinitializes the OpenMM context object.
-        This should be called if low-level parameters, 
+        This should be called if low-level parameters,
         such as forces, have changed.
 
         Parameters

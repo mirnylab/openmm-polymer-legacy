@@ -1,19 +1,11 @@
 import os.path
 import sys
-import tempfile 
+import tempfile
 import cPickle
 
 import numpy as np
-import cPickle
-#from polymerutils import save, load
-from tempfile import NamedTemporaryFile
-from polymerutils import save
 from scipy.interpolate.interpolate import interp1d
 from scipy.interpolate.fitpack2 import InterpolatedUnivariateSpline
-from mirnylib.systemutils import deprecate
-
-
-
 
 from mirnylib.systemutils import deprecate
 import polymerutils
@@ -85,8 +77,7 @@ def interpolateData(data, targetN=90000, colorArrays=[]):
     p1[:, None] * splined[searched - 1]
     return evaled, colorReturn
 
-    #print retret
-def create_regions(a):
+def createRegions(a):
     """
     Creates array of non-zero regions of a.
     if a is 0 1 1 0 1 0
@@ -102,13 +93,13 @@ def create_regions(a):
     return np.transpose(np.array([a1, a2]))
 
 def do_coloring(data, regions, colors, transparencies,
-                chain_radius=0.02, subchain_radius=0.04,
-                chain_transparency=0.5, support="",
+                chainRadius=0.02, subchainRadius=0.04,
+                chainTransparency=0.5, support="",
                 multiplier=.4,
                 spherePositions=[],
                 sphereRadius=.3,
                 force=False,
-                misc_arguments=""):
+                miscArguments=""):
 
     """
     !!! Please read this completely. Otherwise you'll suck :( !!!
@@ -118,13 +109,13 @@ def do_coloring(data, regions, colors, transparencies,
     A chain is a grey polymer, that is meant to resemble the main chain.
     It is meant to be thin, gray and transparent (overall, here transparency 1
     means transparent, transparency 0 means fully visible). A subchain
-    consists of a certain number of regions, each has it's own color, 
+    consists of a certain number of regions, each has it's own color,
     transparency, etc.
 
     Parameters
     ----------
 
-    data : an Nx3 array of XYZ coordinates 
+    data : an Nx3 array of XYZ coordinates
 
     regions : a list of tuples (start, end)
         Note that rasmol acceps subchains in a format
@@ -172,8 +163,8 @@ def do_coloring(data, regions, colors, transparencies,
     """
     data = np.array(data)
     data *= multiplier
-    chain_radius *= multiplier
-    subchain_radius *= multiplier
+    chainRadius *= multiplier
+    subchainRadius *= multiplier
     sphereRadius *= multiplier
 
     tmpPdbFile = tempfile.NamedTemporaryFile()
@@ -182,7 +173,7 @@ def do_coloring(data, regions, colors, transparencies,
     tmpPdbFile.close()
     polymerutils.save(data, tmpPdbFilename, mode='pdb')
 
-    # starting background check
+    #starting background check
     N = len(data)
     nregions = np.array(regions)
     if len(nregions) > 0:
@@ -208,19 +199,19 @@ def do_coloring(data, regions, colors, transparencies,
     for i in xrange(len(regions)):
         out.write("select %s, resi %d-%d\n" % (names[i], regions[i][0], regions[i][1]))
         out.write("create subchain%s,%s\n" % (names[i], names[i]))
-        # out.write("remove subchain%s in %s\n"%(names[i],pdbname))
+        #out.write("remove subchain%s in %s\n"%(names[i],pdbname))
 
     out.write("set cartoon_trace_atoms,1,%s\n" % pdbname)
     out.write("cartoon tube,%s\n" % pdbname)
-    out.write("set cartoon_tube_radius,%f,%s\n" % (chain_radius, pdbname))
-    out.write("set cartoon_transparency,%f,%s\n" % (chain_transparency, pdbname))
+    out.write("set cartoon_tube_radius,%f,%s\n" % (chainRadius, pdbname))
+    out.write("set cartoon_transparency,%f,%s\n" % (chainTransparency, pdbname))
     out.write("color %s,%s\n" % (bgcolor, pdbname))
     for i in xrange(len(regions)):
 
         name = "subchain%s" % names[i]
         out.write("set cartoon_trace_atoms,1,%s\n" % name)
         out.write("cartoon tube,%s\n" % name)
-        out.write("set cartoon_tube_radius,%f,%s\n" % (subchain_radius, name))
+        out.write("set cartoon_tube_radius,%f,%s\n" % (subchainRadius, name))
         out.write("color %s,subchain%s\n" % (colors[i], names[i]))
         out.write("set cartoon_transparency,%f,%s\n" % (transparencies[i], name))
     for i  in spherePositions:
@@ -233,29 +224,29 @@ def do_coloring(data, regions, colors, transparencies,
     out.write(support)
     out.flush()
 
-    # saving data
+    #saving data
 
 
     from time import sleep
     sleep(0.5)
 
     print os.system("pymol {1} -u {0} {2}".format(out.name, tmpPdbFilename,
-                                                  misc_arguments))
+                                                  miscArguments))
 
 def example_pymol():
-    # Creating a random walk
+    #Creating a random walk
     rw = .4 * np.cumsum(np.random.random((1000, 3)) - 0.5, axis=0)
 
-    # Highlighting first 100 monomers and then 200-400
+    #Highlighting first 100 monomers and then 200-400
     regions = [(0, 100), (200, 400)]
 
-    # Coloring them red and blue
+    #Coloring them red and blue
     colors = ["red", "green"]
 
-    # Making red semi-transparent
+    #Making red semi-transparent
     transp = [0.7, 0]
 
-    # Running the script with default chain radiuses
+    #Running the script with default chain radiuses
     do_coloring(
                 data=rw,
                 regions=regions,
@@ -263,55 +254,60 @@ def example_pymol():
                 transparencies=transp,
                 spherePositions=[500, 600])
 
-def show_chain(data, show_gui=True, save_to=None, **kwargs):
+def show_chain(data, showGui=True, saveTo=None, showChain="worm", **kwargs):
     """Shows a single rainbow-colored chain using PyMOL.
 
     Arguments:
     gui - if True then show the GUI.
     save_to - a path to a saved .png figure
+    showChain - "worm" or "spheres"
 
     Keywords arguments:
     chain_radius : the radius of the displayed chain. Default: 0.4
-                sphereColor="grey60"
-    """This was meant to show rainbow colored worms.
     """
     chain_radius = kwargs.get('chain_radius', 0.4)
     data -= np.min(data, axis=0)[None, :]
     print data.min()
 
-    # regions = [(10,20),(120,140),(180,250)]
+    tmpPdb = tempfile.NamedTemporaryFile()
     tmpPdbPath = tmpPdb.name
     pdbname = os.path.split(tmpPdbPath)[-1]
     tmpPdb.close()
     polymerutils.save(data, tmpPdbPath, mode="pdb")
-    out.write("set ray_opaque_background, off\n")
+
     tmpScript = tempfile.NamedTemporaryFile()
     tmpScript.write("hide all\n")
     tmpScript.write("bg white\n")
-    tmpScript.write("enable {}\n".format(pdbname))
-        out.write("set sphere_color, %s \n" % sphereColor)
+    tmpScript.write("set ray_opaque_background, off\n")
+    tmpScript.write("enable {0}\n".format(pdbname))
 
     # Spectrum coloring.
-    # out.close()
+    tmpScript.write("set cartoon_trace_atoms,1,%s\n" % pdbname)
     tmpScript.write("spectrum\n")
 
     # Change the size of the spheres.
-    tmpScript.write("alter {}, vdw=1.0\n".format(pdbname))
-    tmpScript.write("show spheres\n")
-    tmpScript.write("zoom {}\n".format(pdbname))
-    if not (save_to is None):
+
+    if showChain == "worm":
+        tmpScript.write("cartoon tube,%s\n" % pdbname)
+        tmpScript.write("set cartoon_tube_radius,%f,%s\n" % (chain_radius, pdbname))
+        tmpScript.write("show cartoon,name ca\n")
+
+    elif showChain == "spheres":
+        tmpScript.write("alter {0}, vdw=1.0\n".format(pdbname))
+        tmpScript.write("show spheres\n")
+    else:
+        raise ValueError("please select show to be 'worm' or 'spheres'")
+    tmpScript.write("zoom {0}\n".format(pdbname))
+    if not (saveTo is None):
         tmpScript.write("viewport 1200,1200\n")
-        tmpScript.write("png {}\n".format(save_to))
-    if not show_gui:
+        tmpScript.write("png {}\n".format(saveTo))
+    if not showGui:
         tmpScript.write("quit\n")
-    #for i  in spherePositions:
-    #    tmpScript.write("show spheres, i. {0}-{0}\n".format(i))
-    #    tmpScript.write("set sphere_color, grey60 \n")
+
     tmpScript.flush()
 
-    os.system("pymol {} {} -u {}".format(
-        tmpPdbPath, 
-        '' if show_gui else '-c',
+    os.system("pymol {0} {1} -u {2}".format(
+        tmpPdbPath,
+        '' if showGui else '-c',
         tmpScript.name))
     tmpScript.close()
-

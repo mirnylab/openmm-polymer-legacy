@@ -2,6 +2,7 @@ import os.path
 import sys
 import tempfile
 import cPickle
+import subprocess
 
 import numpy as np
 from scipy.interpolate.interpolate import interp1d
@@ -280,6 +281,8 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", **kwargs):
     Keywords arguments:
     chain_radius : the radius of the displayed chain. Default: 0.4
     """
+    if isinstance(data, str):
+        data = polymerutils.load(data)
     chain_radius = kwargs.get('chain_radius', 0.4)
     data -= np.min(data, axis=0)[None, :]
     print data.min()
@@ -311,7 +314,7 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", **kwargs):
         tmpScript.write("alter {0}, vdw=1.0\n".format(pdbname))
         tmpScript.write("show spheres\n")
     else:
-        raise ValueError("please select show to be 'worm' or 'spheres'")
+        raise ValueError("please select showChain to be 'worm' or 'spheres'")
     tmpScript.write("zoom {0}\n".format(pdbname))
     if not (saveTo is None):
         tmpScript.write("viewport 1200,1200\n")
@@ -326,3 +329,25 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", **kwargs):
         '' if showGui else '-c',
         tmpScript.name))
     tmpScript.close()
+
+def _mencoder(imageFolder, fps, aviFilename):
+    subprocess.call( 
+        ("cd {0}; ".format(imageFolder) + 
+         "mencoder \"mf://*.png\" -mf fps={0} -o {1} ".format(fps, aviFilename) + 
+         "-ovc lavc -lavcopts vcodec=mpeg4"),
+        shell=True)
+
+def makeMovie(fileList, imageFolder, fps=10, aviFilename='output.avi'):
+    numFrames = len(fileList)
+    numDigits = int(np.ceil(np.log10(numFrames)))
+    for i, dataPath in enumerate(fileList):
+        d = polymerutils.load(dataPath)
+        savePath = imageFolder +'/{0:0{width}}.png'.format(i, width=numDigits)  
+        show_chain(
+            d, 
+            showGui=False, 
+            saveTo=savePath,
+            showChain='spheres')
+
+    _mencoder(imageFolder, fps, aviFilename)
+

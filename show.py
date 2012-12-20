@@ -5,8 +5,6 @@ import tempfile
 import sys
 import joblib
 
-
-
 def showData(data, rotate=(0,0,0)):
     #if you want to change positions of the spheres along each segment, change these numbers
     #e.g. [0,.1, .2 ...  .9] will draw 10 spheres, and this will look better
@@ -65,18 +63,6 @@ def showData(data, rotate=(0,0,0)):
             towrite.name, rascript.name))
     exit()
 
-
-if len(sys.argv) == 3:
-    print "Assuming h5dict file first"
-    try:
-        from mirnylib.h5dict import h5dict
-        data = h5dict(path=sys.argv[1], mode="r")[sys.argv[2]]
-        showData(data)
-        exit()
-    except IOError:
-        print "failed to load h5dict file, trying regular file"
-
-
 def load(filename):
     try:
         return joblib.load(filename)["data"]
@@ -92,15 +78,26 @@ def load(filename):
                 "N does not correspond to the number of lines!")
         return data
 
+if __name__=='__main__':
+    if len(sys.argv) == 3:
+        print "Assuming h5dict file first"
+        try:
+            from mirnylib.h5dict import h5dict
+            data = h5dict(path=sys.argv[1], mode="r")[sys.argv[2]]
+            showData(data)
+            exit()
+        except IOError:
+            print "failed to load h5dict file, trying regular file"
 
-if len(sys.argv) > 2:
-    showData(load(sys.argv[1]), (sys.argv[2], sys.argv[3], sys.argv[4]))
-try:
-    showData(load(sys.argv[1]))
-    exit()
 
-except:
-    showData(load("block%s.dat" % sys.argv[1]))
+    if len(sys.argv) > 2:
+        showData(load(sys.argv[1]), (sys.argv[2], sys.argv[3], sys.argv[4]))
+    try:
+        showData(load(sys.argv[1]))
+        exit()
+
+    except:
+        showData(load("block%s.dat" % sys.argv[1]))
 
 
 

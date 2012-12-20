@@ -58,6 +58,7 @@ def save(data, filename, mode="txt", h5dictKey="1"):
         from mirnylib.h5dict import h5dict
         mydict = h5dict(filename, mode="w")
         mydict[h5dictKey] = data
+        del mydict
         return
 
     elif mode == "joblib":

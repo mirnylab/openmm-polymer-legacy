@@ -1584,9 +1584,8 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
             b = time.time()
             coords = self.state.getPositions(asNumpy=True)
             newcoords = coords / nm
-            eK = self.state.getKineticEnergy() / self.N / \
-                self.kT  # calculate energies in KT/particle
-
+            # calculate energies in KT/particle
+            eK = (self.state.getKineticEnergy() / self.N / self.kT)
             eP = self.state.getPotentialEnergy() / self.N / self.kT
 
             if self.velocityReinialize == True:
@@ -1595,13 +1594,14 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
                     self.initVelocities()
             print "pos[1]=[%.1lf %.1lf %.1lf]" % tuple(newcoords[0]),
 
-            if (numpy.isnan(newcoords).any()) or (eK > 20) or \
-            (numpy.isnan(eK)) or (numpy.isnan(eP)):
+            if ((numpy.isnan(newcoords).any()) or (eK > 20) or 
+                (numpy.isnan(eK)) or (numpy.isnan(eP))):
+
                 self.context.setPositions(self.data)
                 self.initVelocities()
                 if reinitialize == False:
                     return False
-                print "trying one more time at step # %i" % self.step
+                print "eK={0}, eP={1}, trying one more time at step {2} ".format(eK, eP, self.step)
             else:
                 dif = numpy.sqrt(numpy.mean(numpy.sum((newcoords -
                     self.getData()) ** 2, axis=1)))
@@ -1611,11 +1611,12 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
                     eP), "Rg=%.3lf" % self.RG(),
                 print "SPS=%.0lf" % (steps / (float(b - a)))
                 break
+
             if attempt in [3, 4]:
                 self.energyMinimization(stepsPerIteration=30,
                                         failNotConverged=True)
             if attempt == 5:
-                self.exitProgram("exceeded number of attmpts")
+                self.exitProgram("exceeded number of attempts")
         return True
 
     def printStats(self):

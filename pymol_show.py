@@ -1,8 +1,9 @@
-import os.path
+import os
 import sys
 import tempfile
 import cPickle
 import subprocess
+import textwrap
 
 import numpy as np
 from scipy.interpolate.interpolate import interp1d
@@ -270,6 +271,13 @@ def example_pymol():
 
 #example_pymol()
 
+def getTmpPath(folder=None):
+    tmpFile = tempfile.NamedTemporaryFile(dir=folder)
+    tmpPath = tmpPdb.name
+    tmpFilename = os.path.split(tmpPath)[-1]
+    tmpFile.close()
+    return tmpPath, tmpFilename
+
 def show_chain(data, showGui=True, saveTo=None, showChain="worm", **kwargs):
     """Shows a single rainbow-colored chain using PyMOL.
 
@@ -287,10 +295,7 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", **kwargs):
     data -= np.min(data, axis=0)[None, :]
     print data.min()
 
-    tmpPdb = tempfile.NamedTemporaryFile()
-    tmpPdbPath = tmpPdb.name
-    pdbname = os.path.split(tmpPdbPath)[-1]
-    tmpPdb.close()
+    tmpPdbPath, pdbname = getTmpPath()
     polymerutils.save(data, tmpPdbPath, mode="pdb")
 
     tmpScript = tempfile.NamedTemporaryFile()
@@ -330,24 +335,72 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", **kwargs):
         tmpScript.name))
     tmpScript.close()
 
-def _mencoder(imageFolder, fps, aviFilename):
+def makeMoviePymol(fileList, destFolder, fps=10, aviFilename='output.avi'):
+    numFrames = len(fileList)
+    numDigits = int(np.ceil(np.log10(numFrames)))
+    pdbPaths = []
+
+    destFolder = os.path.abspath(destFolder)
+    pdbFolder = destFolder + '/pdb'
+    imgFolder = destFolder + '/img'
+    for folder in [destFolder, pdbFolder, imgFolder]:
+        if not os.path.isdir(folder):
+            os.mkdir(folder)
+
+    for i, dataPath in enumerate(fileList):
+        d = polymerutils.load(dataPath)
+        d -= np.mean(d, axis=0)[None, :]
+        pdbFilename = '{0:0{width}}.pdb'.format(i, width=numDigits)  
+        savePath = pdbFolder +'/' + pdbFilename
+        polymerutils.save(d, savePath, mode='pdb')
+        pdbPaths.append(os.path.abspath(savePath))
+
+    script = 'hide all\n'
+    for i in pdbPaths:
+        script += 'load {0}, mov\n'.format(i)
+
+    script += textwrap.dedent("""
+    smooth mov
+    bg white
+    set ray_opaque_background, off
+    spectrum count, rainbow, mov
+    alter mov, vdw=1.0
+    show spheres
+    as spheres
+    zoom mov
+    viewport 600, 600
+    set ray_trace_frames=1
+    mpng mov
+    """)
+
+    tmpScriptPath = os.path.abspath(destFolder + '/movie.pymol')
+    tmpScript = open(tmpScriptPath, 'w') 
+    tmpScript.write(script)
+    tmpScript.flush()
+
+    os.system("cd {0}; pymol -c -u {1}; cd -".format(imgFolder, tmpScriptPath))
+    _mencoder(imgFolder, fps, aviFilename)
+
+def _mencoder(imgFolder, fps, aviFilename):
     subprocess.call( 
-        ("cd {0}; ".format(imageFolder) + 
+        ("cd {0}; ".format(imgFolder) + 
          "mencoder \"mf://*.png\" -mf fps={0} -o {1} ".format(fps, aviFilename) + 
          "-ovc lavc -lavcopts vcodec=mpeg4"),
         shell=True)
 
-def makeMovie(fileList, imageFolder, fps=10, aviFilename='output.avi'):
+def makeMovie(fileList, imgFolder, fps=15, aviFilename='output.avi'):
+    if not fileList:
+        return
     numFrames = len(fileList)
     numDigits = int(np.ceil(np.log10(numFrames)))
     for i, dataPath in enumerate(fileList):
         d = polymerutils.load(dataPath)
-        savePath = imageFolder +'/{0:0{width}}.png'.format(i, width=numDigits)  
+        savePath = imgFolder +'/{0:0{width}}.png'.format(i, width=numDigits)  
         show_chain(
             d, 
             showGui=False, 
             saveTo=savePath,
             showChain='spheres')
 
-    _mencoder(imageFolder, fps, aviFilename)
+    _mencoder(imgFolder, fps, aviFilename)
 

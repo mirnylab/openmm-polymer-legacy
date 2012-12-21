@@ -174,7 +174,6 @@ nm = units.meter * 1e-9
 fs = units.second * 1e-15
 ps = units.second * 1e-12
 
-
 class Simulation():
     """Base class for openmm simulations
 
@@ -184,7 +183,9 @@ class Simulation():
         verbose=False,
         velocityReinitialize=True,
         # reinitialize velocities at every block if E_kin is more than 2.4
-        name="sim"):  # name to print out
+        name="sim",
+        length_scale=1.0,
+        mass_scale=1.0):  # name to print out
         """
 
         Parameters
@@ -211,6 +212,16 @@ class Simulation():
             Use it if you run simulations one after another
             and want to see what's going on.
 
+        length_scale : float, optional
+            The geometric scaling factor of the system. 
+            By default, length_scale=1.0 and harmonic bonds and repulsive 
+            forces have the scale of 1 nm.
+
+        mass_scale : float, optional
+            The scaling factor of the mass of the system. 
+            By default, length_scale=1.0 and harmonic bonds and repulsive forces 
+            have the scale of 1 nm.
+
 
         """
 
@@ -224,6 +235,8 @@ class Simulation():
         self.forcesApplied = False
         self.folder = "."
         self.metadata = {}
+        self.length_scale = length_scale
+        self.mass_scale = mass_scale
 
     def setup(self, platform="OpenCL", PBC=False, PBCbox=None, GPU="0",
               integrator="langevin", verbose=True):
@@ -259,12 +272,12 @@ class Simulation():
         self.kB = units.BOLTZMANN_CONSTANT_kB * \
             units.AVOGADRO_CONSTANT_NA  # Boltzmann constant
         self.kT = self.kB * self.temperature  # thermal energy
-        self.mass = 100.0 * units.amu
+        self.mass = 100.0 * units.amu * self.mass_scale
         # All masses are the same,
         #changing them would be difficult in this formalism
         self.bondsForException = []
         self.mm = openmm
-        self.conlen = 1. * nm
+        self.conlen = 1. * nm * self.length_scale
         self.system = self.mm.System()
         self.PBC = PBC
 
@@ -706,7 +719,9 @@ class Simulation():
     def _initGrosbergBondForce(self):
         "inits Grosberg FENE bond force"
         if "GrosbergBondForce" not in self.forceDict.keys():
-            force = "- 0.5 * GROSk * GROSr0 * GROSr0 * log(1-(r/GROSr0)* (r / GROSr0)) + (4 * GROSe * ((GROSs/r)^12 - (GROSs/r)^6) + GROSe) * step(GROScut - r)"
+            force = (
+                "- 0.5 * GROSk * GROSr0 * GROSr0 * log(1-(r/GROSr0)* (r / GROSr0))"
+                " + (4 * GROSe * ((GROSs/r)^12 - (GROSs/r)^6) + GROSe) * step(GROScut - r)")
             bondforceGr = self.mm.CustomBondForce(force)
             bondforceGr.addGlobalParameter("GROSk", 30 *
                 self.kT / (self.conlen * self.conlen))
@@ -958,10 +973,11 @@ class Simulation():
         if trunc is None:
             repul_energy = 'REPepsilon*(REPsigma/r)^12'
         else:
-            repul_energy = '''step(REPcut2 - REPU) * REPU +'''\
-            ''' step(REPU - REPcut2) * REPcut2 * (1 + tanh(REPU/REPcut2 - 1));
-REPU = REPepsilon * (REPsigma / r) ^ 12;
-r2 = (r^10. + (REPsigma03)^10.)^0.1 '''
+            repul_energy = (
+                "step(REPcut2 - REPU) * REPU "
+                "+ step(REPU - REPcut2) * REPcut2 * (1 + tanh(REPU/REPcut2 - 1));"
+                "REPU = REPepsilon * (REPsigma / r) ^ 12;"
+                "r2 = (r^10. + (REPsigma03)^10.)^0.1")
         #last equation is to avoid NANs when r is close to zero
 
         epsilonRep = rep * units.kilocalorie_per_mole
@@ -998,10 +1014,11 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1 '''
         if trunc is None:
             repul_energy = "4 * REPe * ((REPsigma/r)^12 - (REPsigma/r)^6) + REPe"
         else:
-            repul_energy = '''step(REPcut2 - REPU) * REPU +'''\
-            ''' step(REPU - REPcut2) * REPcut2 * (1 + tanh(REPU/REPcut2 - 1));
-REPU = 4 * REPe * ((REPsigma/r2)^12 - (REPsigma/r2)^6) + REPe;
-r2 = (r^10. + (REPsigma03)^10.)^0.1 '''
+            repul_energy = (
+                "step(REPcut2 - REPU) * REPU"
+                " + step(REPU - REPcut2) * REPcut2 * (1 + tanh(REPU/REPcut2 - 1));"
+                "REPU = 4 * REPe * ((REPsigma/r2)^12 - (REPsigma/r2)^6) + REPe;"
+                "r2 = (r^10. + (REPsigma03)^10.)^0.1")
         self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(
             repul_energy)
         repulforceGr = self.forceDict["Nonbonded"]
@@ -1396,10 +1413,12 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         for i in self.forceDict.keys():  # Adding exceptions
             force = self.forceDict[i]
             if hasattr(force, "addException"):
+                print 'Add exceptions for {0} force'.format(i)
                 for pair in exc:
                     force.addException(int(pair[0]),
                         int(pair[1]), 0, 0, 0, True)
             elif hasattr(force, "addExclusion"):
+                print 'Add exclusions for {0} force'.format(i)
                 for pair in exc:
                     #force.addExclusion(*pair)
                     force.addExclusion(int(pair[0]), int(pair[1]))
@@ -1594,12 +1613,13 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
                     self.initVelocities()
             print "pos[1]=[%.1lf %.1lf %.1lf]" % tuple(newcoords[0]),
 
-            if ((numpy.isnan(newcoords).any()) or (eK > 20) or 
+            if ((numpy.isnan(newcoords).any()) or (eK > 200) or 
                 (numpy.isnan(eK)) or (numpy.isnan(eP))):
 
                 self.context.setPositions(self.data)
                 self.initVelocities()
                 if reinitialize == False:
+                    print "eK={0}, eP={1}".format(eK, eP)
                     return False
                 print "eK={0}, eP={1}, trying one more time at step {2} ".format(eK, eP, self.step)
             else:
@@ -1859,14 +1879,14 @@ class SimulationWithCrosslinks(Simulation):
             started = False
             begin = b2
 
-    def     addAttractionToTheCore(self, k, r0, coreParticles=[]):
+    def addAttractionToTheCore(self, k, r0, coreParticles=[]):
 
         """Attracts a subset of particles to the core,
          repells the rest from the core"""
 
         attractForce = self.mm.CustomExternalForce(
-                        " COREk * ((COREr - CORErn) ^ 2)  ; "\
-                        "COREr = sqrt(x^2 + y^2 + COREtt^2)")
+            " COREk * ((COREr - CORErn) ^ 2)  ; "\
+            "COREr = sqrt(x^2 + y^2 + COREtt^2)")
         attractForce.addGlobalParameter(
             "COREk", k * self.kT / (self.conlen * self.conlen))
         attractForce.addGlobalParameter("CORErn", r0 * self.conlen)
@@ -1877,7 +1897,9 @@ class SimulationWithCrosslinks(Simulation):
 
         if r0 > 0.1:
 
-            excludeForce = self.mm.CustomExternalForce(" CORE2k * ((CORE2r - CORE2rn) ^ 2) * step(CORE2rn - CORE2r) ;CORE2r = sqrt(x^2 + y^2 + CORE2tt^2)")
+            excludeForce = self.mm.CustomExternalForce(
+                " CORE2k * ((CORE2r - CORE2rn) ^ 2) * step(CORE2rn - CORE2r) ;"
+                "CORE2r = sqrt(x^2 + y^2 + CORE2tt^2)")
             excludeForce.addGlobalParameter("CORE2k", k *
                 self.kT / (self.conlen * self.conlen))
             excludeForce.addGlobalParameter("CORE2rn", r0 * self.conlen)

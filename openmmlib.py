@@ -1,7 +1,7 @@
 """
 Openmm-lib - a wrapper above Openmm to use with polymer simulations
 ===================================================================
-
+ 
 Summary
 -------
 

@@ -1,7 +1,7 @@
 """
 Openmm-lib - a wrapper above Openmm to use with polymer simulations
 ===================================================================
- 
+
 Summary
 -------
 
@@ -213,13 +213,13 @@ class Simulation():
             and want to see what's going on.
 
         length_scale : float, optional
-            The geometric scaling factor of the system. 
-            By default, length_scale=1.0 and harmonic bonds and repulsive 
+            The geometric scaling factor of the system.
+            By default, length_scale=1.0 and harmonic bonds and repulsive
             forces have the scale of 1 nm.
 
         mass_scale : float, optional
-            The scaling factor of the mass of the system. 
-            By default, length_scale=1.0 and harmonic bonds and repulsive forces 
+            The scaling factor of the mass of the system.
+            By default, length_scale=1.0 and harmonic bonds and repulsive forces
             have the scale of 1 nm.
 
 
@@ -410,8 +410,8 @@ class Simulation():
         "returns configuration of chains"
         return self.chains
 
-    def load(self, filename, # Input filename, or input data array
-             center=False, # Shift center of mass to zero?
+    def load(self, filename,  # Input filename, or input data array
+             center=False,  # Shift center of mass to zero?
              h5dictKey=None
              ):
         """loads data from file.
@@ -765,12 +765,12 @@ class Simulation():
         self.forceDict["CoM_Remover"] = remover
 
     def addBond(self,
-                i, j, # particles connected by bond
+                i, j,  # particles connected by bond
                 bondWiggleDistance=0.2,
                 # Flexibility of the bond,
                 # measured in distance at which energy equals kT
-                distance=None, # Equilibrium length of the bond
-                bondType=None, # Harmonic, Grosberg, ABS
+                distance=None,  # Equilibrium length of the bond
+                bondType=None,  # Harmonic, Grosberg, ABS
                 verbose=None):  # Set this to False if you're in verbose mode
                 # and don't want to contaminate output by 10000 messages
         """Adds bond between two particles, allows to specify parameters
@@ -1228,8 +1228,8 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         extforce2.addGlobalParameter("CYLtt", 0.01 * nm)
 
     def addSphericalConfinement(self,
-                r="density", # radius... by default uses certain density
-                k=5., # How steep the walls are
+                r="density",  # radius... by default uses certain density
+                k=5.,  # How steep the walls are
                 density=.3):  # target density, measured in particles
                                 #per cubic nanometer (bond size is 1 nm)
         """Constrain particles to be within a sphere.
@@ -1613,7 +1613,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
                     self.initVelocities()
             print "pos[1]=[%.1lf %.1lf %.1lf]" % tuple(newcoords[0]),
 
-            if ((numpy.isnan(newcoords).any()) or (eK > 200) or 
+            if ((numpy.isnan(newcoords).any()) or (eK > 200) or
                 (numpy.isnan(eK)) or (numpy.isnan(eP))):
 
                 self.context.setPositions(self.data)
@@ -1675,8 +1675,11 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         print "     mean position is: ", numpy.mean(
             pos, axis=0), "  Rg = ", self.RG()
         print "     median bond size is ", numpy.median(bonds)
-        print "     three shortest/longest (<10) bonds are ", sbonds[
+        print "     three shortest/longest (<10)/ bonds are ", sbonds[
             :3], "  ", sbonds[sbonds < 10][-3:]
+        if (sbonds > 10).sum() > 0:
+            print "longest 10 bonds are", sbonds[-10:]
+
         print "     95 percentile of distance to center is:   ", per95
         print "     density of closest 95% monomers is:   ", den
         print "     density of the core monomers is:   ", den5

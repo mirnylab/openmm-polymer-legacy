@@ -1,13 +1,13 @@
 """
 This file contains a bunch of method to work on contact maps of a Hi-C data.
 It uses a lot of methods from mirnylib repository.
- 
+
 Save/load functions
 -------------------
 
 Use :py:func:`load` to load any polymer.
 
-Use :py:func:`save` to save an XYZ. 
+Use :py:func:`save` to save an XYZ.
 Otherwise you can just use joblib.dump({"data":data},filename)
 
 Other functions are about to be deprecated
@@ -260,10 +260,10 @@ def giveContactsAny(data, cutoff=1.7, maxContacts=100):
     return points[:k + 1, :]
 
 
-def giveContacts(data, cutoff=1.7, maxContacts=30):
+def giveContacts(data, cutoff=1.7, maxContacts=30, method="auto"):
     """Returns contacts of a single polymer with a given cutoff
 
-    .. warning:: Use this only to find contacts of a single polymer chain 
+    .. warning:: Use this only to find contacts of a single polymer chain
     with distance between monomers of 1.
     Multiple chains will lead to silent bugs.
 
@@ -277,6 +277,8 @@ def giveContacts(data, cutoff=1.7, maxContacts=30):
         Maximum number of contacts per monomer.
         If total number of contacts exceeds maxContacts*N,
         program becomes uncontrollable.
+    method : "auto", "continuous", "any"
+        Selects between a method suitable for a continuous polymer, and an auto method
 
     Returns
     -------
@@ -296,7 +298,9 @@ def giveContacts(data, cutoff=1.7, maxContacts=30):
 
     dists2 = numpy.sqrt(numpy.sum(numpy.diff(data, axis=0) ** 2, axis=1))
     maxRatio = dists2.max() / numpy.median(dists2)
-    if maxRatio > 3:
+    if method == "any":
+        return giveContactsAny(data, cutoff, maxContacts)
+    if (method == "auto") and (maxRatio > 3):
         warnings.warn("\nPolymer does not seem continuous, falling back"\
                       "to arbitrary contact finger 'give_contacts_any'"\
                       "\n This is ok, just be aware of this! ")
@@ -409,10 +413,10 @@ def rescaledMap(data, bins, cutoff=1.4):
     ----------
     data : Nx3 or 3xN array
         polymer conformation
-    
+
     bins : Lx1 array
         bin starts
-    
+
     cutoff : float, optional
         cutoff for contacts
 
@@ -565,7 +569,7 @@ def averageContactMap(*args, **kvargs):
     raise Exception('deprecated function')
 
 def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
-                      n=4, # Num threads
+                      n=4,  # Num threads
                       loadFunction=load,
                       exceptionsToIgnore=None):
     """
@@ -581,13 +585,13 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
     filenames : list of strings
         Filenames to average map over
     chains : list of tuples or Nx2 array
-        (start,end+1) of each chain   
+        (start,end+1) of each chain
     binSize : int
         size of each bin in monomers
     cutoff : float, optional
         Cutoff to calculate contacts
     n : int, optional
-        Number of threads to use. 
+        Number of threads to use.
         By default 4 to minimize RAM consumption.
     exceptionsToIgnore : list of Exceptions
         List of exceptions to ignore when finding the contact map.
@@ -598,7 +602,7 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
     tuple of two values:
     (i) MxM numpy array with the conntact map binned to binSize resolution.
     (ii) chromosomeStarts a list of start sites for binned map.
-    
+
     """
 
 
@@ -651,7 +655,7 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
 
 def averagePureContactMap(filenames,
                       cutoff=1.7,
-                      n=4, # Num threads
+                      n=4,  # Num threads
                       loadFunction=load,
                       exceptionsToIgnore=None):
     """
@@ -662,12 +666,12 @@ def averagePureContactMap(filenames,
     cutoff : float, optional
         Cutoff to calculate contacts
     n : int, optional
-        Number of threads to use. 
+        Number of threads to use.
         By default 4 to minimize RAM consumption with pure maps.
     exceptionsToIgnore : list of Exceptions
         List of exceptions to ignore when finding the contact map.
         Put IOError there if you want it to ignore missing files.
-        
+
     Returns
     -------
 

@@ -273,7 +273,7 @@ def example_pymol():
 
 def getTmpPath(folder=None):
     tmpFile = tempfile.NamedTemporaryFile(dir=folder)
-    tmpPath = tmpPdb.name
+    tmpPath = tmpFile.name
     tmpFilename = os.path.split(tmpPath)[-1]
     tmpFile.close()
     return tmpPath, tmpFilename
@@ -350,8 +350,8 @@ def makeMoviePymol(fileList, destFolder, fps=10, aviFilename='output.avi'):
     for i, dataPath in enumerate(fileList):
         d = polymerutils.load(dataPath)
         d -= np.mean(d, axis=0)[None, :]
-        pdbFilename = '{0:0{width}}.pdb'.format(i, width=numDigits)  
-        savePath = pdbFolder +'/' + pdbFilename
+        pdbFilename = '{0:0{width}}.pdb'.format(i, width=numDigits)
+        savePath = pdbFolder + '/' + pdbFilename
         polymerutils.save(d, savePath, mode='pdb')
         pdbPaths.append(os.path.abspath(savePath))
 
@@ -374,7 +374,7 @@ def makeMoviePymol(fileList, destFolder, fps=10, aviFilename='output.avi'):
     """)
 
     tmpScriptPath = os.path.abspath(destFolder + '/movie.pymol')
-    tmpScript = open(tmpScriptPath, 'w') 
+    tmpScript = open(tmpScriptPath, 'w')
     tmpScript.write(script)
     tmpScript.flush()
 
@@ -382,9 +382,9 @@ def makeMoviePymol(fileList, destFolder, fps=10, aviFilename='output.avi'):
     _mencoder(imgFolder, fps, aviFilename)
 
 def _mencoder(imgFolder, fps, aviFilename):
-    subprocess.call( 
-        ("cd {0}; ".format(imgFolder) + 
-         "mencoder \"mf://*.png\" -mf fps={0} -o {1} ".format(fps, aviFilename) + 
+    subprocess.call(
+        ("cd {0}; ".format(imgFolder) +
+         "mencoder \"mf://*.png\" -mf fps={0} -o {1} ".format(fps, aviFilename) +
          "-ovc lavc -lavcopts vcodec=mpeg4"),
         shell=True)
 
@@ -395,10 +395,10 @@ def makeMovie(fileList, imgFolder, fps=15, aviFilename='output.avi'):
     numDigits = int(np.ceil(np.log10(numFrames)))
     for i, dataPath in enumerate(fileList):
         d = polymerutils.load(dataPath)
-        savePath = imgFolder +'/{0:0{width}}.png'.format(i, width=numDigits)  
+        savePath = imgFolder + '/{0:0{width}}.png'.format(i, width=numDigits)
         show_chain(
-            d, 
-            showGui=False, 
+            d,
+            showGui=False,
             saveTo=savePath,
             showChain='spheres')
 

@@ -27,9 +27,10 @@ bla
 """
 
 import numpy
+np = numpy
 from scipy import weave
 from math import sqrt
-from mirnylib.systemutils import fmapred, fmap, deprecate
+from mirnylib.systemutils import fmapred, fmap, deprecate, setExceptionHook
 import sys
 import mirnylib
 import mirnylib.numutils
@@ -189,6 +190,74 @@ def giveIntContacts(data):
     contacts4 = numpy.maximum(contacts1, contacts2)
     return numpy.concatenate([contacts3[:, None], contacts4[:, None]], 1)
 
+def giveContactsPython(data, cutoff=1.7):
+    """
+    A crazy algorithm which mimics "giveContacts" in a pure python... and is very efficient
+    """
+
+    N = len(data)
+    tileSize = 2 * cutoff  # create tile equal to the diameter of the cutoff
+    tileSize = float(tileSize)
+
+    datamin = np.min(data, axis=0)
+
+    data -= datamin[None, :]
+    maxSize = data.max()
+    tN = np.ceil(maxSize / tileSize)
+    tileIndex3D = np.floor(data / tileSize)
+    tileIndex1D = np.sum(tileIndex3D * np.array([tN ** 2, tN, 1])[None, :], axis=1)
+
+    argsSort = np.argsort(tileIndex1D)
+    tileIndex1D = tileIndex1D[argsSort]
+
+    def myfun(offset):
+        #print tileIndex1D
+        ind1 = np.searchsorted(tileIndex1D[:-1], tileIndex1D - 1.5 + offset)
+        ind2 = np.searchsorted(tileIndex1D[:-1], tileIndex1D + 1.5 + offset)
+        #print ind1, ind2
+        c = fetchPieces(ind1, ind2)
+        #print c
+        return c
+    pieces = map(myfun, [0, tN, tN ** 2, tN ** 2 - tN, tN ** 2 + tN])  # only looking at 5 other chunks
+    pieces = zip(*pieces)
+    #print pieces
+    st, end = np.concatenate(pieces[0]), np.concatenate(pieces[1])
+
+    #st, end = convertStEnd(st, end)
+    mask = st != end
+    st = st[mask]
+    end = end[mask]
+
+    st = argsSort[st]
+    end = argsSort[end]
+
+    def calculateRealDistances():
+        data1 = data[st]
+        data2 = data[end]
+        dist2 = np.sum((data1 - data2) ** 2, axis=1)
+        pick = dist2 < (cutoff * cutoff)
+        return pick
+
+    pick = calculateRealDistances()
+    st, end = st[pick], end[pick]
+
+    def convertStEnd(st, end):
+        st, end = np.minimum(st, end), np.maximum(st, end)
+        index = 1000000000 * st + end
+        index = np.unique(index)
+        st = index / 1000000000
+        end = index % 1000000000
+        return st, end
+
+    st, end = convertStEnd(st, end)
+    toret = numpy.zeros((len(st), 2), dtype=st.dtype)
+    toret[:, 0] = st
+    toret[:, 1] = end
+    return toret
+
+
+
+
 
 def giveContactsAny(data, cutoff=1.7, maxContacts=100):
     """Returns contacts of any sets of molecules with a given cutoff.
@@ -260,6 +329,10 @@ def giveContactsAny(data, cutoff=1.7, maxContacts=100):
     return points[:k + 1, :]
 
 
+
+
+
+
 def giveContacts(data, cutoff=1.7, maxContacts=30, method="auto"):
     """Returns contacts of a single polymer with a given cutoff
 
@@ -305,8 +378,12 @@ def giveContacts(data, cutoff=1.7, maxContacts=30, method="auto"):
                       "to arbitrary contact finger 'give_contacts_any'"\
                       "\n This is ok, just be aware of this! ")
         print "ratio of smaller to larger bonds is {0}".format(maxRatio)
-        return giveContactsAny(data, cutoff, maxContacts)
-    else:
+
+        if max(data.shape) < 30000:
+            return giveContactsAny(data, cutoff, maxContacts)
+        else:
+            return giveContactsPython(data, cutoff)
+
         safeDistance = numpy.percentile(dists2, 99)
         cutoff = cutoff / safeDistance
         data = data / safeDistance
@@ -397,6 +474,56 @@ def giveDistanceMap(data, size=1000):
     weave.inline(code, ['data', 'N', 'size', 'toret'], extra_compile_args=[
         '-march=native -malign-double'], support_code=support)
     return toret
+
+
+def fetchPieces(low, high):
+    """
+    An auxilliary algorithm for giveContactsPython.
+    Inputs two arrays: low and high.
+    Returns two array of length (high-low).sum().
+
+    for each i in range(0, len(low)):
+        append "i" to first array (high[i] - low[i]) times
+        append range(low[i], high[i]) to second array
+    if high = low, just assumes high = low + 1
+    """
+
+    low = np.asarray(low)
+    high = np.asarray(high)
+    #next line is not required, but makes this python implementation possible
+    high[high == low] += 1
+    numPieces = high - low
+    N = len(low)
+    inds = np.cumsum(numPieces)  # indices of each element
+    size = inds[-1]
+
+    spikeIndex = np.zeros(size + 1, dtype=np.int64)
+    spikeIndex[inds[:-1]] = 1  # create 1 at each transition between two elements
+    baseElementIndex = np.cumsum(spikeIndex)  # create first array
+
+    otherElementIndex = np.ones_like(spikeIndex)  # tricks with cumsum to create second array
+    otherElementIndex[inds[:-1]] += (low[1:] - high[:-1])
+    otherElementIndex[0] = low[0]
+    otherElementIndex = np.cumsum(otherElementIndex)
+    return baseElementIndex[:-1], otherElementIndex[:-1]
+
+
+
+
+def checkContactsPython():
+    def giveRw(N):
+        return np.cumsum(np.random.randn(N, 3), axis=0)
+
+    rw = numpy.random.random((10000, 3)) * 50
+
+    a = giveContactsPython(rw)
+    b = giveContactsAny(rw)
+    assert ((a - b) ** 2).sum() == 0
+    print len(a)
+    print len(b)
+
+#checkContactsPython()
+
 
 
 def rescalePoints(points, bins):

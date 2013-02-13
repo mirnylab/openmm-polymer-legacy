@@ -313,7 +313,7 @@ class Simulation():
             platformObject = self.mm.Platform.getPlatformByName('Reference')
 
         elif platform.lower() == "cuda":
-            platformObject = self.mm.Platform.getPlatformByName('Cuda')
+            platformObject = self.mm.Platform.getPlatformByName('CUDA')
             platformObject.setPropertyDefaultValue('CudaDevice', self.GPU)
         else:
             self.exit("\n!!!!!!!!!!unknown platform!!!!!!!!!!!!!!!\n")

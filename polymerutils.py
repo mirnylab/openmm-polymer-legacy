@@ -82,7 +82,7 @@ def save(data, filename, mode="txt", h5dictKey="1"):
         retret = ""
 
         def add(st, n):
-            if len(st) > n: 
+            if len(st) > n:
                 return st[:n]
             else:
                 return st + " " * (n - len(st))
@@ -106,7 +106,7 @@ def save(data, filename, mode="txt", h5dictKey="1"):
         f.write(retret)
         f.flush()
 
-    else: 
+    else:
         raise ValueError("Unknown mode : %s, use h5dict, joblib, txt or pdb" % mode)
 
 def generateRandomLooping(length=10000, oneMoverPerBp=1000, numSteps=100):
@@ -235,6 +235,57 @@ def create_spiral(r1, r2, N):
                 forward = True
                 z += 1
                 add_point(fullcoord(curphi, z))
+
+
+def grow_rw(step, size, method="line"):
+    numpy = np
+    t = size / 2
+    if method == "standart":
+        a = [(t, t, t), (t, t, t + 1), (t, t + 1, t + 1), (t, t + 1, t)]
+    if method == "line":
+        a = []
+        for i in xrange(1, size):
+            a.append((t, t, i))
+
+        for i in xrange(size - 1, 0, -1):
+            a.append((t, t - 1, i))
+
+    b = numpy.zeros((size + 1, size + 1, size + 1), int)
+    for i in a:
+        b[i] = 1
+    for i in xrange((step - len(a)) / 2):
+        print len(a)
+        while True:
+            t = numpy.random.randint(0, len(a))
+            if t != len(a) - 1:
+                c = numpy.abs(numpy.array(a[t]) - numpy.array(a[t + 1]))
+                t0 = numpy.array(a[t])
+                t1 = numpy.array(a[t + 1])
+            else:
+                c = numpy.abs(numpy.array(a[t]) - numpy.array(a[0]))
+                t0 = numpy.array(a[t])
+                t1 = numpy.array(a[0])
+            cur_direction = numpy.argmax(c)
+            while True:
+                direction = numpy.random.randint(0, 3)
+                if direction != cur_direction:
+                    break
+            if numpy.random.random() > 0.5:
+                shift = 1
+            else:
+                shift = -1
+            shiftar = numpy.array([0, 0, 0])
+            shiftar[direction] = shift
+            t3 = t0 + shiftar
+            t4 = t1 + shiftar
+            if (b[tuple(t3)] == 0) and (b[tuple(t4)] == 0) and (numpy.min(t3) >= 1) and (numpy.min(t4) >= 1) and (numpy.max(t3) < size) and (numpy.max(t4) < size):
+                a.insert(t + 1, tuple(t3))
+                a.insert(t + 2, tuple(t4))
+                b[tuple(t3)] = 1
+                b[tuple(t4)] = 1
+                break
+        #print a
+    return numpy.array(a)
 
 
 def _test():

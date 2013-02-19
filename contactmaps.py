@@ -510,19 +510,6 @@ def fetchPieces(low, high):
 
 
 
-def checkContactsPython():
-    def giveRw(N):
-        return np.cumsum(np.random.randn(N, 3), axis=0)
-
-    rw = numpy.random.random((10000, 3)) * 50
-
-    a = giveContactsPython(rw)
-    b = giveContactsAny(rw)
-    assert ((a - b) ** 2).sum() == 0
-    print len(a)
-    print len(b)
-
-#checkContactsPython()
 
 
 

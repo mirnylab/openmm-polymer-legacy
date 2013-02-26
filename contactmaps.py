@@ -195,6 +195,13 @@ def giveContactsPython(data, cutoff=1.7):
     A crazy algorithm which mimics "giveContacts" in a pure python... and is very efficient
     """
 
+    if len(data.shape) != 2:
+        raise ValueError("Wrong dimensions of data")
+    if 3 not in data.shape:
+        raise ValueError("Wrong size of data: %s,%s" % data.shape)
+    if data.shape[0] == 3:
+        data = data.T
+
     N = len(data)
     tileSize = 2 * cutoff  # create tile equal to the diameter of the cutoff
     tileSize = float(tileSize)
@@ -333,7 +340,7 @@ def giveContactsAny(data, cutoff=1.7, maxContacts=100):
 
 
 
-def giveContacts(data, cutoff=1.7, maxContacts=30, method="auto"):
+def giveContacts(data, cutoff=1.7, maxContacts=100, method="auto"):
     """Returns contacts of a single polymer with a given cutoff
 
     .. warning:: Use this only to find contacts of a single polymer chain
@@ -371,6 +378,8 @@ def giveContacts(data, cutoff=1.7, maxContacts=30, method="auto"):
 
     dists2 = numpy.sqrt(numpy.sum(numpy.diff(data, axis=0) ** 2, axis=1))
     maxRatio = dists2.max() / numpy.median(dists2)
+    if cutoff > 4.1:
+        return giveContactsPython(data, cutoff)
     if method == "any":
         return giveContactsAny(data, cutoff, maxContacts)
     if (method == "auto") and (maxRatio > 3):
@@ -432,6 +441,7 @@ def giveContacts(data, cutoff=1.7, maxContacts=30, method="auto"):
         '-march=native -malign-double -O3'], support_code=support)
     k = numpy.max(numpy.nonzero(points[:, 1]))
     return points[:k + 1, :]
+
 
 
 def giveDistanceMap(data, size=1000):

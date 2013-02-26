@@ -2,6 +2,12 @@ import numpy as np
 import joblib
 import os
 from math import sqrt, sin, cos
+from mirnylib.plotting import showPolymerRasmol
+from mirnylib.numutils import isInteger, rotationMatrix
+
+import numpy
+
+
 
 def load(filename, h5dictKey=None):
     """Universal load function for any type of data file"""
@@ -307,5 +313,124 @@ def _test():
     os.remove("bla")
 
     print "Finished testing save/load, successfull"
+
+def createSpiralRing(N, twist, r=0, offsetPerParticle=np.pi, offset=0):
+    """
+    Creates a ring of length N. Then creates a spiral
+    """
+    if not isInteger(N * offsetPerParticle / (2 * np.pi)):
+        print N * offsetPerParticle / (2 * np.pi)
+        raise ValueError("offsetPerParticle*N should be multitudes of 2*Pi")
+    totalTwist = twist * N
+    totalTwist = np.floor(totalTwist / (2 * np.pi)) * 2 * np.pi
+    alpha = np.linspace(0, 2 * np.pi, N + 1)[:-1]
+    #print alpha
+    twistPerParticle = totalTwist / float(N) + offsetPerParticle
+    R = float(N) / (2 * np.pi)
+    twist = np.cumsum(np.ones(N, dtype=float) * twistPerParticle) + offset
+    #print twist
+    x0 = R + r * np.cos(twist)
+    z = 0 + r * np.sin(twist)
+    x = x0 * np.cos(alpha)
+    y = x0 * np.sin(alpha)
+    return np.array(np.array([x, y, z]).T, order="C")
+
+
+def getLinkingNumber(data1, data2):
+    if len(data1) == 3:
+        data1 = numpy.array(data1.T)
+    if len(data2) == 3:
+        data2 = numpy.array(data2.T)
+    if len(data1[0]) != 3: raise ValueError
+    if len(data2[0]) != 3: raise ValueError
+
+    olddata = numpy.concatenate([data1, data2], axis=0)
+    olddata = numpy.array(olddata, dtype=float, order="C")
+    M = len(data1)
+    N = len(olddata)
+    returnArray = numpy.array([0])
+    from scipy import weave
+
+    support = r"""
+#include <stdio.h>
+#include <stdlib.h>
+
+float *cross(float *v1, float *v2) {
+    float *v1xv2 = new float[3];
+    v1xv2[0]=-v1[2]*v2[1] + v1[1]*v2[2];
+    v1xv2[1]=v1[2]*v2[0] - v1[0]*v2[2];
+    v1xv2[2]=-v1[1]*v2[0] + v1[0]*v2[1];
+    return v1xv2;
+}
+
+float *linearCombo(float *v1, float *v2, float s1, float s2) {
+    float *c = new float[3];
+    c[0]=s1*v1[0]+s2*v2[0];
+    c[1]=s1*v1[1]+s2*v2[1];
+    c[2]=s1*v1[2]+s2*v2[2];
+        return c;
+}
+
+int intersectValue(float *p1, float *v1, float *p2, float *v2) {
+    int x=0;
+    float *v2xp2 = cross(v2,p2), *v2xp1 = cross(v2,p1), *v2xv1 = cross(v2,v1);
+    float *v1xp1 = cross(v1,p1), *v1xp2 = cross(v1,p2), *v1xv2 = cross(v1,v2);
+    float t1 = (v2xp2[2]-v2xp1[2])/v2xv1[2];
+    float t2 = (v1xp1[2]-v1xp2[2])/v1xv2[2];
+    if(t1<0 || t1>1 || t2<0 || t2>1) {
+        free(v2xp2);free(v2xp1);free(v2xv1);free(v1xp1);free(v1xp2);free(v1xv2);
+        return 0;
+    }
+    else {
+        if(v1xv2[2]>=0) x=1;
+        else x=-1;
+    }
+    float *inter1 = linearCombo(p1,v1,1,t1), *inter2 = linearCombo(p2,v2,1,t2);
+    float z1 = inter1[2];
+    float z2 = inter2[2];
+
+    free(v2xp2);free(v2xp1);free(v2xv1);free(v1xp1);free(v1xp2);free(v1xv2);free(inter1);free(inter2);
+    if(z1>=z2) return x;
+    else return -x;
+}
+    """
+
+
+    code = r"""
+    #line 1149 "numutils.py"
+    float **data = new float*[N];
+    int i,j;
+    for(i=0;i<N;i++) {
+
+        data[i] = new float[3];
+        data[i][0]=olddata[3*i];
+        data[i][1]=olddata[3*i+1];
+        data[i][2]=olddata[3*i + 2];
+    }
+
+    int L = 0;
+        for(i=0;i<M;i++) {
+            for(j=M;j<N;j++) {
+                float *v1, *v2;
+                if(i<M-1) v1 = linearCombo(data[i+1],data[i],1,-1);
+                else v1 = linearCombo(data[0],data[M-1],1,-1);
+
+                if(j<N-1) v2 = linearCombo(data[j+1],data[j],1,-1);
+                else v2 = linearCombo(data[M],data[N-1],1,-1);
+                L+=intersectValue(data[i],v1,data[j],v2);
+                free(v1);free(v2);
+            }
+        }
+
+    returnArray[0] =  L;
+
+"""
+    M, N  #Eclipse warning removal
+    weave.inline(code, ['M', 'olddata', 'N', "returnArray"], extra_compile_args=['-march=native -malign-double -O3'], support_code=support)
+    return returnArray[0]
+
+
+
+
 
 #_test()

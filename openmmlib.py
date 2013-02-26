@@ -155,6 +155,8 @@ Select timestep or collision rate - :py:class:`Simulation`
 
 
 import numpy
+from polymerutils import getLinkingNumber
+np = numpy
 import cPickle
 import sys
 import os
@@ -164,6 +166,7 @@ import tempfile
 import warnings
 import string
 import random
+import polymerutils
 
 os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda/lib64:/usr/local/openmm/lib"
 
@@ -613,7 +616,13 @@ class Simulation():
                           " Use mode ='w' to override")
         self.storage = h5dict(path=filename, mode=mode)
         if mode == "r+":
-            maxkey = max(int(i) for i in self.storage.keys())
+            myKeys = []
+            for i in self.storage.keys():
+                try:
+                    myKeys.append(int(i))
+                except:
+                    pass
+            maxkey = max(myKeys)
             self.step = maxkey - 1
             self.setData(self.storage[str(maxkey - 1)])
 
@@ -676,7 +685,8 @@ class Simulation():
         """
         Calculates distance between particles i and j
         """
-        dif = (self.data[i] - self.data[j]) / self.conlen
+        data = self.getData()
+        dif = data[i] - data[j]
         return numpy.sqrt(sum(dif ** 2))
 
     def useDomains(self, domains=None, filename=None):
@@ -905,6 +915,10 @@ class Simulation():
         for i in self.chains:
             for j in xrange(i[0] + 1, i[1] - 1):
                 stiffForce.addAngle(j - 1, j, j + 1, [float(k[j])])
+            if self.mode == "ring":
+                stiffForce.addAngle(i[1] - 2, i[1] - 1, i[0], [k[i[1] - 1]])
+                stiffForce.addAngle(i[1] - 1, i[0], i[0] + 1, [k[i[0]]])
+
         stiffForce.addGlobalParameter("kT", self.kT)
         stiffForce.addPerAngleParameter("angK")
         self.metadata["AngleForce"] = {"stiffness": k}
@@ -940,6 +954,9 @@ class Simulation():
         for i in self.chains:
             for j in xrange(i[0] + 1, i[1] - 1):
                 stiffForce.addAngle(j - 1, j, j + 1, [k[j]])
+            if self.mode == "ring":
+                stiffForce.addAngle(i[1] - 2, i[1] - 1, i[0], [k[i[1] - 1]])
+                stiffForce.addAngle(i[1] - 1, i[0], i[0] + 1, [k[i[0]]])
 
         self.metadata["GrosbergAngleForce"] = {"stiffness": k}
 
@@ -1436,6 +1453,8 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
             self.system, self.integrator, self.platform)
         self.initPositions()
         self.forcesApplied = True
+        if hasattr(self, "storage") and hasattr(self, "metadata"):
+            self.storage["metadata"] = self.metadata
 
     def initVelocities(self, mult=1):
         """Initializes particles velocities
@@ -1701,7 +1720,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         print
         print "Potential Energy Ep = ", eP / self.N / self.kT
 
-    def show(self):
+    def show(self, shifts=[0., 0.2, 0.4, 0.6, 0.8]):
         """shows system in rasmol by drawing spheres
         draws 4 spheres in between any two points (5 * N spheres total)
         """
@@ -1709,7 +1728,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         #if you want to change positions of the spheres along each segment,
         #change these numbers: e.g. [0,.1, .2 ...  .9] will draw 10 spheres,
         # and this will look better
-        shifts = [0., 0.2, 0.4, 0.6, 0.8]
+
         data = self.getData()
         if len(data[0]) != 3:
             data = numpy.transpose(data)
@@ -1730,7 +1749,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
                 dist = numpy.sqrt(numpy.sum((data[a] - data[b]) ** 2))
                 if dist < 1.3:
                     count += 1
-            if count > 50:
+            if count > 100:
                 raise RuntimeError(
                     "Too many particles are close together. "\
                     "This will cause rasmol to choke")
@@ -1739,7 +1758,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         # writing the rasmol script. Spacefill controls radius of the sphere.
         rascript.write("""wireframe off
         color temperature
-        spacefill 100
+        spacefill 10
         background white
         """)
         rascript.flush()
@@ -2081,6 +2100,167 @@ class ExperimentalSimulation(Simulation):
         self.domains = numpy.zeros(self.N, int)
         self.domains[:pastN] = 1
         self.domains[pastN:] = 0
+
+
+class supercoilingSimulation(Simulation):
+    def setCrosslinkLayout(self, numStrands, strandRadius=1):
+        self.strands = int(numStrands)
+        self.M = int(self.N / self.strands)
+
+        if self.M * self.strands != self.N:
+            raise ValueError("Total length should be multiple of total number of strands")
+
+
+        self.strandR = strandRadius
+
+        self.setLayout(mode="ring", chains=[(0, self.M)])
+
+    def initCircularChain(self, N, numStrands, twistPerTurn, strandRadius=1):
+        self.N = N
+        self.setCrosslinkLayout(numStrands=numStrands, strandRadius=strandRadius)
+        data = numpy.zeros((N, 3))
+        mainChain = polymerutils.createSpiralRing(self.M, 1, 0)
+        data[:self.M] = mainChain
+
+        numOtherChains = numStrands - 1
+        if self.M % numOtherChains != 0:
+            print "Chain length is %d" % self.M
+            print "Other chains: %d" % numOtherChains
+            raise ValueError("Chain length should be divisible by number of surrounding chains")
+        for chain in xrange(numOtherChains):
+            perTurnOffset = np.pi / numOtherChains
+            originalOffset = chain * (2 * np.pi) / numOtherChains
+            currentChain = polymerutils.createSpiralRing(self.M,
+                                                         twist=twistPerTurn,
+                                                         r=strandRadius,
+                                                         offsetPerParticle=perTurnOffset,
+                                                         offset=originalOffset)
+            data[self.M * (chain + 1):self.M * (chain + 2)] = currentChain
+        self.load(data)
+
+    def addCircularBonds(self, wiggle1=0.1, wiggle2=0.2, wiggle3=0.1, check=True):
+        M = self.M
+        strands = self.strands
+        b1 = self.strandR
+
+        a2 = np.pi / (strands - 1)
+        b2 = np.sqrt(2 * self.strandR ** 2 * (1 - np.cos(a2)) + 1)
+
+        a3 = 2 * np.pi / (strands - 1)
+        b3 = np.sqrt(2 * self.strandR ** 2 * (1 - np.cos(a3)))
+        print b1, b2, b3
+
+        def safeAddBond(i, j, bondWiggleDistance, distance):
+            i0, i1 = i
+            j0, j1 = j
+            if i0 == self.M:
+                i0 = 0
+            if j0 == self.M:
+                j0 = 0
+
+            i = i0 + i1 * self.M
+            j = j0 + j1 * self.M
+            if j >= self.N:
+                j = j % self.N
+            if i >= self.N:
+                i = i % self.N
+            realDist = self.dist(i, j)
+            #print (i, j)
+            if check == True:
+                if np.abs(distance - realDist) > 3 * bondWiggleDistance:
+                    print ("i,j : (%d, %d)" % (i, j)),
+                    print "Bond is very different! real:%lf, should be:%lf" % (realDist, distance)
+
+            self.addBond(i, j, bondWiggleDistance, distance, bondType="Harmonic")
+
+        for i in xrange(M):
+            for j in xrange(1, strands):
+                safeAddBond((i, 0), (i, j), wiggle1, b1)
+        for i in xrange(M):
+            for j in xrange(2, strands - 1):
+                safeAddBond((i, j), (i + 1, j), wiggle2, b2)
+                safeAddBond((i, j), (i + 1, j - 1), wiggle2, b2)
+            safeAddBond((i, 1), (i + 1, 1), wiggle2, b2)
+            safeAddBond((i, 1), (i + 1, strands - 1), wiggle2, b2)
+
+        if strands == 3:
+            for i in xrange(M):
+                safeAddBond((i, 1), (i, 2), wiggle1, b1 * 2)
+        else:
+            for i in xrange(M):
+                for j in xrange(1, strands - 1):
+                    safeAddBond((i, j), (i, j + 1), wiggle3, b3)
+                safeAddBond((i, 1), (i, strands - 1), wiggle3, b3)
+
+
+
+    def getChain(self):
+        return self.getData()[:self.M]
+
+    def checkLinking(self):
+        data = self.getData()
+        d1 = data[: self.M]
+        d2 = data[2 * self.M:3 * self.M]
+        print "Link num: ", getLinkingNumber(d1, d2), ";" ,
+
+
+
+
+
+    def addGrosbergRepulsiveForce(self, trunc=None, radiusMult=1.):
+        """This is the fastest repulsive force.
+
+        Parameters
+        ----------
+
+        trunc : None or float
+             truncation energy in kT, used for chain crossing.
+             Value of 1.5 yields frequent passing,
+             3 - average passing, 5 - rare passing.
+
+        """
+        radius = self.conlen * radiusMult
+        self.metadata["GrosbergRepulsiveForce"] = {"trunc": trunc}
+        nbCutOffDist = radius * 2. ** (1. / 6.)
+        if trunc is None:
+            repul_energy = (
+            "4 * REPe * REPall * ((REPsigma/r2)^12 - (REPsigma/r2)^6) + REPe;"
+            "REPall = REPincl1 * REPincl2  + (1 - REPincl1 * REPincl2) * "
+            "(step(2.5 - abs(REPnum1 - REPnum2)) + step(abs(REPnum1 - REPnum2) - REPm + 2.5));"
+            "r2 = r")
+
+        else:
+
+            repul_energy = (
+            "step(REPcut2 - REPU) * REPU"
+            " + step(REPU - REPcut2) * REPcut2 * (1 + tanh(REPU/REPcut2 - 1));"
+            "REPU = 4 * REPe * REPall * ((REPsigma/r2)^12 - (REPsigma/r2)^6) + REPe;"
+            "REPall = REPincl1 * REPincl2  + (1 - REPincl1 * REPincl2) * "
+            "(step(2.5 - abs(REPnum1 - REPnum2)) + step(abs(REPnum1 - REPnum2) - REPm + 2.5));"
+            "r2 = (r^10. + (REPsigma03)^10.)^0.1")
+        self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(
+            repul_energy)
+        repulforceGr = self.forceDict["Nonbonded"]
+        repulforceGr.addGlobalParameter('REPe', self.kT)
+        repulforceGr.addPerParticleParameter("REPincl")
+        repulforceGr.addPerParticleParameter("REPnum")
+        repulforceGr.addGlobalParameter("REPm", self.M)
+        repulforceGr.addGlobalParameter('REPsigma', radius)
+        repulforceGr.addGlobalParameter('REPsigma03', 0.1 * radius)
+        if trunc is not None:
+            repulforceGr.addGlobalParameter('REPcut', self.kT * trunc)
+            repulforceGr.addGlobalParameter('REPcut2', 0.5 * trunc * self.kT)
+        for i in range(self.N):
+            if i < self.M:
+                inc = 1.
+            else:
+                inc = 0.
+            num = float(i % self.M)
+
+            repulforceGr.addParticle([inc, num])
+
+        repulforceGr.setCutoffDistance(nbCutOffDist)
+
 
 
 class YeastSimulation(Simulation):

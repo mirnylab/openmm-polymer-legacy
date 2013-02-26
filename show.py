@@ -61,7 +61,7 @@ def showData(data, rotate=(0,0,0)):
     else:  # if windows
         os.system("C:/RasWin/raswin.exe -xyz %s -script %s" % (
             towrite.name, rascript.name))
-    exit()
+    #exit()
 
 def load(filename):
     try:

@@ -622,7 +622,7 @@ class Simulation():
                     myKeys.append(int(i))
                 except:
                     pass
-            maxkey = max(myKeys)
+            maxkey = max(myKeys) if myKeys else 1
             self.step = maxkey - 1
             self.setData(self.storage[str(maxkey - 1)])
 

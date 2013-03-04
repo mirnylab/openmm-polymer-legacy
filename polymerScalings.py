@@ -345,27 +345,19 @@ def give_slices(base, tosave, slices, sliceParams,
             else:
                 c = give_distance(i, bins2, ring=False)
 
-            flatten = normalize
-            if (flatten == True):
-            #some weired corrections...
-                print "using normal correction!!!"
-                a[1] = [a[0][i] * a[1][i] for i in xrange(len(a[0]))]
-                b = list(b)
-                c = list(c)
-                b[1] = [(b[1][i] / (b[0][i] ** 0.333333))
-                        for i in xrange(len(b[0]))]
-                c[1] = [(c[1][i] / (c[0][i] ** 0.333333))
-                        for i in xrange(len(c[0]))]
-            elif flatten == "super":
-                print "using super correction!!!"
-                b = list(b)
-                c = list(c)
-                for i in b[0]:
-                    e = (log(datlen) - log(b[0][i])) / (log(datlen) - log(1))
-                    #print e
-                    b[1][i] = b[1][i] * ((2 - 2 * e) / (2 - e)) ** (1 / 3.)
-                    e = (log(datlen) - log(c[0][i])) / (log(datlen) - log(1))
-                    c[1][i] = c[1][i] * ((2 - 2 * e) / (2 - e)) ** (1 / 3.)
+            if (normalize == True):
+                a = np.array(a)
+                pos = a[0]
+                values = a[1]
+                bins = np.r_[1.5 * pos[0] - 0.5 * pos[1],
+                             0.5 * (pos[1:] + pos[:-1]), pos[-1]]
+                lens = bins[1:] - bins[:-1]
+                ints = np.cumsum(lens * values)
+
+                values /= ints[-1]
+                ints /= ints[-1]
+                a = [pos, values]
+
             a = np.array(a, dtype=float)
             b = np.array(b, dtype=float)
             c = np.array(c, dtype=float)

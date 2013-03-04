@@ -1222,6 +1222,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
 
         self.metadata["CylindricalConfinement"] = {"r": r,
             "bottom": bottom, "k": k, "weird": weired}
+
         if bottom is not None:
             extforce2 = self.mm.CustomExternalForce(
 "step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) + step(-z + CYLbot) * CYLkb * (sqrt((z - CYLbot)^2 + CYLt^2) - CYLt) + step(z - CYLtop) * CYLkb * (sqrt((z - CYLtop)^2 + CYLt^2) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")

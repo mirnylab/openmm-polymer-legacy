@@ -194,7 +194,7 @@ def giveContactsPython(data, cutoff=1.7):
     """
     A crazy algorithm which mimics "giveContacts" in a pure python... and is very efficient
     """
-
+    print "giveContactsPython: ",
     if len(data.shape) != 2:
         raise ValueError("Wrong dimensions of data")
     if 3 not in data.shape:
@@ -285,6 +285,7 @@ def giveContactsAny(data, cutoff=1.7, maxContacts=100):
 
     k by 2 array of contacts. Each row corresponds to a contact.
     """
+    print "giveContactsAny: ",
     data = numpy.asarray(data)
     if len(data.shape) != 2:
         raise ValueError("Wrong dimensions of data")
@@ -365,6 +366,7 @@ def giveContacts(data, cutoff=1.7, maxContacts=100, method="auto"):
 
     k by 2 array of contacts. Each row corresponds to a contact.
     """
+    print "giveContacts: ",
     data = numpy.asarray(data)
     if max(data.shape) < 2000:
         return giveContactsAny(data, cutoff, maxContacts)

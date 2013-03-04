@@ -368,6 +368,9 @@ def giveContacts(data, cutoff=1.7, maxContacts=100, method="auto"):
     """
     print "giveContacts: ",
     data = numpy.asarray(data)
+    if np.isnan(data).any():
+        raise RuntimeError("Data contains NANs")
+
     if max(data.shape) < 2000:
         return giveContactsAny(data, cutoff, maxContacts)
 

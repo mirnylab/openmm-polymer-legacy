@@ -27,6 +27,8 @@ bla
 """
 
 import numpy
+from mirnylib.h5dict import h5dict
+import os
 np = numpy
 from scipy import weave
 from math import sqrt
@@ -37,6 +39,7 @@ import mirnylib.numutils
 from polymerutils import load
 import warnings
 import polymerutils
+
 
 
 def Cload(filename, center=False):
@@ -126,6 +129,35 @@ def save(filename, data, doint=False):
     f.close()
 
 
+class h5dictLoad(object):
+    """
+    An experimental class to fetch h5dict values based on a fake filename.
+
+    It accepts filenames in a form
+    /path-to-h5dict/h5dictKey
+
+    It automatically caches h5dicts that are already open
+
+    use simpleFetch method for concurrent fetching using fmap
+    """
+    def __init__(self):
+        self.baseDict = {}
+
+    def fetch(self, filename, dummy=True):
+        base, num = os.path.split(filename)
+
+        if base not in self.baseDict.keys():
+            self.baseDict[base] = h5dict(base, mode='r')
+        return self.baseDict[base][num]
+
+    def simpleFetch(self, filename, dummy=True):
+        base, num = os.path.split(filename)
+        h5 = h5dict(base, mode="r")
+        toret = h5[num]
+        del h5
+        return toret
+
+
 def rad2(data):
     "returns Rg(N^(2/3)"
 
@@ -194,7 +226,6 @@ def giveContactsPython(data, cutoff=1.7):
     """
     A crazy algorithm which mimics "giveContacts" in a pure python... and is very efficient
     """
-    print "giveContactsPython: ",
     if len(data.shape) != 2:
         raise ValueError("Wrong dimensions of data")
     if 3 not in data.shape:
@@ -285,7 +316,6 @@ def giveContactsAny(data, cutoff=1.7, maxContacts=100):
 
     k by 2 array of contacts. Each row corresponds to a contact.
     """
-    print "giveContactsAny: ",
     data = numpy.asarray(data)
     if len(data.shape) != 2:
         raise ValueError("Wrong dimensions of data")
@@ -366,7 +396,6 @@ def giveContacts(data, cutoff=1.7, maxContacts=100, method="auto"):
 
     k by 2 array of contacts. Each row corresponds to a contact.
     """
-    print "giveContacts: ",
     data = numpy.asarray(data)
     if np.isnan(data).any():
         raise RuntimeError("Data contains NANs")
@@ -863,12 +892,12 @@ def averagePureContactMap(filenames,
 
 
 def _test():
-
+    setExceptionHook()
     print "----> Testing giveContacts subroutine"
     try:
         c = polymerutils.load("/net/evolution/home/magus/trajectories/"\
                               "globule_creation/32000_RW/crumpled1.dat")
-        c = c[:16000]
+        c = c[:8000]
     except:
         N = 5000
         a = numpy.random.random((N, 3))
@@ -880,6 +909,12 @@ def _test():
         c = numpy.cumsum(a, axis=0)
         c = numpy.asarray(c)
 
+    def transformContacts(contacts):
+        a = np.sort(contacts, axis=0)
+        a = [tuple(i) for i in a]
+        return set(a)
+
+
     c2 = giveContactsAny(c, cutoff=2.2)
     c2  # Simply initialize weave.inline first
 
@@ -889,14 +924,73 @@ def _test():
     print "time for giveContacts is: ",
     print time() - a
 
-    c2 = c2[numpy.abs(c2[:, 0] - c2[:, 1]) > 1]
-
     a = time()
     c1 = giveContactsAny(c, cutoff=2.2)
     print "time for contactsAny is:", time() - a
-    c1 = c1[numpy.abs(c1[:, 0] - c1[:, 1]) > 1]
-    c1 = set([tuple(i) for i in c1])
-    c2 = set([tuple(i) for i in c2])
-    assert c1 == c2
+    assert transformContacts(c1) == transformContacts(c2)
+
+    a = time()
+    c3 = giveContactsPython(c, cutoff=2.2)
+    print "time for contactsPython:", time() - a
+    assert transformContacts(c1) == transformContacts(c3)
+
+    print "Test completed successfully"
+
+    print "----> Testing averageContactMap subroutine"
+
+    def funnyLoad(x):
+        if x % 2 == 1:
+            raise IOError("Blah Error")
+        else:
+            return c
+
+    onemap = rescaledMap(c, range(0, len(c) + 10, 10))
+
+    manyMap = averageBinnedContactMap(range(10),
+                                      binSize=10,
+                                       n=1,
+                                      loadFunction=funnyLoad,
+                                       exceptionsToIgnore=[IOError])[0]
+    fmapMap = averageBinnedContactMap(range(50),
+                                      binSize=10,
+                                       n=8,
+                                      loadFunction=funnyLoad,
+                                       exceptionsToIgnore=[IOError])[0]
+
+
+
+    assert  np.abs(manyMap - 5 * onemap).sum() < 1
+    assert  np.abs(fmapMap - 25 * onemap).sum() < 1
+    print "Finished"
+
+    print "----> Testing concurrent h5dict load"
+
+    a = h5dict("bla", "w")
+    for i in xrange(40):
+        a[str(i)] = c + numpy.random.random(c.shape) * 0.2
+    del a
+    loader = h5dictLoad()
+    robustLoad = loader.simpleFetch
+    filenames = ["bla/%d" % i for i in xrange(50)]
+    oneThreadMap = averageBinnedContactMap(filenames,
+                                      binSize=10,
+                                       n=1,
+                                      loadFunction=robustLoad,
+                                       exceptionsToIgnore=[IOError, KeyError])[0]
+    eightThreadMap = averageBinnedContactMap(filenames,
+                                      binSize=10,
+                                       n=8,
+                                      loadFunction=robustLoad,
+                                       exceptionsToIgnore=[IOError, KeyError])[0]
+
+    assert np.abs(oneThreadMap - eightThreadMap).sum() < 1
+    os.remove("bla")
+
+
+
+
 
 #_test()
+
+
+

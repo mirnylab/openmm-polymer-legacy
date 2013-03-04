@@ -434,33 +434,6 @@ give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run8_tin
 """
 
 
-class h5dictLoad(object):
-    """
-    An experimental class to fetch h5dict values based on a fake filename.
-
-    It accepts filenames in a form
-    /path-to-h5dict/h5dictKey
-
-    It automatically caches h5dicts that are already open
-
-    use simpleFetch method for concurrent fetching using fmap
-    """
-    def __init__(self):
-        self.baseDict = {}
-
-    def fetch(self, filename, dummy=True):
-        base, num = os.path.split(filename)
-
-        if base not in self.baseDict.keys():
-            self.baseDict[base] = h5dict(base, mode='r')
-        return self.baseDict[base][num]
-
-    def simpleFetch(self, filename, dummy=True):
-        base, num = os.path.split(filename)
-        h5 = h5dict(base, mode="r")
-        toret = h5[num]
-        del h5
-        return toret
 
 #import joblib
 

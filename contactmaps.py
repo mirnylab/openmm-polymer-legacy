@@ -416,7 +416,7 @@ def giveContacts(data, cutoff=1.7, maxContacts=100, method="auto"):
         return giveContactsPython(data, cutoff)
     if method == "any":
         return giveContactsAny(data, cutoff, maxContacts)
-    if (method == "auto") and (maxRatio > 3):
+    if (method == "auto") and (maxRatio > 5):
         warnings.warn("\nPolymer does not seem continuous, falling back"\
                       "to arbitrary contact finger 'give_contacts_any'"\
                       "\n This is ok, just be aware of this! ")
@@ -897,9 +897,9 @@ def _test():
     try:
         c = polymerutils.load("/net/evolution/home/magus/trajectories/"\
                               "globule_creation/32000_RW/crumpled1.dat")
-        c = c[:8000]
+        c = c[:16000]
     except:
-        N = 5000
+        N = 16000
         a = numpy.random.random((N, 3))
         b = numpy.sqrt(numpy.sum(a ** 2, axis=1))
         a = a / b[:, None]
@@ -984,6 +984,7 @@ def _test():
                                        exceptionsToIgnore=[IOError, KeyError])[0]
 
     assert np.abs(oneThreadMap - eightThreadMap).sum() < 1
+    print "Concurrent h5dict load test successful!"
     os.remove("bla")
 
 

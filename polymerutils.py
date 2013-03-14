@@ -2,7 +2,7 @@ import numpy as np
 import joblib
 import os
 from math import sqrt, sin, cos
-from mirnylib.plotting import showPolymerRasmol
+
 from mirnylib.numutils import isInteger, rotationMatrix
 
 import numpy

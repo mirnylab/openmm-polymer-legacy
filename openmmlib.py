@@ -1453,6 +1453,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         self.context = self.mm.Context(
             self.system, self.integrator, self.platform)
         self.initPositions()
+        self.initVelocities()
         self.forcesApplied = True
         if hasattr(self, "storage") and hasattr(self, "metadata"):
             self.storage["metadata"] = self.metadata

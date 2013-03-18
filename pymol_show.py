@@ -101,6 +101,7 @@ def do_coloring(data, regions, colors, transparencies,
                 returnScriptName=None,
                 chainRadius=0.02, subchainRadius=0.04,
                 chainTransparency=0.5, support="",
+                transparentBackground=True,
                 multiplier=.4,
                 spherePositions=[],
                 sphereRadius=.3,
@@ -216,7 +217,8 @@ def do_coloring(data, regions, colors, transparencies,
 
     out.write("hide all\n")
     out.write("bg white\n")
-    out.write("set ray_opaque_background, off\n")
+    if transparentBackground:
+        out.write("set ray_opaque_background, off\n")
 
     for i in xrange(len(regions)):
         out.write("select %s, resi %d-%d\n" % (names[i], regions[i][0], regions[i][1]))
@@ -267,7 +269,7 @@ def do_coloring(data, regions, colors, transparencies,
     #out.write("alter all, vdw={0} \n".format(sphereRadius))
 
 
-    #out.write("show cartoon,name ca\n")
+    out.write("show cartoon,name ca\n")
     out.write("zoom %s\n" % pdbname)
 
     out.write(support)

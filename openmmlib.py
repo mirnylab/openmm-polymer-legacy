@@ -311,6 +311,8 @@ class Simulation():
             platformObject = self.mm.Platform.getPlatformByName('OpenCL')
             platformObject.setPropertyDefaultValue(
                 'OpenCLDeviceIndex', self.GPU)
+            platformObject.setPropertyDefaultValue('OpenCLPrecision', "mixed")
+
 
         elif platform.lower() == "reference":
             platformObject = self.mm.Platform.getPlatformByName('Reference')
@@ -318,6 +320,8 @@ class Simulation():
         elif platform.lower() == "cuda":
             platformObject = self.mm.Platform.getPlatformByName('CUDA')
             platformObject.setPropertyDefaultValue('CudaDevice', self.GPU)
+            platformObject.setPropertyDefaultValue('CudaPrecision', "mixed")
+
         else:
             self.exit("\n!!!!!!!!!!unknown platform!!!!!!!!!!!!!!!\n")
         self.platform = platformObject
@@ -1211,8 +1215,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
             repulforce.setParticleParameters(
                 tt, 0, self.conlen, self.epsilonRep)
 
-    def addCylindricalConfinement(self, r, bottom=None, k=0.1,
-                                  weired=False, top=9999):
+    def addCylindricalConfinement(self, r, bottom=None, k=0.1, top=9999):
         "As it says. Weird was used for Natasha simulations... and is weird."
 
         if bottom == True:
@@ -1221,7 +1224,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
             bottom = 0
 
         self.metadata["CylindricalConfinement"] = {"r": r,
-            "bottom": bottom, "k": k, "weird": weired}
+            "bottom": bottom, "k": k}
 
         if bottom is not None:
             extforce2 = self.mm.CustomExternalForce(
@@ -1229,8 +1232,6 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         else:
             extforce2 = self.mm.CustomExternalForce("step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
 
-        if weired == True:
-            extforce2 = self.mm.CustomExternalForce(" 0.6 * CYLkt * CYLaa*CYLaa / (CYLaa * CYLaa + r * r) + step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa)  + CYLt*CYLt) - CYLt) + step(-z) * CYLkb * (sqrt(z^2 + CYLt^2) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
 
         self.forceDict["CylindricalConfinement"] = extforce2
         for i in xrange(self.N):

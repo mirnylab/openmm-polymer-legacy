@@ -256,6 +256,7 @@ def grow_rw(step, size, method="line"):
 
         for i in xrange(size - 1, 0, -1):
             a.append((t, t - 1, i))
+
     if method == "linear":
         a = []
         for i in xrange(0, size + 1):

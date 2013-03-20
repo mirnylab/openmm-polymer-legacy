@@ -9,8 +9,10 @@ import numpy as np
 from scipy.interpolate.interpolate import interp1d
 from scipy.interpolate.fitpack2 import InterpolatedUnivariateSpline
 
-from mirnylib.systemutils import deprecate
+from mirnylib.systemutils import deprecate, setExceptionHook
 import polymerutils
+
+
 
 def interpolateData(data, targetN=90000, colorArrays=[]):
     """
@@ -95,8 +97,11 @@ def createRegions(a):
     return np.transpose(np.array([a1, a2]))
 
 def do_coloring(data, regions, colors, transparencies,
+                showGui=True, saveTo=None, showChain="worm",
+                returnScriptName=None,
                 chainRadius=0.02, subchainRadius=0.04,
                 chainTransparency=0.5, support="",
+                transparentBackground=True,
                 multiplier=.4,
                 spherePositions=[],
                 sphereRadius=.3,
@@ -207,37 +212,78 @@ def do_coloring(data, regions, colors, transparencies,
 
     out = tempfile.NamedTemporaryFile()
 
+    if returnScriptName is not None:
+        pdbname = returnScriptName
+
     out.write("hide all\n")
     out.write("bg white\n")
-    out.write("set ray_opaque_background, off\n")
+    if transparentBackground:
+        out.write("set ray_opaque_background, off\n")
 
     for i in xrange(len(regions)):
         out.write("select %s, resi %d-%d\n" % (names[i], regions[i][0], regions[i][1]))
         out.write("create subchain%s,%s\n" % (names[i], names[i]))
         #out.write("remove subchain%s in %s\n"%(names[i],pdbname))
 
-    out.write("set cartoon_trace_atoms,1,%s\n" % pdbname)
-    out.write("cartoon tube,%s\n" % pdbname)
-    out.write("set cartoon_tube_radius,%f,%s\n" % (chainRadius, pdbname))
-    out.write("set cartoon_transparency,%f,%s\n" % (chainTransparency, pdbname))
-    out.write("color %s,%s\n" % (bgcolor, pdbname))
+    if showChain == "worm":
+        out.write("set cartoon_trace_atoms,1,%s\n" % pdbname)
+        out.write("cartoon tube,%s\n" % pdbname)
+        out.write("set cartoon_tube_radius,%f,%s\n" % (chainRadius, pdbname))
+        out.write("set cartoon_transparency,%f,%s\n" % (chainTransparency, pdbname))
+        out.write("color %s,%s\n" % (bgcolor, pdbname))
+
+    elif showChain == "spheres":
+        out.write("alter {0}, vdw={1}\n".format(pdbname, 5 * chainRadius))
+        out.write("show spheres\n")
+        out.write("as spheres\n")
+        out.write("set sphere_transparency,%f,%s\n" % (chainTransparency, pdbname))
+        out.write("color %s,%s\n" % (bgcolor, pdbname))
+    else:
+        raise ValueError("please select showChain to be 'worm' or 'spheres'")
     for i in xrange(len(regions)):
 
         name = "subchain%s" % names[i]
-        out.write("set cartoon_trace_atoms,1,%s\n" % name)
-        out.write("cartoon tube,%s\n" % name)
-        out.write("set cartoon_tube_radius,%f,%s\n" % (subchainRadius, name))
-        out.write("color %s,subchain%s\n" % (colors[i], names[i]))
-        out.write("set cartoon_transparency,%f,%s\n" % (transparencies[i], name))
+        if showChain == "worm":
+            out.write("set cartoon_trace_atoms,1,%s\n" % name)
+            out.write("cartoon tube,%s\n" % name)
+            out.write("set cartoon_tube_radius,%f,%s\n" % (subchainRadius, name))
+            out.write("color %s,subchain%s\n" % (colors[i], names[i]))
+            out.write("set cartoon_transparency,%f,%s\n" % (transparencies[i], name))
+
+        elif showChain == "spheres":
+            out.write("alter {0}, vdw={1}\n".format(name, 5 * subchainRadius))
+            out.write("show spheres, %s\n" % name)
+            out.write("as spheres\n")
+            out.write("color %s,subchain%s\n" % (colors[i], names[i]))
+            out.write("set sphere_transparency,%f,%s\n" % (transparencies[i], name))
+
     for i  in spherePositions:
         out.write("show spheres, i. {0}-{0}\n".format(i))
         out.write("set sphere_color, grey60 \n")
 
-    out.write("alter all, vdw={0} \n".format(sphereRadius))
+    if returnScriptName is not None:
+        out.flush()
+        return "".join(open(out.name).readlines())
+
+
+    #out.write("alter all, vdw={0} \n".format(sphereRadius))
+
+
     out.write("show cartoon,name ca\n")
-    out.write("zoom %s" % pdbname)
+    out.write("zoom %s\n" % pdbname)
+
     out.write(support)
+    out.write("\n")
     out.flush()
+    script = "".join(open(out.name).readlines())
+    if not (saveTo is None):
+        out.write("viewport 1200,1200\n")
+        out.write("png {}\n".format(saveTo))
+    if not showGui:
+        out.write("quit\n")
+
+    out.flush()
+
 
     #saving data
 
@@ -247,6 +293,8 @@ def do_coloring(data, regions, colors, transparencies,
 
     print os.system("pymol {1} -u {0} {2}".format(out.name, tmpPdbFilename,
                                                   miscArguments))
+    return script
+
 
 def example_pymol():
     #Creating a random walk
@@ -335,7 +383,7 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", **kwargs):
         tmpScript.name))
     tmpScript.close()
 
-def makeMoviePymol(fileList, destFolder, fps=10, aviFilename='output.avi'):
+def makeMoviePymol(fileList, destFolder, fps=10, aviFilename='output.avi', pymolScript=None):
     numFrames = len(fileList)
     numDigits = int(np.ceil(np.log10(numFrames)))
     pdbPaths = []
@@ -359,19 +407,25 @@ def makeMoviePymol(fileList, destFolder, fps=10, aviFilename='output.avi'):
     for i in pdbPaths:
         script += 'load {0}, mov\n'.format(i)
 
-    script += textwrap.dedent("""
-    smooth mov
-    bg white
-    set ray_opaque_background, off
-    spectrum count, rainbow, mov
-    alter mov, vdw=1.0
-    show spheres
-    as spheres
-    zoom mov
-    viewport 600, 600
-    set ray_trace_frames=1
-    mpng mov
-    """)
+    script += "smooth mov\n"
+
+    if pymolScript == None:
+        script += textwrap.dedent("""
+        smooth mov
+        bg white
+        set ray_opaque_background, off
+        spectrum count, rainbow, mov
+        alter mov, vdw=1.0
+        show spheres
+        as spheres
+        zoom mov
+        viewport 600, 600
+        set ray_trace_frames=1
+        mpng mov
+        """)
+    else:
+        script += pymolScript
+
 
     tmpScriptPath = os.path.abspath(destFolder + '/movie.pymol')
     tmpScript = open(tmpScriptPath, 'w')

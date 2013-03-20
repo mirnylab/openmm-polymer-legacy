@@ -6,6 +6,7 @@ from math import sqrt, sin, cos
 from mirnylib.numutils import isInteger, rotationMatrix
 
 import numpy
+from mirnylib.plotting import showPolymerRasmol
 
 
 
@@ -256,6 +257,14 @@ def grow_rw(step, size, method="line"):
         for i in xrange(size - 1, 0, -1):
             a.append((t, t - 1, i))
 
+    if method == "linear":
+        a = []
+        for i in xrange(0, size + 1):
+            a.append((t, t, i))
+        if (len(a) % 2) != (step % 2):
+            a = a[:-1]
+
+
     b = numpy.zeros((size + 1, size + 1, size + 1), int)
     for i in a:
         b[i] = 1
@@ -292,6 +301,7 @@ def grow_rw(step, size, method="line"):
                 break
         #print a
     return numpy.array(a)
+
 
 
 def _test():

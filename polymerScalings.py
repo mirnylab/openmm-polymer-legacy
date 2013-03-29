@@ -432,6 +432,7 @@ give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run8_tin
 """
 #import joblib
 
+
 def _test():
     def giveStraightChain(x, y):
         N = 4000

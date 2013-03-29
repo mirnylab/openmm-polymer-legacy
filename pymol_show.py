@@ -269,7 +269,8 @@ def do_coloring(data, regions, colors, transparencies,
     #out.write("alter all, vdw={0} \n".format(sphereRadius))
 
 
-    out.write("show cartoon,name ca\n")
+    if showChain == "worm":
+        out.write("show cartoon,name ca\n")
     out.write("zoom %s\n" % pdbname)
 
     out.write(support)

@@ -164,8 +164,6 @@ import time
 import joblib
 import tempfile
 import warnings
-import string
-import random
 import polymerutils
 
 os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda/lib64:/usr/local/openmm/lib"
@@ -176,6 +174,7 @@ import simtk.unit as units
 nm = units.meter * 1e-9
 fs = units.second * 1e-15
 ps = units.second * 1e-12
+
 
 class Simulation():
     """Base class for openmm simulations
@@ -312,7 +311,6 @@ class Simulation():
             platformObject.setPropertyDefaultValue(
                 'OpenCLDeviceIndex', self.GPU)
             platformObject.setPropertyDefaultValue('OpenCLPrecision', "mixed")
-
 
         elif platform.lower() == "reference":
             platformObject = self.mm.Platform.getPlatformByName('Reference')
@@ -848,7 +846,6 @@ class Simulation():
             print "%s bond added between %d,%d, wiggle %lf dist %lf" % (
                 bondType, i, j, float(bondWiggleDistance), float(distance))
 
-
     def addHarmonicPolymerBonds(self, wiggleDist=0.05):
         """Adds harmonic bonds connecting polymer chains
         wiggleDist controls the distance at which
@@ -1057,7 +1054,7 @@ class Simulation():
 
     def addLennardJonesForce(
         self, cutoff=2.5, domains=False, epsilonRep=0.24, epsilonAttr=0.27,
-        blindFraction= -1, sigmaRep=None, sigmaAttr=None):
+        blindFraction=(-1), sigmaRep=None, sigmaAttr=None):
 
         """
         Adds a lennard-jones force, that allows for mutual attraction.
@@ -1154,7 +1151,6 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
 
         repulforceGr.setCutoffDistance(nbCutOffDist)
 
-
     def addMutualException(self, particles):
         """used to exclude a bunch of particles
         from calculation of nonbonded force
@@ -1231,7 +1227,6 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
 "step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) + step(-z + CYLbot) * CYLkb * (sqrt((z - CYLbot)^2 + CYLt^2) - CYLt) + step(z - CYLtop) * CYLkb * (sqrt((z - CYLtop)^2 + CYLt^2) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
         else:
             extforce2 = self.mm.CustomExternalForce("step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
-
 
         self.forceDict["CylindricalConfinement"] = extforce2
         for i in xrange(self.N):
@@ -1368,7 +1363,6 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
             self.forceDict["Tethering Force"] = tetherForce
         else:
             tetherForce = self.forceDict["Tethering Force"]
-
 
         #assigning parameters of the force
         tetherForce.addGlobalParameter("TETHkb", k * self.kT / nm)
@@ -2113,7 +2107,6 @@ class supercoilingSimulation(Simulation):
         if self.M * self.strands != self.N:
             raise ValueError("Total length should be multiple of total number of strands")
 
-
         self.strandR = strandRadius
 
         self.setLayout(mode="ring", chains=[(0, self.M)])
@@ -2195,8 +2188,6 @@ class supercoilingSimulation(Simulation):
                     safeAddBond((i, j), (i, j + 1), wiggle3, b3)
                 safeAddBond((i, 1), (i, strands - 1), wiggle3, b3)
 
-
-
     def getChain(self):
         return self.getData()[:self.M]
 
@@ -2204,11 +2195,7 @@ class supercoilingSimulation(Simulation):
         data = self.getData()
         d1 = data[: self.M]
         d2 = data[2 * self.M:3 * self.M]
-        print "Link num: ", getLinkingNumber(d1, d2), ";" ,
-
-
-
-
+        print "Link num: ", getLinkingNumber(d1, d2), ";",
 
     def addGrosbergRepulsiveForce(self, trunc=None, radiusMult=1.):
         """This is the fastest repulsive force.
@@ -2263,7 +2250,6 @@ class supercoilingSimulation(Simulation):
             repulforceGr.addParticle([inc, num])
 
         repulforceGr.setCutoffDistance(nbCutOffDist)
-
 
 
 class YeastSimulation(Simulation):
@@ -2336,8 +2322,3 @@ class GrandeSimulation(Simulation,
                        SimulationWithCrosslinks,
                        ExperimentalSimulation):
     pass
-
-
-
-
-

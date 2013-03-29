@@ -3,12 +3,10 @@ from mirnylib.systemutils import fmap
 import polymerutils
 mirnylib.systemutils.setExceptionHook()
 from mirnylib.numutils import logbins
-from mirnylib.h5dict import h5dict
-import os
 import contactmaps
 from contactmaps import Cload, giveContacts
 import cPickle
-from math import sqrt, log
+from math import sqrt
 
 import numpy as np
 
@@ -432,11 +430,7 @@ give_slices(base = "/home/magus/evo/GO37_6k_diffusion/equilibration_new/run8_tin
              tosave  = "data/DNA_conf/plots/paper_scalings/ring2_eq",
              slices = [9000], sliceParams = (3), multipliers = np.arange(0.5,1,0.0001), mode = "ring", loadFunction = Cload)
 """
-
-
-
 #import joblib
-
 
 def _test():
     def giveStraightChain(x, y):

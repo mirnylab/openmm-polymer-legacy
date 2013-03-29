@@ -34,12 +34,10 @@ from scipy import weave
 from math import sqrt
 from mirnylib.systemutils import fmapred, fmap, deprecate, setExceptionHook
 import sys
-import mirnylib
 import mirnylib.numutils
 from polymerutils import load
 import warnings
 import polymerutils
-
 
 
 def Cload(filename, center=False):
@@ -222,6 +220,7 @@ def giveIntContacts(data):
     contacts4 = numpy.maximum(contacts1, contacts2)
     return numpy.concatenate([contacts3[:, None], contacts4[:, None]], 1)
 
+
 def giveContactsPython(data, cutoff=1.7):
     """
     A crazy algorithm which mimics "giveContacts" in a pure python... and is very efficient
@@ -233,7 +232,6 @@ def giveContactsPython(data, cutoff=1.7):
     if data.shape[0] == 3:
         data = data.T
 
-    N = len(data)
     tileSize = 2 * cutoff  # create tile equal to the diameter of the cutoff
     tileSize = float(tileSize)
 
@@ -243,7 +241,8 @@ def giveContactsPython(data, cutoff=1.7):
     maxSize = data.max()
     tN = np.ceil(maxSize / tileSize)
     tileIndex3D = np.floor(data / tileSize)
-    tileIndex1D = np.sum(tileIndex3D * np.array([tN ** 2, tN, 1])[None, :], axis=1)
+    tileIndex1D = np.sum(
+        tileIndex3D * np.array([tN ** 2, tN, 1])[None, :], axis=1)
 
     argsSort = np.argsort(tileIndex1D)
     tileIndex1D = tileIndex1D[argsSort]
@@ -256,7 +255,8 @@ def giveContactsPython(data, cutoff=1.7):
         c = fetchPieces(ind1, ind2)
         #print c
         return c
-    pieces = map(myfun, [0, tN, tN ** 2, tN ** 2 - tN, tN ** 2 + tN])  # only looking at 5 other chunks
+    pieces = map(myfun, [0, tN, tN ** 2, tN ** 2 - tN, tN ** 2 + tN])
+        # only looking at 5 other chunks
     pieces = zip(*pieces)
     #print pieces
     st, end = np.concatenate(pieces[0]), np.concatenate(pieces[1])
@@ -292,9 +292,6 @@ def giveContactsPython(data, cutoff=1.7):
     toret[:, 0] = st
     toret[:, 1] = end
     return toret
-
-
-
 
 
 def giveContactsAny(data, cutoff=1.7, maxContacts=100):
@@ -367,10 +364,6 @@ def giveContactsAny(data, cutoff=1.7, maxContacts=100):
     return points[:k + 1, :]
 
 
-
-
-
-
 def giveContacts(data, cutoff=1.7, maxContacts=100, method="auto"):
     """Returns contacts of a single polymer with a given cutoff
 
@@ -417,8 +410,8 @@ def giveContacts(data, cutoff=1.7, maxContacts=100, method="auto"):
     if method == "any":
         return giveContactsAny(data, cutoff, maxContacts)
     if (method == "auto") and (maxRatio > 5):
-        warnings.warn("\nPolymer does not seem continuous, falling back"\
-                      "to arbitrary contact finger 'give_contacts_any'"\
+        warnings.warn("\nPolymer does not seem continuous, falling back"
+                      "to arbitrary contact finger 'give_contacts_any'"
                       "\n This is ok, just be aware of this! ")
         print "ratio of smaller to larger bonds is {0}".format(maxRatio)
 
@@ -475,7 +468,6 @@ def giveContacts(data, cutoff=1.7, maxContacts=100, method="auto"):
         '-march=native -malign-double -O3'], support_code=support)
     k = numpy.max(numpy.nonzero(points[:, 1]))
     return points[:k + 1, :]
-
 
 
 def giveDistanceMap(data, size=1000):
@@ -537,24 +529,20 @@ def fetchPieces(low, high):
     #next line is not required, but makes this python implementation possible
     high[high == low] += 1
     numPieces = high - low
-    N = len(low)
     inds = np.cumsum(numPieces)  # indices of each element
     size = inds[-1]
 
     spikeIndex = np.zeros(size + 1, dtype=np.int64)
-    spikeIndex[inds[:-1]] = 1  # create 1 at each transition between two elements
+    spikeIndex[inds[:-1]
+               ] = 1  # create 1 at each transition between two elements
     baseElementIndex = np.cumsum(spikeIndex)  # create first array
 
-    otherElementIndex = np.ones_like(spikeIndex)  # tricks with cumsum to create second array
+    otherElementIndex = np.ones_like(
+        spikeIndex)  # tricks with cumsum to create second array
     otherElementIndex[inds[:-1]] += (low[1:] - high[:-1])
     otherElementIndex[0] = low[0]
     otherElementIndex = np.cumsum(otherElementIndex)
     return baseElementIndex[:-1], otherElementIndex[:-1]
-
-
-
-
-
 
 
 def rescalePoints(points, bins):
@@ -636,12 +624,12 @@ def cool_trunk(data):
         return sqrt(datax[i] ** 2 + datay[i] ** 2 + dataz[i] ** 2)
 
     def sqdist(i, j):
-        return sqrt((datax[i] - datax[j]) ** 2 + (datay[i] - datay[j]) ** 2 \
+        return sqrt((datax[i] - datax[j]) ** 2 + (datay[i] - datay[j]) ** 2
                     + (dataz[i] - dataz[j]) ** 2)
 
     def sqdist2(i, j, scale):
-        return sqrt((scale * datax[i] - datax[j]) ** 2 + \
-                    (scale * datay[i] - datay[j]) ** 2 + \
+        return sqrt((scale * datax[i] - datax[j]) ** 2 +
+                    (scale * datay[i] - datay[j]) ** 2 +
                     (scale * dataz[i] - dataz[j]) ** 2)
     breakflag = 0
     escapeflag = 0
@@ -726,10 +714,11 @@ def averageContactMap(*args, **kvargs):
     print 'please use averageBinnedContactMap or averagePureContactMap'
     raise Exception('deprecated function')
 
+
 def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
-                      n=4,  # Num threads
-                      loadFunction=load,
-                      exceptionsToIgnore=None):
+                            n=4,  # Num threads
+                            loadFunction=load,
+                            exceptionsToIgnore=None):
     """
     Returns an average contact map of a set of conformations.
     Non-existing files are ignored if exceptionsToIgnore is set to IOError.
@@ -763,7 +752,6 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
 
     """
 
-
     getResolution = 0
     fileInd = 0
     while getResolution == 0:
@@ -776,15 +764,18 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
             print "no valid files found in filenames"
             raise ValueError("no valid files found in filenames")
 
-    if chains == None:
+    if chains is None:
         chains = [[0, len(data)]]
-    if binSize == None:
+    if binSize is None:
         binSize = int(numpy.floor(len(data) / 500))
 
     bins = []
     chains = numpy.asarray(chains)
-    chainBinNums = (numpy.ceil((chains[:, 1] - chains[:, 0]) / (0.0 + binSize)))
-    for i in xrange(len(chainBinNums)): bins.append(binSize * (numpy.arange(int(chainBinNums[i]))) + chains[i, 0])
+    chainBinNums = (
+        numpy.ceil((chains[:, 1] - chains[:, 0]) / (0.0 + binSize)))
+    for i in xrange(len(chainBinNums)):
+        bins.append(binSize * (numpy.arange(int(chainBinNums[i])))
+                    + chains[i, 0])
     bins.append(numpy.array([chains[-1, 1] + 1]))
     bins = numpy.concatenate(bins)
     bins = bins - .5
@@ -792,7 +783,7 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
 
     if Nbase > 10000:
         warnings.warn(UserWarning('very large contact map'
-        ' may be difficult to visualize'))
+                                  ' may be difficult to visualize'))
 
     chromosomeStarts = numpy.cumsum(chainBinNums)
     chromosomeStarts = numpy.hstack((0, chromosomeStarts))
@@ -812,10 +803,10 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
 
 
 def averagePureContactMap(filenames,
-                      cutoff=1.7,
-                      n=4,  # Num threads
-                      loadFunction=load,
-                      exceptionsToIgnore=None):
+                          cutoff=1.7,
+                          n=4,  # Num threads
+                          loadFunction=load,
+                          exceptionsToIgnore=None):
     """
         Parameters
     ----------
@@ -846,8 +837,6 @@ def averagePureContactMap(filenames,
     Maps from different workers are then added together manually.
     """
 
-
-
     n = min(n, len(filenames))
     subvalues = [filenames[i::n] for i in xrange(n)]
 
@@ -871,15 +860,16 @@ def averagePureContactMap(filenames,
 
                 if len(data) > 6000:
                     warnings.warn(UserWarning('very large contact map'
-                    ' may cause errors. these may be fixed with n=1 threads.'))
+                                              ' may cause errors. these may be fixed with n=1 threads.'))
                 if len(data) > 20000:
                     warnings.warn(UserWarning('very large contact map'
-                    ' may be difficult to visualize.'))
+                                              ' may be difficult to visualize.'))
 
                 mysum = pureMap(data, cutoff)  # create a map
 
             else:  # if not
-                pureMap(data, cutoff, mysum)  # use existing map and fill in contacts
+                pureMap(data, cutoff, mysum)
+                    # use existing map and fill in contacts
 
         return mysum
 
@@ -895,7 +885,7 @@ def _test():
     setExceptionHook()
     print "----> Testing giveContacts subroutine"
     try:
-        c = polymerutils.load("/net/evolution/home/magus/trajectories/"\
+        c = polymerutils.load("/net/evolution/home/magus/trajectories/"
                               "globule_creation/32000_RW/crumpled1.dat")
         c = c[:16000]
     except:
@@ -913,7 +903,6 @@ def _test():
         a = np.sort(contacts, axis=0)
         a = [tuple(i) for i in a]
         return set(a)
-
 
     c2 = giveContactsAny(c, cutoff=2.2)
     c2  # Simply initialize weave.inline first
@@ -948,16 +937,14 @@ def _test():
 
     manyMap = averageBinnedContactMap(range(10),
                                       binSize=10,
-                                       n=1,
+                                      n=1,
                                       loadFunction=funnyLoad,
-                                       exceptionsToIgnore=[IOError])[0]
+                                      exceptionsToIgnore=[IOError])[0]
     fmapMap = averageBinnedContactMap(range(50),
                                       binSize=10,
-                                       n=8,
+                                      n=8,
                                       loadFunction=funnyLoad,
-                                       exceptionsToIgnore=[IOError])[0]
-
-
+                                      exceptionsToIgnore=[IOError])[0]
 
     assert  np.abs(manyMap - 5 * onemap).sum() < 1
     assert  np.abs(fmapMap - 25 * onemap).sum() < 1
@@ -973,15 +960,15 @@ def _test():
     robustLoad = loader.simpleFetch
     filenames = ["bla/%d" % i for i in xrange(50)]
     oneThreadMap = averageBinnedContactMap(filenames,
-                                      binSize=10,
-                                       n=1,
-                                      loadFunction=robustLoad,
-                                       exceptionsToIgnore=[IOError, KeyError])[0]
+                                           binSize=10,
+                                           n=1,
+                                           loadFunction=robustLoad,
+                                           exceptionsToIgnore=[IOError, KeyError])[0]
     eightThreadMap = averageBinnedContactMap(filenames,
-                                      binSize=10,
-                                       n=8,
-                                      loadFunction=robustLoad,
-                                       exceptionsToIgnore=[IOError, KeyError])[0]
+                                             binSize=10,
+                                             n=8,
+                                             loadFunction=robustLoad,
+                                             exceptionsToIgnore=[IOError, KeyError])[0]
 
     assert np.abs(oneThreadMap - eightThreadMap).sum() < 1
     print "Concurrent h5dict load test successful!"
@@ -992,6 +979,3 @@ def _test():
 
 
 #_test()
-
-
-

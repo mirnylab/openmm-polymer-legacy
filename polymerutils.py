@@ -2,12 +2,8 @@ import numpy as np
 import joblib
 import os
 from math import sqrt, sin, cos
-
-from mirnylib.numutils import isInteger, rotationMatrix
-
+from mirnylib.numutils import isInteger
 import numpy
-from mirnylib.plotting import showPolymerRasmol
-
 
 
 def load(filename, h5dictKey=None):
@@ -57,6 +53,7 @@ def load(filename, h5dictKey=None):
     except IOError:
         raise IOError("Failed to open file")
 
+
 def save(data, filename, mode="txt", h5dictKey="1"):
     h5dictKey = str(h5dictKey)
     mode = mode.lower()
@@ -84,8 +81,6 @@ def save(data, filename, mode="txt", h5dictKey="1"):
 
     elif mode == 'pdb':
         data = data - np.min(data, axis=0)[None, :]
-
-        N = len(data)
         retret = ""
 
         def add(st, n):
@@ -116,8 +111,8 @@ def save(data, filename, mode="txt", h5dictKey="1"):
     else:
         raise ValueError("Unknown mode : %s, use h5dict, joblib, txt or pdb" % mode)
 
-def generateRandomLooping(length=10000, oneMoverPerBp=1000, numSteps=100):
 
+def generateRandomLooping(length=10000, oneMoverPerBp=1000, numSteps=100):
     N = length
     myarray = np.zeros(N, int)
     movers = []
@@ -264,7 +259,6 @@ def grow_rw(step, size, method="line"):
         if (len(a) % 2) != (step % 2):
             a = a[:-1]
 
-
     b = numpy.zeros((size + 1, size + 1, size + 1), int)
     for i in a:
         b[i] = 1
@@ -303,7 +297,6 @@ def grow_rw(step, size, method="line"):
     return numpy.array(a)
 
 
-
 def _test():
 
     print "testing save/load"
@@ -323,6 +316,7 @@ def _test():
     os.remove("bla")
 
     print "Finished testing save/load, successfull"
+
 
 def createSpiralRing(N, twist, r=0, offsetPerParticle=np.pi, offset=0):
     """
@@ -351,8 +345,10 @@ def getLinkingNumber(data1, data2):
         data1 = numpy.array(data1.T)
     if len(data2) == 3:
         data2 = numpy.array(data2.T)
-    if len(data1[0]) != 3: raise ValueError
-    if len(data2[0]) != 3: raise ValueError
+    if len(data1[0]) != 3:
+        raise ValueError
+    if len(data2[0]) != 3:
+        raise ValueError
 
     olddata = numpy.concatenate([data1, data2], axis=0)
     olddata = numpy.array(olddata, dtype=float, order="C")
@@ -405,7 +401,6 @@ int intersectValue(float *p1, float *v1, float *p2, float *v2) {
 }
     """
 
-
     code = r"""
     #line 1149 "numutils.py"
     float **data = new float*[N];
@@ -435,7 +430,7 @@ int intersectValue(float *p1, float *v1, float *p2, float *v2) {
     returnArray[0] =  L;
 
 """
-    M, N  #Eclipse warning removal
+    M, N  # Eclipse warning removal
     weave.inline(code, ['M', 'olddata', 'N', "returnArray"], extra_compile_args=['-march=native -malign-double -O3'], support_code=support)
     return returnArray[0]
 

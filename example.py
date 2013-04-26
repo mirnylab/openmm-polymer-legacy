@@ -1,9 +1,4 @@
-from math import sin, cos, sqrt
-import numpy
 from openmmlib import Simulation
-from polymerutils import create_spiral as createSpiral
-
-from polymerutils import load
 
 
 def exampleOpenmm():
@@ -18,23 +13,34 @@ def exampleOpenmm():
     """
 
     a = Simulation(timestep=80, thermostat=0.002)
+    # Consider increasing timestep if your system is very relaxed
     assert isinstance(a, Simulation)
-    a.initStorage("mystorage", mode="w")
+    #This line is for Eclipse to know the type of a
+
     a.setup(platform="OpenCL", verbose=True)
+    #Now use "Cuda" on dau, quill, proteome, kulibin, and on wiz CPU #1 (will be changed soon)
     a.saveFolder("trajectory")  # folder where to save trajectory
+    #Folder to save trajectory
 
     a.load("globule")
-    a.setLayout(mode="chain")  # default = chain
-    a.addSphericalConfinement(density=0.55)
-    a.addHarmonicPolymerBonds()
-    a.addGrosbergRepulsiveForce()  # Fastest pure repulsive force
-    #a.addGrosbergStiffness()
-    stiffArray = numpy.random.random(a.N) + 1
-    a.addStiffness()
+    a.setLayout(mode="chain")
+    #This line initializes the fact that we have one chain
 
-    a.addBond(0, 5999, 0.05, 1)
+    a.addSphericalConfinement(density=0.55)
+    #You can specify radius as well
+
+    a.addHarmonicPolymerBonds(wiggleDist=0.05)
+    #Bonds will fluctuate +- 0.05 on average
+
+    a.addGrosbergRepulsiveForce(trunc=50)  # Fastest pure repulsive force
+    #truncation at 50 kT to resolve chain overlaps in the original conformation
+    #Optional with this starting conformation, but may be useful in general
+
+    a.addStiffness(k=4)
+    #K is more or less arbitrary, k=4 corresponds to presistence length of 4
 
     a.energyMinimization()
+    #Adaptive algorithm to minimize energy
 
     for _ in xrange(10):
         a.doBlock(3000)
@@ -45,9 +51,3 @@ def exampleOpenmm():
 
 exampleOpenmm()
 exit()
-
-"""Below are scripts that can be used to create starting conformation.
-create_spiral will create a spiral.
-create_sausage will create a sausage with a certain
-length/width ratio of a certain N.
-"""

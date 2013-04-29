@@ -294,7 +294,7 @@ def giveContactsPython(data, cutoff=1.7):
     return toret
 
 
-def giveContactsAny(data, cutoff=1.7, maxContacts=100):
+def giveContactsAny(data, cutoff=1.7, maxContacts=300):
     """Returns contacts of any sets of molecules with a given cutoff.
     Is slower than give_contacts, but can tolerate multiple chains.
 
@@ -364,7 +364,7 @@ def giveContactsAny(data, cutoff=1.7, maxContacts=100):
     return points[:k + 1, :]
 
 
-def giveContacts(data, cutoff=1.7, maxContacts=100, method="auto"):
+def giveContacts(data, cutoff=1.7, maxContacts=300, method="auto"):
     """Returns contacts of a single polymer with a given cutoff
 
     .. warning:: Use this only to find contacts of a single polymer chain
@@ -405,7 +405,7 @@ def giveContacts(data, cutoff=1.7, maxContacts=100, method="auto"):
 
     dists2 = numpy.sqrt(numpy.sum(numpy.diff(data, axis=0) ** 2, axis=1))
     maxRatio = dists2.max() / numpy.median(dists2)
-    if cutoff > 4.1:
+    if cutoff > 6.:
         return giveContactsPython(data, cutoff)
     if method == "any":
         return giveContactsAny(data, cutoff, maxContacts)
@@ -797,7 +797,7 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
             # if file faled to load, return empty map
             print "file not found"
             return numpy.zeros((Nbase, Nbase), "float")
-        return rescaledMap(data, bins, cutoff=1.4)
+        return rescaledMap(data, bins, cutoff=cutoff)
 
     return fmapred(action, filenames, n=n, exceptionList=exceptionsToIgnore), chromosomeStarts[0:-1]
 

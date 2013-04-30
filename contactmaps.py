@@ -405,7 +405,7 @@ def giveContacts(data, cutoff=1.7, maxContacts=300, method="auto"):
 
     dists2 = numpy.sqrt(numpy.sum(numpy.diff(data, axis=0) ** 2, axis=1))
     maxRatio = dists2.max() / numpy.median(dists2)
-    if cutoff > 6.:
+    if cutoff > 6.1:
         return giveContactsPython(data, cutoff)
     if method == "any":
         return giveContactsAny(data, cutoff, maxContacts)

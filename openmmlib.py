@@ -310,15 +310,15 @@ class Simulation():
             platformObject = self.mm.Platform.getPlatformByName('OpenCL')
             platformObject.setPropertyDefaultValue(
                 'OpenCLDeviceIndex', self.GPU)
-            platformObject.setPropertyDefaultValue('OpenCLPrecision', "mixed")
+            platformObject.setPropertyDefaultValue('OpenCLPrecision', "single")
 
         elif platform.lower() == "reference":
             platformObject = self.mm.Platform.getPlatformByName('Reference')
 
         elif platform.lower() == "cuda":
             platformObject = self.mm.Platform.getPlatformByName('CUDA')
-            platformObject.setPropertyDefaultValue('CudaDevice', self.GPU)
-            platformObject.setPropertyDefaultValue('CudaPrecision', "mixed")
+            platformObject.setPropertyDefaultValue('CudaDeviceIndex', self.GPU)
+            platformObject.setPropertyDefaultValue('CudaPrecision', "single")
 
         else:
             self.exit("\n!!!!!!!!!!unknown platform!!!!!!!!!!!!!!!\n")

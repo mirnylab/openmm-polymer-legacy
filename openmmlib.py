@@ -240,7 +240,7 @@ class Simulation():
         self.length_scale = length_scale
         self.mass_scale = mass_scale
 
-    def setup(self, platform="OpenCL", PBC=False, PBCbox=None, GPU="0",
+    def setup(self, platform="OpenCL", PBC=False, PBCbox=None, GPU="default",
               integrator="langevin", verbose=True):
         """Sets up the important low-level parameters of the platform.
         Mandatory to run.
@@ -308,8 +308,9 @@ class Simulation():
 
         if platform.lower() == "opencl":
             platformObject = self.mm.Platform.getPlatformByName('OpenCL')
-            platformObject.setPropertyDefaultValue(
-                'OpenCLDeviceIndex', self.GPU)
+            if self.GPU.lower() != "default":
+                platformObject.setPropertyDefaultValue(
+                    'OpenCLDeviceIndex', self.GPU)
             platformObject.setPropertyDefaultValue('OpenCLPrecision', "single")
 
         elif platform.lower() == "reference":
@@ -317,7 +318,8 @@ class Simulation():
 
         elif platform.lower() == "cuda":
             platformObject = self.mm.Platform.getPlatformByName('CUDA')
-            platformObject.setPropertyDefaultValue('CudaDeviceIndex', self.GPU)
+            if self.GPU.lower() != "default":
+                platformObject.setPropertyDefaultValue('CudaDeviceIndex', self.GPU)
             platformObject.setPropertyDefaultValue('CudaPrecision', "single")
 
         else:

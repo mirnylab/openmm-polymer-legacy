@@ -263,7 +263,7 @@ def grow_rw(step, size, method="line"):
     for i in a:
         b[i] = 1
     for i in xrange((step - len(a)) / 2):
-        print len(a)
+        #print len(a)
         while True:
             t = numpy.random.randint(0, len(a))
             if t != len(a) - 1:

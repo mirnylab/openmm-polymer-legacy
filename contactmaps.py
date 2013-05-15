@@ -466,6 +466,7 @@ def giveContacts(data, cutoff=1.7, maxContacts=300, method="auto"):
        """
     weave.inline(code, ['data', 'N', 'cutoff', 'points'], extra_compile_args=[
         '-march=native -malign-double -O3'], support_code=support)
+
     k = numpy.max(numpy.nonzero(points[:, 1]))
     return points[:k + 1, :]
 

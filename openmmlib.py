@@ -1512,8 +1512,8 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         self.initPositions()
         self.initVelocities(mult)
 
-    def energyMinimization(self, steps=None, twoStage=None,
-                           collisionRate=None,
+    def energyMinimization(self, steps="deprecated", twoStage="deprecated",
+                           collisionRate="deprecated",
                            maxIterations=1000,
                            stepsPerIteration=100,
                            failNotConverged=True):
@@ -1528,7 +1528,7 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         self._applyForces()
         oldName = self.name
         self.name = "minim"
-        if (steps != None) or (twoStage != None) or (collisionRate != None):
+        if (steps != "deprecated") or (twoStage != "deprecated") or (collisionRate != "deprecated"):
             warnings.warn(UserWarning(
                 "Energy minimization switched to adaptive algorithm! \n " \
                 "All original parameters are deprecated!"))

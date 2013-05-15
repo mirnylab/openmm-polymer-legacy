@@ -187,7 +187,7 @@ def do_coloring(data, regions, colors, transparencies,
     N = len(data)
     nregions = np.array(regions)
     if len(nregions) > 0:
-        if nregions.min() < 0 or nregions.max() >= N:
+        if nregions.min() < 0 or nregions.max() > N:
             raise ValueError("region boundaries should be between 0 and N-1")
     regions = np.array(regions)
     regions = np.sort(regions, axis=1)

@@ -275,7 +275,7 @@ def expandPolymerRing(data, mode="auto"):
     sim.addGrosbergRepulsiveForce(trunc=10)
     sim.addGrosbergStiffness(k=4)
     sim.energyMinimization(steps=50, twoStage=True)
-    for _ in xrange(200):
+    for _ in xrange(20):
         sim.doBlock(500)
     return sim.getData()
 

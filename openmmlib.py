@@ -1512,10 +1512,8 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         self.initPositions()
         self.initVelocities(mult)
 
-    def energyMinimization(self, steps="deprecated", twoStage="deprecated",
-                           collisionRate="deprecated",
+    def energyMinimization(self, stepsPerIteration=100,
                            maxIterations=1000,
-                           stepsPerIteration=100,
                            failNotConverged=True):
         """Runs system at smaller timestep and higher collision
         rate to resolve possible conflicts.
@@ -1528,10 +1526,10 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
         self._applyForces()
         oldName = self.name
         self.name = "minim"
-        if (steps != "deprecated") or (twoStage != "deprecated") or (collisionRate != "deprecated"):
-            warnings.warn(UserWarning(
-                "Energy minimization switched to adaptive algorithm! \n " \
-                "All original parameters are deprecated!"))
+        if (maxIterations is True) or (maxIterations is False):
+            raise ValueError("Please stop using the old notation and read the new energy minimization code")
+        if (failNotConverged is not True) and (failNotConverged is not False):
+            raise ValueError("Please stop using the old notation and read the new energy minimization code")
 
         def_step = self.integrator.getStepSize()
         def_fric = self.integrator.getFriction()

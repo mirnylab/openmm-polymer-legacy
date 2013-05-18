@@ -2,6 +2,7 @@ import numpy
 from scipy import weave
 import os
 import os.path
+from tempfile import NamedTemporaryFile
 
 
 folderName = os.path.split(__file__)[0]
@@ -228,11 +229,12 @@ else return -1;
     return data[:ret[0]]
 
 
-def getKnotNumber(data):
+def getKnotNumber(data, evalAt= -1.1):
     data = numpy.array(data)
     if len(data) == 3:
         data = data.T
-    with  open("bla", 'w') as newfile:
+
+    with  NamedTemporaryFile() as newfile:
         newfile.write("t=0\n\n%d\n" % len(data))
         for j, i in enumerate(data):
             newfile.write("%d %lf %lf %lf\n" % tuple([j + 1] + list(i)))
@@ -240,8 +242,8 @@ def getKnotNumber(data):
         name = newfile.name
         newfile.flush()
 
-        os.system("%s %s > %s_%s" % (reduceKnotFilename, name,
-                                     name, "_output"))
+        os.system("{0} {1} -p {4}  > {2}_{3}".format(reduceKnotFilename, name,
+                                     name, "_output", evalAt))
         lines = open("%s_%s" % (name, "_output")).readlines()
         os.remove("%s_%s" % (name, "_output"))
         return lines
@@ -261,7 +263,7 @@ def expandPolymerRing(data, mode="auto"):
 
     from openmmlib import Simulation
     sim = Simulation(
-        timestep=20, thermostat=0.02, velocityReinitialize=True)
+        timestep=100, thermostat=0.002, velocityReinitialize=True)
     sim.setup()
     sim.load(data)
     sim.randomizeData()
@@ -272,15 +274,17 @@ def expandPolymerRing(data, mode="auto"):
             mode = "chain"
     sim.setLayout(mode=mode)
     sim.addHarmonicPolymerBonds(wiggleDist=0.1)
-    sim.addGrosbergRepulsiveForce(trunc=10)
-    sim.addGrosbergStiffness(k=4)
-    sim.energyMinimization(steps=50, twoStage=True)
-    for _ in xrange(20):
-        sim.doBlock(500)
+    sim.addGrosbergRepulsiveForce(trunc=40)
+    sim.addGrosbergStiffness(k=2)
+    #sim.energyMinimization(stepsPerIteration=50)
+    sim.doBlock(10)
+    for _ in xrange(10):
+        sim.doBlock(1000)
+    sim.doBlock(2000)
     return sim.getData()
 
 
-def analyzeKnot(data, useOpenmm=False):
+def analyzeKnot(data, useOpenmm=False, evalAt= -1.1):
 
     if useOpenmm == True:
         data = expandPolymerRing(data)
@@ -291,7 +295,7 @@ def analyzeKnot(data, useOpenmm=False):
     t = findSimplifiedPolymer(data)
     #t = data
     print "simplified to: %d monomers" % len(t)
-    number = getKnotNumber(t)
+    number = getKnotNumber(t, evalAt=evalAt)
     print number
     num = float(number[0].split()[1])
     return num

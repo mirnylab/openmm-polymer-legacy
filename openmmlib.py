@@ -240,7 +240,7 @@ class Simulation():
         self.length_scale = length_scale
         self.mass_scale = mass_scale
 
-    def setup(self, platform="OpenCL", PBC=False, PBCbox=None, GPU="default",
+    def setup(self, platform="CUDA", PBC=False, PBCbox=None, GPU="default",
               integrator="langevin", verbose=True):
         """Sets up the important low-level parameters of the platform.
         Mandatory to run.

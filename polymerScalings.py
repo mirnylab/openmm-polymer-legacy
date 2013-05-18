@@ -173,7 +173,7 @@ def give_radius_scaling_eig(data, bins=None):
     return  retret
 
 
-def subchainDensityFunction(filenames, bins, normalize="Rg", lengthmult=3, Nbins=30, coverage=1.):
+def subchainDensityFunction(filenames, bins, normalize="Rg", maxLength=3, Nbins=30, coverage=1., centerAt="mid", **kwargs):
     """Calculates density function of subchains
     That is, for each bin size, it calculates an average density profile
     for subchains of the size within the bin.
@@ -194,22 +194,30 @@ def subchainDensityFunction(filenames, bins, normalize="Rg", lengthmult=3, Nbins
 
 
     """
-
+    normalize = normalize.lower()
+    centerAt = centerAt.lower()
     results = []
     newbins = [(i - 2, i + 2) for i in bins]
     binsForRg = sum([list(i) for i in newbins], [])
     midbins = [(i[0] + i[1]) / 2 for i in newbins]
+    rgs = []
     for filename in filenames:
-
+        rgs.append(give_radius_scaling(polymerutils.load(filename).T, binsForRg, ring=False)[1][::2])
+    rgs = np.mean(rgs, axis=0)
+    for filename in filenames:
         data = polymerutils.load(filename)
         N = len(data)
 
-        rgs = give_radius_scaling(data.T, binsForRg, ring=False)[1][::2]
+
         curresults = []
         labels = []
         for onebin, rg in zip(newbins, rgs):
             labels.append("S = %.1lf; " % (np.mean(onebin)) + " Rg=%.2lf" % rg)
-            lengthbins = np.linspace(0, lengthmult * rg, Nbins)
+            if normalize == "rg":
+                lengthbins = np.linspace(1, maxLength * rg, Nbins)
+            else:
+                lengthbins = np.linspace(1, maxLength, Nbins)
+
             lengthBinMids = (lengthbins[:-1] + lengthbins[1:]) * 0.5
             volumes = (4. / 3.) * 3.141592 * (lengthbins ** 3)
             volumes = np.diff(volumes)
@@ -220,19 +228,32 @@ def subchainDensityFunction(filenames, bins, normalize="Rg", lengthmult=3, Nbins
                 size = np.random.randint(onebin[0], onebin[1])
                 start = np.random.randint(0, N - size)
                 subchain = data[start:start + size]
-                com = np.mean(subchain, axis=0)
+                if centerAt == "com":
+                    com = np.mean(subchain, axis=0)
+                elif centerAt == "mid":
+                    com = subchain[len(subchain) / 2]
+                else:
+                    raise ValueError("Provide correct centerAt: com or mid")
                 shifted = subchain - com[None, :]
+                #print shifted
                 dists = np.sqrt(np.sum(shifted ** 2, axis=1))
                 sphereCounts += np.histogram(dists, lengthbins)[0]
             sphereCounts /= (volumes * count)
             #curresults.append(np.array([lengthBinMids/rg,sphereCounts]))
-            curresults.append(np.array([lengthBinMids, sphereCounts]))
+            if normalize == "rg":
+                curresults.append(np.array([lengthBinMids / rg, sphereCounts]))
+            elif normalize == "none":
+                curresults.append(np.array([lengthBinMids, sphereCounts]))
+            else:
+                print "Normalize=", normalize, "is not implemented"
+                raise NotImplementedError()
         results.append(curresults)
     results = np.mean(np.array(results, float), axis=0)
     for i, label in zip(results, labels):
-        plt.plot(*i, label=label)
+        if "label" not in kwargs:
+            kwargs["label"] = label
+        plt.plot(i[0], i[1], **kwargs)
 
-    plt.legend()
     return dict(zip(midbins, results))
 
 

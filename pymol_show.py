@@ -384,7 +384,12 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", **kwargs):
         tmpScript.name))
     tmpScript.close()
 
-def makeMoviePymol(fileList, destFolder, fps=10, aviFilename='output.avi', pymolScript=None):
+def makeMoviePymol(
+    fileList, destFolder, fps=10, aviFilename='output.avi',
+    rotationPeriod=0.0,
+    resolution=(600,600),
+    fiberWidth=1.0, rescalingFactor=1.0,  pymolScript=None):
+
     numFrames = len(fileList)
     numDigits = int(np.ceil(np.log10(numFrames)))
     pdbPaths = []
@@ -398,6 +403,7 @@ def makeMoviePymol(fileList, destFolder, fps=10, aviFilename='output.avi', pymol
 
     for i, dataPath in enumerate(fileList):
         d = polymerutils.load(dataPath)
+        d *= rescalingFactor
         d -= np.mean(d, axis=0)[None, :]
         pdbFilename = '{0:0{width}}.pdb'.format(i, width=numDigits)
         savePath = pdbFolder + '/' + pdbFilename
@@ -410,20 +416,38 @@ def makeMoviePymol(fileList, destFolder, fps=10, aviFilename='output.avi', pymol
 
     script += "smooth mov\n"
 
+    rotationCode = ''
+    if rotationPeriod > 0:
+        for i in range(numFrames // rotationPeriod + 1):
+            rotationCode += 'util.mroll {0},{1},0\n'.format(
+                i*rotationPeriod + 1, (i+1) * rotationPeriod)
+
     if pymolScript == None:
         script += textwrap.dedent("""
         smooth mov
         bg white
         set ray_opaque_background, off
         spectrum count, rainbow, mov
-        alter mov, vdw=1.0
+        alter mov, vdw={0}
         show spheres
         as spheres
         zoom mov
-        viewport 600, 600
+        viewport {1}, {2}
         set ray_trace_frames=1
         mpng mov
-        """)
+
+        mview store
+        mset -{3}
+        {4}
+        mview reinterpolate, power=1
+        mpng mov
+        clip slab, 20000
+        """.format(fiberWidth, 
+                    resolution[0], resolution[1],
+                    numFrames,
+                    rotationCode,
+                    max(0, len(fileList)-fps*2),
+                    ))
     else:
         script += pymolScript
 

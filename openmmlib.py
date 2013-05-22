@@ -1141,10 +1141,11 @@ class Simulation():
 
         nbCutOffDist = self.conlen * cutoff
 
-        repul_energy = '''step(REPcut2 - REPU) * REPU +'''\
-        ''' step(REPU - REPcut2) * REPcut2 * (1 + tanh(REPU/REPcut2 - 1));
-REPU = 4 * REPe * ((REPsigma/r2)^12 - (REPsigma/r2)^6);
-r2 = (r^10. + (REPsigma03)^10.)^0.1'''
+        repul_energy = (
+            'step(REPcut2 - REPU) * REPU +'
+            ' step(REPU - REPcut2) * REPcut2 * (1 + tanh(REPU/REPcut2 - 1));'
+            'REPU = 4 * REPe * ((REPsigma/r2)^12 - (REPsigma/r2)^6);'
+            'r2 = (r^10. + (REPsigma03)^10.)^0.1')
         self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(
             repul_energy)
         repulforceGr = self.forceDict["Nonbonded"]
@@ -1233,7 +1234,10 @@ r2 = (r^10. + (REPsigma03)^10.)^0.1'''
 
         if bottom is not None:
             extforce2 = self.mm.CustomExternalForce(
-"step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) + step(-z + CYLbot) * CYLkb * (sqrt((z - CYLbot)^2 + CYLt^2) - CYLt) + step(z - CYLtop) * CYLkb * (sqrt((z - CYLtop)^2 + CYLt^2) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
+                "step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt)"
+                "+ step(-z + CYLbot) * CYLkb * (sqrt((z - CYLbot)^2 + CYLt^2) - CYLt) "
+                "+ step(z - CYLtop) * CYLkb * (sqrt((z - CYLtop)^2 + CYLt^2) - CYLt);"
+                "r = sqrt(x^2 + y^2 + CYLtt^2)")
         else:
             extforce2 = self.mm.CustomExternalForce("step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
 

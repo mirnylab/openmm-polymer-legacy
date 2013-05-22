@@ -1523,6 +1523,31 @@ class Simulation():
         self.initPositions()
         self.initVelocities(mult)
 
+    def localEnergyMinimization(self, tolerance=1, maxIterations=0):
+        print "Performing local energy minimization"
+        self._applyForces()
+        oldName = self.name
+        self.name = "minim"
+
+        self.state = self.context.getState(getPositions=False,
+                                           getEnergy=True)
+        eK = (self.state.getKineticEnergy() / self.N / self.kT)
+        eP = self.state.getPotentialEnergy() / self.N / self.kT
+        locTime = self.state.getTime()
+        print "before minimization eK={0}, eP={1}, time={2}".format(eK, eP, locTime)
+
+        self.mm.LocalEnergyMinimizer.minimize(
+            self.context, tolerance, maxIterations)
+
+        self.state = self.context.getState(getPositions=False,
+                                           getEnergy=True)
+        eK = (self.state.getKineticEnergy() / self.N / self.kT)
+        eP = self.state.getPotentialEnergy() / self.N / self.kT
+        locTime = self.state.getTime()
+        print "after minimization eK={0}, eP={1}, time={2}".format(eK, eP, locTime)
+
+        self.name = oldName
+
     def energyMinimization(self, stepsPerIteration=100,
                            maxIterations=1000,
                            failNotConverged=True):

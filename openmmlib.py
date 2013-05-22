@@ -334,8 +334,15 @@ class Simulation():
         except:
             pass
 
+        self.integrator_type = integrator
         if integrator == "langevin":
             self.integrator = self.mm.LangevinIntegrator(self.temperature,
+                self.collisionRate, self.timestep)
+        elif integrator == 'variableLangevin':
+            self.integrator = self.mm.VariableLangevinIntegrator(self.temperature,
+                self.collisionRate, errorTol)
+        elif integrator == 'brownian':
+            self.integrator = self.mm.BrownianIntegrator(self.temperature,
                 self.collisionRate, self.timestep)
         else:
             self.integrator = integrator

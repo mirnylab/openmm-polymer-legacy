@@ -85,7 +85,7 @@ if __name__=='__main__':
             from mirnylib.h5dict import h5dict
             data = h5dict(path=sys.argv[1], mode="r")[sys.argv[2]]
             showData(data)
-            exit()
+            sys.exit()
         except IOError:
             print "failed to load h5dict file, trying regular file"
 
@@ -94,7 +94,7 @@ if __name__=='__main__':
         showData(load(sys.argv[1]), (sys.argv[2], sys.argv[3], sys.argv[4]))
     try:
         showData(load(sys.argv[1]))
-        exit()
+        sys.exit()
 
     except:
         showData(load("block%s.dat" % sys.argv[1]))

@@ -243,7 +243,7 @@ def create_random_walk(step_size, N):
     u = 2.0 * np.random.uniform(0.,1.,N) - 1.0
     x = step_size * np.sqrt(1. - u*u) * numpy.cos( theta )
     y = step_size * np.sqrt(1. - u*u) * numpy.sin( theta )
-    z = u
+    z = step_size * u
     x, y, z = np.cumsum(x),np.cumsum(y),np.cumsum(z)
     return np.vstack([x,y,z]).T
 

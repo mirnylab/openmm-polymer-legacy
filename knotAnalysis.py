@@ -3,7 +3,7 @@ from scipy import weave
 import os
 import os.path
 from tempfile import NamedTemporaryFile
-
+from time import sleep
 
 folderName = os.path.split(__file__)[0]
 reduceKnotFilename = os.path.join(folderName, "Reduce_knot20")
@@ -264,7 +264,7 @@ def expandPolymerRing(data, mode="auto"):
     from openmmlib import Simulation
     sim = Simulation(
         timestep=100, thermostat=0.002, velocityReinitialize=True)
-    sim.setup()
+    sim.setup(platform="opencl")
     sim.load(data)
     sim.randomizeData()
     if mode == "auto":
@@ -280,19 +280,26 @@ def expandPolymerRing(data, mode="auto"):
     sim.doBlock(10)
     for _ in xrange(10):
         sim.doBlock(1000)
-    sim.doBlock(2000)
-    return sim.getData()
+    data = sim.getData()
+    del sim
+    sleep(0.5)
+    return data
+
 
 
 def analyzeKnot(data, useOpenmm=False, evalAt= -1.1):
 
-    if useOpenmm == True:
-        data = expandPolymerRing(data)
     data = numpy.asarray(data)
     if len(data) == 3:
         data = data.T
 
     t = findSimplifiedPolymer(data)
+    if useOpenmm == True:
+        if len(t) > 200:
+            data = expandPolymerRing(data)
+            t = findSimplifiedPolymer(data)
+
+
     #t = data
     print "simplified to: %d monomers" % len(t)
     number = getKnotNumber(t, evalAt=evalAt)

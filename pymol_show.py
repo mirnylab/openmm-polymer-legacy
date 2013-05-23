@@ -174,8 +174,11 @@ def do_coloring(data, regions, colors, transparencies,
     data = np.array(data)
     data *= multiplier
     chainRadius *= multiplier
-    subchainRadius *= multiplier
     sphereRadius *= multiplier
+
+    if not hasattr(subchainRadius, "__iter__"):
+        subchainRadius = [subchainRadius for _ in regions]
+    subchainRadius = [i * multiplier for i in subchainRadius]
 
     tmpPdbFile = tempfile.NamedTemporaryFile()
     tmpPdbFilename = tmpPdbFile.name
@@ -195,6 +198,7 @@ def do_coloring(data, regions, colors, transparencies,
     args = np.argsort(regions[:, 0])[::-1]
     regions = regions[args]
     colors = [colors[i] for i in args]
+    subchainRadius = [subchainRadius[i] for i in args]
     transparencies = [transparencies[i] for i in args]
 
     ends = regions[1:, 1]
@@ -245,13 +249,13 @@ def do_coloring(data, regions, colors, transparencies,
         name = "subchain%s" % names[i]
         if showChain == "worm":
             out.write("set cartoon_trace_atoms,1,%s\n" % name)
+            out.write("set cartoon_tube_radius,%f,%s\n" % (subchainRadius[i], name))
             out.write("cartoon tube,%s\n" % name)
-            out.write("set cartoon_tube_radius,%f,%s\n" % (subchainRadius, name))
             out.write("color %s,subchain%s\n" % (colors[i], names[i]))
             out.write("set cartoon_transparency,%f,%s\n" % (transparencies[i], name))
 
         elif showChain == "spheres":
-            out.write("alter {0}, vdw={1}\n".format(name, 5 * subchainRadius))
+            out.write("alter {0}, vdw={1}\n".format(name, 5 * subchainRadius[i]))
             out.write("show spheres, %s\n" % name)
             out.write("as spheres\n")
             out.write("color %s,subchain%s\n" % (colors[i], names[i]))
@@ -280,6 +284,7 @@ def do_coloring(data, regions, colors, transparencies,
     if not (saveTo is None):
         out.write("viewport 1200,1200\n")
         out.write("png {}\n".format(saveTo))
+        print "saved to: ", saveTo
     if not showGui:
         out.write("quit\n")
 

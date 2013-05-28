@@ -282,7 +282,8 @@ def do_coloring(data, regions, colors, transparencies,
     out.flush()
     script = "".join(open(out.name).readlines())
     if not (saveTo is None):
-        out.write("viewport 1200,1200\n")
+        #out.write("viewport 1200,1200\n")
+        out.write("ray 800,800\n")
         out.write("png {}\n".format(saveTo))
         print "saved to: ", saveTo
     if not showGui:
@@ -392,8 +393,8 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", **kwargs):
 def makeMoviePymol(
     fileList, destFolder, fps=10, aviFilename='output.avi',
     rotationPeriod=0.0,
-    resolution=(600,600),
-    fiberWidth=1.0, rescalingFactor=1.0,  pymolScript=None):
+    resolution=(600, 600),
+    fiberWidth=1.0, rescalingFactor=1.0, pymolScript=None):
 
     numFrames = len(fileList)
     numDigits = int(np.ceil(np.log10(numFrames)))
@@ -425,7 +426,7 @@ def makeMoviePymol(
     if rotationPeriod > 0:
         for i in range(numFrames // rotationPeriod + 1):
             rotationCode += 'util.mroll {0},{1},0\n'.format(
-                i*rotationPeriod + 1, (i+1) * rotationPeriod)
+                i * rotationPeriod + 1, (i + 1) * rotationPeriod)
 
     if pymolScript == None:
         script += textwrap.dedent("""
@@ -447,11 +448,11 @@ def makeMoviePymol(
         mview reinterpolate, power=1
         mpng mov
         clip slab, 20000
-        """.format(fiberWidth, 
+        """.format(fiberWidth,
                     resolution[0], resolution[1],
                     numFrames,
                     rotationCode,
-                    max(0, len(fileList)-fps*2),
+                    max(0, len(fileList) - fps * 2),
                     ))
     else:
         script += pymolScript

@@ -40,7 +40,13 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False, ring=False, intConta
 
     """
 
+    if len(data) != 3:
+        data = data.T
+    if len(data) != 3:
+        raise ValueError("Wrong data shape")
+
     N = len(data[0])
+
     bins0 = np.array(bins0)
     bins = [(bins0[i], bins0[i + 1]) for i in xrange(len(bins0) - 1)]
 

@@ -3,6 +3,7 @@ import numpy
 import os
 import tempfile
 import sys
+import subprocess
 import joblib
 
 def showData(data, rotate=(0,0,0)):
@@ -17,7 +18,7 @@ def showData(data, rotate=(0,0,0)):
     data /= meandist
 
     #writing the rasmol script. Spacefill controls radius of the sphere.
-    rascript = tempfile.NamedTemporaryFile()
+    rascript = open(tempfile.NamedTemporaryFile().name, 'w')
     script = ("""set write on
         wireframe off
         color temperature
@@ -48,7 +49,7 @@ def showData(data, rotate=(0,0,0)):
     newData[-1, :3] = data[-1]
     newData[-1, 3] = colors[-1]
 
-    towrite = tempfile.NamedTemporaryFile()
+    towrite = open(tempfile.NamedTemporaryFile().name, 'w')
     towrite.write("%d\n\n" % (len(newData)))
         #number of atoms and a blank line after is a requirement of rasmol
 
@@ -57,7 +58,9 @@ def showData(data, rotate=(0,0,0)):
     towrite.flush()
     #For windows you might need to change the place where your rasmol file is
     if os.name == "posix":  # if linux
-        os.system("rasmol -xyz %s -script %s" % (towrite.name, rascript.name))
+        subprocess.Popen(
+            "rasmol -xyz {0} -script {1}; rm {0}; rm {1}".format(towrite.name, rascript.name), 
+            shell=True)
     else:  # if windows
         os.system("C:/RasWin/raswin.exe -xyz %s -script %s" % (
             towrite.name, rascript.name))

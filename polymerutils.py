@@ -348,6 +348,32 @@ def createSpiralRing(N, twist, r=0, offsetPerParticle=np.pi, offset=0):
     return np.array(np.array([x, y, z]).T, order="C")
 
 
+def smooth_conformation(conformation, n_avg):
+    """Smooth a conformation using moving average.
+    """
+    if conformation.shape[0] == 3:
+        conformation = conformation.T
+    new_conformation = np.zeros(shape=conformation.shape)
+    N = conformation.shape[0]
+
+    for i in range(N):
+        if i < n_avg:
+            new_conformation[i] = conformation[:i+n_avg].mean(axis=0)
+        elif i >= N - n_avg:
+            new_conformation[i] = conformation[-(N-i+n_avg):].mean(axis=0)
+        else:
+            new_conformation[i] = conformation[i-n_avg:i+n_avg].mean(axis=0)
+    return new_conformation
+
+def endtoend(d):
+    """A brute-force method to find average end-to-end distance v.s. separation.
+    """
+    dists = np.zeros(shape=(d.shape[0],d.shape[0]))
+    for i in range(dists.shape[0]):
+        dists[i] = (((d-d[i])**2).sum(axis=1))**0.5
+    avgdists = np.array([np.diag(dists, i).mean() for i in range(dists.shape[0])])
+    return avgdists
+
 def getLinkingNumber(data1, data2):
     if len(data1) == 3:
         data1 = numpy.array(data1.T)

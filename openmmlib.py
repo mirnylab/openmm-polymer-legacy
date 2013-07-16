@@ -241,7 +241,7 @@ class Simulation():
         self.mass_scale = mass_scale
 
     def setup(self, platform="CUDA", PBC=False, PBCbox=None, GPU="default",
-              integrator="langevin", verbose=True):
+              integrator="langevin", verbose=True, errorTol=None):
         """Sets up the important low-level parameters of the platform.
         Mandatory to run.
 

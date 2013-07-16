@@ -6,7 +6,7 @@ import sys
 import subprocess
 import joblib
 
-def showData(data, rotate=(0,0,0)):
+def showData(data, rotate=(0,0,0), links=[]):
     #if you want to change positions of the spheres along each segment, change these numbers
     #e.g. [0,.1, .2 ...  .9] will draw 10 spheres, and this will look better
     shifts = [0., 0.2, 0.4, 0.6, 0.8]
@@ -48,6 +48,17 @@ def showData(data, rotate=(0,0,0)):
         newData[i:-1:len(shifts), 3] = colors[:-1]
     newData[-1, :3] = data[-1]
     newData[-1, 3] = colors[-1]
+
+    #inserting links
+    if links:
+        linksData = numpy.zeros((len(links) * len(shifts) + 1, 4))
+        links = numpy.array(links)
+        for i in xrange(len(shifts)):
+            linksData[i:-1:len(shifts), :3] = (data[links[:,0]] * shifts[i] + 
+                data[links[:,1]] * (1 - shifts[i]))
+            linksData[i:-1:len(shifts), 3] = colors[-1]
+
+        newData = numpy.vstack([newData, linksData])
 
     towrite = open(tempfile.NamedTemporaryFile().name, 'w')
     towrite.write("%d\n\n" % (len(newData)))

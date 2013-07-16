@@ -13,7 +13,6 @@ from mirnylib.systemutils import deprecate, setExceptionHook
 import polymerutils
 
 
-
 def interpolateData(data, targetN=90000, colorArrays=[]):
     """
     Converts a polymer of any length to a smoothed chain with (hopefully)

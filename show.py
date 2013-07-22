@@ -6,7 +6,7 @@ import sys
 import subprocess
 import joblib
 
-def showData(data, rotate=(0,0,0), links=[]):
+def showData(data, rotate=(0,0,0), links=None):
     #if you want to change positions of the spheres along each segment, change these numbers
     #e.g. [0,.1, .2 ...  .9] will draw 10 spheres, and this will look better
     shifts = [0., 0.2, 0.4, 0.6, 0.8]
@@ -50,15 +50,21 @@ def showData(data, rotate=(0,0,0), links=[]):
     newData[-1, 3] = colors[-1]
 
     #inserting links
-    if links:
-        linksData = numpy.zeros((len(links) * len(shifts) + 1, 4))
-        links = numpy.array(links)
+    if not(links is None):
+        if issubclass(type(links), numpy.ndarray):
+            linksData = numpy.zeros((links.shape[0] * len(shifts) + 1, 4))
+        elif issubclass(type(links), list) and issubclass(type(links[0]), tuple):
+            linksData = numpy.zeros((len(links) * len(shifts) + 1, 4))
+            links = numpy.array(links)
+        else:
+            raise Exception('Unknown format of the links')
+
         for i in xrange(len(shifts)):
             linksData[i:-1:len(shifts), :3] = (data[links[:,0]] * shifts[i] + 
                 data[links[:,1]] * (1 - shifts[i]))
             linksData[i:-1:len(shifts), 3] = colors[-1]
 
-        newData = numpy.vstack([newData, linksData])
+        newData = numpy.vstack([linksData[:-1], newData])
 
     towrite = open(tempfile.NamedTemporaryFile().name, 'w')
     towrite.write("%d\n\n" % (len(newData)))

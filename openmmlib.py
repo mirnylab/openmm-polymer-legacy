@@ -1061,6 +1061,44 @@ class Simulation():
 
         repulforceGr.setCutoffDistance(nbCutOffDist)
 
+    def addPolynomialRepulsiveForce(self, trunc=3.0, radiusMult=1.):
+        """This is a simple polynomial repulsive potential. It has the value
+        of `trunc` at zero, stays flat until 0.6-0.7 and then drops to zero 
+        together with its first derivative at r=1.0. 
+
+        Parameters
+        ----------
+
+        trunc : float
+            the energy value around r=0
+
+        """
+        radius = self.conlen * radiusMult
+        self.metadata["PolynomialRepulsiveForce"] = {"trunc": trunc}
+        nbCutOffDist = radius 
+        repul_energy = (
+            "rsc12 * (rsc2 - 1.0) * REPe / REPemin + REPe;"
+            "rsc12 = rsc4 * rsc4 * rsc4;"
+            "rsc4 = rsc2 * rsc2;"
+            "rsc2 = rsc * rsc;"
+            "rsc = r / REPsigma * REPrmin;")
+        self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(
+            repul_energy)
+        repulforceGr = self.forceDict["Nonbonded"]
+
+        repulforceGr.addGlobalParameter('REPe', trunc * self.kT)
+        repulforceGr.addGlobalParameter('REPsigma', radius)
+        # Coefficients for x^8*(x*x-1)
+        #repulforceGr.addGlobalParameter('REPemin', 256.0 / 3125.0)
+        #repulforceGr.addGlobalParameter('REPrmin', 2.0 / np.sqrt(5.0))
+        # Coefficients for x^12*(x*x-1)
+        repulforceGr.addGlobalParameter('REPemin', 46656.0 / 823543.0)
+        repulforceGr.addGlobalParameter('REPrmin', np.sqrt(6.0 / 7.0))
+        for _ in range(self.N):
+            repulforceGr.addParticle(())
+
+        repulforceGr.setCutoffDistance(nbCutOffDist)
+
     def addLennardJonesForce(
         self, cutoff=2.5, domains=False, epsilonRep=0.24, epsilonAttr=0.27,
         blindFraction=(-1), sigmaRep=None, sigmaAttr=None):

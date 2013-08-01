@@ -1099,6 +1099,65 @@ class Simulation():
 
         repulforceGr.setCutoffDistance(nbCutOffDist)
 
+    def addPolynomialAttractionForce(self, 
+        repulsionEnergy=3.0, repulsionRadius=1.,
+        attractionEnergy=0.5, attractionRadius=1.5,
+        ):
+        """This is a simple polynomial repulsive potential. It has the value
+        of `trunc` at zero, stays flat until 0.6-0.7 and then drops to zero 
+        together with its first derivative at r=1.0. 
+
+        Parameters
+        ----------
+
+        trunc : float
+            the energy value around r=0
+
+        """
+        repulsionRadiusNM = self.conlen * repulsionRadius 
+        nbCutOffDist = self.conlen * (
+            repulsionRadius 
+            + 2.0 * (attractionRadius - repulsionRadius))
+        self.metadata["PolynomialAttractiveForce"] = {"trunc": attractionEnergy}
+        energy = (
+            "step(REPsigma - r) * Erep + step(r - REPsigma) * Eattr;"
+            ""
+            "Erep = rsc12 * (rsc2 - 1.0) * REPe / REPemin + REPe;"
+            "rsc12 = rsc4 * rsc4 * rsc4;"
+            "rsc4 = rsc2 * rsc2;"
+            "rsc2 = rsc * rsc;"
+            "rsc = r / REPsigma * REPrmin;"
+            ""
+            "Eattr = - rshft4 * (rshft2 - 1.0) * ATTRe / ATTRemin - ATTRe;"
+            "rshft4 = rshft2 * rshft2;"
+            "rshft2 = rshft * rshft;"
+            "rshft = (r - REPsigma - ATTRdelta) / ATTRdelta * ATTRrmin"
+            
+            )
+        self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(
+            energy)
+        repulforceGr = self.forceDict["Nonbonded"]
+
+        repulforceGr.addGlobalParameter('REPe', repulsionEnergy * self.kT)
+        repulforceGr.addGlobalParameter('REPsigma', repulsionRadiusNM)
+
+        repulforceGr.addGlobalParameter('ATTRe', attractionEnergy * self.kT)
+        repulforceGr.addGlobalParameter('ATTRdelta', 
+            self.conlen * (attractionRadius - repulsionRadius))
+        # Coefficients for x^8*(x*x-1)
+        #repulforceGr.addGlobalParameter('REPemin', 256.0 / 3125.0)
+        #repulforceGr.addGlobalParameter('REPrmin', 2.0 / np.sqrt(5.0))
+        # Coefficients for x^12*(x*x-1)
+        repulforceGr.addGlobalParameter('REPemin', 46656.0 / 823543.0)
+        repulforceGr.addGlobalParameter('REPrmin', np.sqrt(6.0 / 7.0))
+        # Coefficients for x^4*(x*x-1)
+        repulforceGr.addGlobalParameter('ATTRemin', 4.0 / 27.0)
+        repulforceGr.addGlobalParameter('ATTRrmin', np.sqrt(2.0 / 3.0))
+        for _ in range(self.N):
+            repulforceGr.addParticle(())
+
+        repulforceGr.setCutoffDistance(nbCutOffDist)
+
     def addLennardJonesForce(
         self, cutoff=2.5, domains=False, epsilonRep=0.24, epsilonAttr=0.27,
         blindFraction=(-1), sigmaRep=None, sigmaAttr=None):

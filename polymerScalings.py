@@ -15,7 +15,8 @@ import matplotlib.pyplot as plt
 from copy import copy
 
 
-def giveCpScaling(data, bins0, cutoff=1.1, integrate=False, ring=False, intContacts=False):
+def giveCpScaling(data, bins0, cutoff=1.1, integrate=False, 
+                  ring=False, intContacts=False, verbose=False):
     """
     Returns contact probability scaling for a given polymer conformation
 
@@ -33,6 +34,8 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False, ring=False, intConta
         If True, will calculate contacts for the ring
     intContacts : bool, optional
         If True, will speed up calculation of contacts for a cubit lattice case.
+    verbose : bool, optional
+        If True, print some information.
 
     Returns
     -------
@@ -65,7 +68,8 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False, ring=False, intConta
     connections = 1. * np.diff(np.searchsorted(
         scontacts, bins0, side="left"))  # binned contact lengthes
     possible = np.diff(N * bins0 + 0.5 * bins0 - 0.5 * (bins0 ** 2))
-    print "average contacts per monomer:", connections.sum() / N
+    if verbose:
+        print "average contacts per monomer:", connections.sum() / N
 
     if integrate == False:
         connections /= possible
@@ -73,7 +77,8 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False, ring=False, intConta
         connections = np.cumsum(connections) / connections.sum()
 
     a = [sqrt(i[0] * i[1]) for i in bins]
-    print list(connections)
+    if verbose:
+        print list(connections)
     return (a, connections)
 
 

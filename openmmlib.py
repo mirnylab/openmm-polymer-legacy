@@ -1174,8 +1174,6 @@ class Simulation():
         repulforce.setCutoffDistance(nbCutOffDist)
 
     def addSoftLennardJonesForce(self, epsilon=0.42, trunc=2, cutoff=2.5):
-        epsilon = epsilon * self.kT
-        trunc = trunc * self.kT
 
         nbCutOffDist = self.conlen * cutoff
 
@@ -1187,7 +1185,7 @@ class Simulation():
         self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(
             repul_energy)
         repulforceGr = self.forceDict["Nonbonded"]
-        repulforceGr.addGlobalParameter('REPe', epsilon)
+        repulforceGr.addGlobalParameter('REPe', self.kT * epsilon)
 
         repulforceGr.addGlobalParameter('REPsigma', self.conlen)
         repulforceGr.addGlobalParameter('REPsigma03', 0.3 * self.conlen)

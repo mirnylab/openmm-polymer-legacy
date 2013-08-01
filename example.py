@@ -26,13 +26,25 @@ def exampleOpenmm():
     a.setLayout(mode="chain")
     #This line initializes the fact that we have one chain
 
-    a.addSphericalConfinement(density=0.55)
+    a.addSphericalConfinement(density=0.85)
     #You can specify radius as well
 
     a.addHarmonicPolymerBonds(wiggleDist=0.05)
     #Bonds will fluctuate +- 0.05 on average
 
-    a.addGrosbergRepulsiveForce(trunc=50)  # Fastest pure repulsive force
+    #a.addGrosbergRepulsiveForce(trunc=5)  # Fastest pure repulsive force
+    #a.addPolynomialRepulsiveForce(trunc=5)  # Fastest pure repulsive force
+    #a.addPolynomialAttractionForce(
+    #    repulsionEnergy=5.0,
+    #    repulsionRadius=1.0,
+    #    attractionEnergy=1.0,
+    #    attractionRadius=1.5,
+    #    )  # Fastest pure repulsive force
+    a.addSoftLennardJonesForce(
+        epsilon=4.0,
+        trunc=5.0,
+        cutoff=3.0,
+        )  # Fastest pure repulsive force
     #truncation at 50 kT to resolve chain overlaps in the original conformation
     #Optional with this starting conformation, but may be useful in general
 

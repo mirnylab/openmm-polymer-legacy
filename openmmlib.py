@@ -1099,39 +1099,54 @@ class Simulation():
 
         repulforceGr.setCutoffDistance(nbCutOffDist)
 
-    def addPolynomialAttractionForce(self, 
+    def addSmoothSquareWellForce(self, 
         repulsionEnergy=3.0, repulsionRadius=1.,
-        attractionEnergy=0.5, attractionRadius=1.5,
+        attractionEnergy=0.5, attractionRadius=2.0,
         ):
-        """This is a simple polynomial repulsive potential. It has the value
-        of `trunc` at zero, stays flat until 0.6-0.7 and then drops to zero 
-        together with its first derivative at r=1.0. 
+        """
+        This is a simple and fast polynomial force that looks like a smoothed
+        version of the square-well potential. The energy equals `repulsionEnergy`
+        around r=0, stays flat until 0.6-0.7, then drops to zero together
+        with its first derivative at r=1.0. After that it drop down to 
+        `attractionEnergy` and gets back to zero at r=`attractionRadius`.
+
+        The energy function is based on polynomials of 12th power. Both the 
+        function and its first derivative is continuous everywhere within its 
+        domain and they both get to zero at the boundary.
 
         Parameters
         ----------
 
-        trunc : float
-            the energy value around r=0
+        repulsionEnergy: float
+            the heigth of the repulsive part of the potential. 
+            E(0) = `repulsionEnergy`
+        repulsionRadius: float
+            the radius of the repulsive part of the potential. 
+            E(`repulsionRadius`) = 0,
+            E'(`repulsionRadius`) = 0
+        attractionEnergy: float
+            the depth of the attractive part of the potential.
+            E(`repulsionRadius`/2 + `attractionRadius`/2) = `attractionEnergy`
+        attractionEnergy: float
+            the maximal range of the attractive part of the potential.
 
         """
-        repulsionRadiusNM = self.conlen * repulsionRadius 
-        nbCutOffDist = self.conlen * (
-            repulsionRadius 
-            + 2.0 * (attractionRadius - repulsionRadius))
-        self.metadata["PolynomialAttractiveForce"] = {"trunc": attractionEnergy}
+        nbCutOffDist = self.conlen * attractionRadius
+        self.metadata["PolynomialAttractiveForce"] = {"trunc": repulsionEnergy}
         energy = (
             "step(REPsigma - r) * Erep + step(r - REPsigma) * Eattr;"
             ""
-            "Erep = rsc12 * (rsc2 - 1.0) * REPe / REPemin + REPe;"
+            "Erep = rsc12 * (rsc2 - 1.0) * REPe / emin12 + REPe;"
             "rsc12 = rsc4 * rsc4 * rsc4;"
             "rsc4 = rsc2 * rsc2;"
             "rsc2 = rsc * rsc;"
-            "rsc = r / REPsigma * REPrmin;"
+            "rsc = r / REPsigma * rmin12;"
             ""
-            "Eattr = - rshft4 * (rshft2 - 1.0) * ATTRe / ATTRemin - ATTRe;"
+            "Eattr = - rshft12 * (rshft2 - 1.0) * ATTRe / emin12 - ATTRe;"
+            "rshft12 = rshft4 * rshft2 * rshft4;"
             "rshft4 = rshft2 * rshft2;"
             "rshft2 = rshft * rshft;"
-            "rshft = (r - REPsigma - ATTRdelta) / ATTRdelta * ATTRrmin"
+            "rshft = (r - REPsigma - ATTRdelta) / ATTRdelta * rmin12"
             
             )
         self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(
@@ -1139,24 +1154,90 @@ class Simulation():
         repulforceGr = self.forceDict["Nonbonded"]
 
         repulforceGr.addGlobalParameter('REPe', repulsionEnergy * self.kT)
-        repulforceGr.addGlobalParameter('REPsigma', repulsionRadiusNM)
+        repulforceGr.addGlobalParameter('REPsigma', repulsionRadius * self.conlen)
 
         repulforceGr.addGlobalParameter('ATTRe', attractionEnergy * self.kT)
         repulforceGr.addGlobalParameter('ATTRdelta', 
-            self.conlen * (attractionRadius - repulsionRadius))
-        # Coefficients for x^8*(x*x-1)
-        #repulforceGr.addGlobalParameter('REPemin', 256.0 / 3125.0)
-        #repulforceGr.addGlobalParameter('REPrmin', 2.0 / np.sqrt(5.0))
-        # Coefficients for x^12*(x*x-1)
-        repulforceGr.addGlobalParameter('REPemin', 46656.0 / 823543.0)
-        repulforceGr.addGlobalParameter('REPrmin', np.sqrt(6.0 / 7.0))
-        # Coefficients for x^4*(x*x-1)
-        repulforceGr.addGlobalParameter('ATTRemin', 4.0 / 27.0)
-        repulforceGr.addGlobalParameter('ATTRrmin', np.sqrt(2.0 / 3.0))
+            self.conlen * (attractionRadius - repulsionRadius) / 2.0)
+        # Coefficients for the minimum of x^12*(x*x-1)
+        repulforceGr.addGlobalParameter('emin12', 46656.0 / 823543.0)
+        repulforceGr.addGlobalParameter('rmin12', np.sqrt(6.0 / 7.0))
+
         for _ in range(self.N):
             repulforceGr.addParticle(())
 
         repulforceGr.setCutoffDistance(nbCutOffDist)
+
+    def addSmoothSquareWellTailedForce(self, 
+        repulsionEnergy=3.0, repulsionRadius=1.,
+        attractionEnergy=0.5, attractionRadius=2.0,
+        tailEnergy=0.1, tailRadius=3.0,
+        ):
+        """
+        This is almost the same potential as in `addSmoothSquareWellTailedForce`.
+        The only difference is that the attractive part of the potential
+        flattens out to the value of `tailEnergy` at r=`attractionRadius` and
+        then goes quadratically to zero at `tailRadius`. 
+        Please, refer to the documentation for `addSmoothSquareWellForce`
+        for the details of the repulsive and attractive parts of the potential.
+
+        Parameters
+        ----------
+
+        kwargs:
+            same as in `addSmoothSquareWellForce`.
+        tailEnergy:
+            the depth of the tail part of the potential.
+        tailRadius:
+            the maximal range of the tail part of the potential.
+        """
+
+        self.metadata["PolynomialAttractiveForce"] = {"trunc": repulsionEnergy}
+        energy = (
+            "step(REPsigma - r) * Erep "
+            "+ step(r - REPsigma) * step(REPsigma + ATTRdelta - r) * Eattr_inner"
+            "+ step(r - REPsigma - ATTRdelta) * step(REPsigma + 2.0 * ATTRdelta - r) * Eattr_outer"
+            "+ step(r - REPsigma - ATTRdelta) * Etail;"
+            ""
+            "Erep = rsc12 * (rsc2 - 1.0) * REPe / emin12 + REPe;"
+            "rsc12 = rsc4 * rsc4 * rsc4;"
+            "rsc4 = rsc2 * rsc2;"
+            "rsc2 = rsc * rsc;"
+            "rsc = r / REPsigma * rmin12;"
+            ""
+            "Eattr_inner = - poly * ATTRe;"
+            "Eattr_outer = - poly * (ATTRe - TAILe) - TAILe;"
+            "poly = rshft12 * (rshft2 - 1.0) / emin12 + 1.0;"
+            "rshft12 = rshft4 * rshft2 * rshft4;"
+            "rshft4 = rshft2 * rshft2;"
+            "rshft2 = rshft * rshft;"
+            "rshft = (r - REPsigma - ATTRdelta) / ATTRdelta * rmin12;"
+            ""
+            "Etail = - TAILe * rtail * rtail * (rtail - 1.0) * (rtail - 1.0) * 16.0;"
+            "rtail = (r - REPsigma - 2 * ATTRdelta) / TAILr / 2.0 + 0.5;"
+            )
+        self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(
+            energy)
+        repulforceGr = self.forceDict["Nonbonded"]
+
+        repulforceGr.addGlobalParameter('REPe', repulsionEnergy * self.kT)
+        repulforceGr.addGlobalParameter('REPsigma', repulsionRadius * self.conlen)
+
+        repulforceGr.addGlobalParameter('ATTRe', attractionEnergy * self.kT)
+        repulforceGr.addGlobalParameter('ATTRdelta', 
+            self.conlen * (attractionRadius - repulsionRadius) / 2.0)
+
+        repulforceGr.addGlobalParameter('TAILe', tailEnergy * self.kT)
+        repulforceGr.addGlobalParameter('TAILr', (tailRadius - attractionRadius) * self.kT)
+
+        # Coefficients for the minimum of x^12*(x*x-1)
+        repulforceGr.addGlobalParameter('emin12', 46656.0 / 823543.0)
+        repulforceGr.addGlobalParameter('rmin12', np.sqrt(6.0 / 7.0))
+
+        for _ in range(self.N):
+            repulforceGr.addParticle(())
+
+        repulforceGr.setCutoffDistance(self.conlen * tailRadius)
 
     def addLennardJonesForce(
         self, cutoff=2.5, domains=False, epsilonRep=0.24, epsilonAttr=0.27,

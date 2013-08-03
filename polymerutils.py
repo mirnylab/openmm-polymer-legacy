@@ -365,12 +365,19 @@ def smooth_conformation(conformation, n_avg):
             new_conformation[i] = conformation[i-n_avg:i+n_avg].mean(axis=0)
     return new_conformation
 
-def endtoend(d):
-    """A brute-force method to find average end-to-end distance v.s. separation.
+def distance_matrix(d):
+    """A brute-force to find a matrix of distances between i-th and j-th 
+    particles.
     """
     dists = np.zeros(shape=(d.shape[0],d.shape[0]))
     for i in range(dists.shape[0]):
         dists[i] = (((d-d[i])**2).sum(axis=1))**0.5
+    return dists
+
+def endtoend(d):
+    """A brute-force method to find average end-to-end distance v.s. separation.
+    """
+    dists = distance_matrix(d)
     avgdists = np.array([np.diag(dists, i).mean() for i in range(dists.shape[0])])
     return avgdists
 

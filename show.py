@@ -3,9 +3,10 @@ import numpy
 import os
 import tempfile
 import sys
+import subprocess
 import joblib
 
-def showData(data, rotate=(0,0,0)):
+def showData(data, rotate=(0,0,0), links=None):
     #if you want to change positions of the spheres along each segment, change these numbers
     #e.g. [0,.1, .2 ...  .9] will draw 10 spheres, and this will look better
     shifts = [0., 0.2, 0.4, 0.6, 0.8]
@@ -17,7 +18,7 @@ def showData(data, rotate=(0,0,0)):
     data /= meandist
 
     #writing the rasmol script. Spacefill controls radius of the sphere.
-    rascript = tempfile.NamedTemporaryFile()
+    rascript = open(tempfile.NamedTemporaryFile().name, 'w')
     script = ("""set write on
         wireframe off
         color temperature
@@ -48,7 +49,24 @@ def showData(data, rotate=(0,0,0)):
     newData[-1, :3] = data[-1]
     newData[-1, 3] = colors[-1]
 
-    towrite = tempfile.NamedTemporaryFile()
+    #inserting links
+    if not(links is None):
+        if issubclass(type(links), numpy.ndarray):
+            linksData = numpy.zeros((links.shape[0] * len(shifts) + 1, 4))
+        elif issubclass(type(links), list) and issubclass(type(links[0]), tuple):
+            linksData = numpy.zeros((len(links) * len(shifts) + 1, 4))
+            links = numpy.array(links)
+        else:
+            raise Exception('Unknown format of the links')
+
+        for i in xrange(len(shifts)):
+            linksData[i:-1:len(shifts), :3] = (data[links[:,0]] * shifts[i] + 
+                data[links[:,1]] * (1 - shifts[i]))
+            linksData[i:-1:len(shifts), 3] = colors[-1]
+
+        newData = numpy.vstack([linksData[:-1], newData])
+
+    towrite = open(tempfile.NamedTemporaryFile().name, 'w')
     towrite.write("%d\n\n" % (len(newData)))
         #number of atoms and a blank line after is a requirement of rasmol
 
@@ -57,7 +75,9 @@ def showData(data, rotate=(0,0,0)):
     towrite.flush()
     #For windows you might need to change the place where your rasmol file is
     if os.name == "posix":  # if linux
-        os.system("rasmol -xyz %s -script %s" % (towrite.name, rascript.name))
+        subprocess.Popen(
+            "rasmol -xyz {0} -script {1}; rm {0}; rm {1}".format(towrite.name, rascript.name), 
+            shell=True)
     else:  # if windows
         os.system("C:/RasWin/raswin.exe -xyz %s -script %s" % (
             towrite.name, rascript.name))

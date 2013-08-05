@@ -229,7 +229,7 @@ class Simulation():
 
         self.name = name
         self.timestep = timestep * fs
-        self.collisionRate = thermostat * ps
+        self.collisionRate = thermostat * (1 / ps)
         self.temperature = temperature
         self.verbose = verbose
         self.velocityReinialize = velocityReinitialize
@@ -321,6 +321,7 @@ class Simulation():
             if self.GPU.lower() != "default":
                 platformObject.setPropertyDefaultValue('CudaDeviceIndex', self.GPU)
             platformObject.setPropertyDefaultValue('CudaPrecision', "single")
+            platformObject.setPropertyDefaultValue('CudaUseBlockingSync', "true")
 
         else:
             self.exit("\n!!!!!!!!!!unknown platform!!!!!!!!!!!!!!!\n")
@@ -338,9 +339,6 @@ class Simulation():
         if integrator == "langevin":
             self.integrator = self.mm.LangevinIntegrator(self.temperature,
                 self.collisionRate, self.timestep)
-        elif integrator == 'variableLangevin':
-            self.integrator = self.mm.VariableLangevinIntegrator(self.temperature,
-                self.collisionRate, errorTol)
         elif integrator == 'brownian':
             self.integrator = self.mm.BrownianIntegrator(self.temperature,
                 self.collisionRate, self.timestep)
@@ -682,7 +680,7 @@ class Simulation():
         data = self.getScaledData()
         return numpy.sqrt(numpy.sum(numpy.var(numpy.array(data), 0)))
 
-    def RMAX(self):
+    def RMAX(self, percentile=None):
         """
         Returns
         -------
@@ -690,7 +688,11 @@ class Simulation():
 
         """
         data = self.getScaledData()
-        return numpy.max(numpy.sqrt(numpy.sum((numpy.array(data)) ** 2, 1)))
+        dists = numpy.sqrt(numpy.sum((numpy.array(data)) ** 2, 1))
+        if percentile == None:
+            return numpy.max(dists)
+        else:
+            return numpy.percentile(dists, percentile)
 
     def dist(self, i, j):
         """
@@ -1230,7 +1232,7 @@ class Simulation():
             bottom = 0
 
         self.metadata["CylindricalConfinement"] = {"r": r,
-            "bottom": bottom, "k": k}
+            "bottom": bottom, "k": k, "top":top}
 
         if bottom is not None:
             extforce2 = self.mm.CustomExternalForce(
@@ -1293,6 +1295,7 @@ class Simulation():
         spherForce.addGlobalParameter("SPHaa", (r - 1. / k) * nm)
         spherForce.addGlobalParameter("SPHt", (1. / k) * nm / 10.)
         spherForce.addGlobalParameter("SPHtt", 0.01 * nm)
+        return r
 
     def excludeSphere(self, r=5, position=(0, 0, 0)):
         """Excludes particles from a sphere of radius r at certain position.
@@ -1791,7 +1794,7 @@ class Simulation():
         # writing the rasmol script. Spacefill controls radius of the sphere.
         rascript.write("""wireframe off
         color temperature
-        spacefill 10
+        spacefill 100
         background white
         """)
         rascript.flush()

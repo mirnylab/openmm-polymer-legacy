@@ -1,13 +1,12 @@
 import mirnylib.systemutils
 from mirnylib.systemutils import fmap
 import polymerutils
-mirnylib.systemutils.setExceptionHook()
 from mirnylib.numutils import logbins
 import contactmaps
 from contactmaps import Cload, giveContacts
 import cPickle
 from math import sqrt
-
+import random
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -388,6 +387,7 @@ def give_slices(base, tosave, slices, sliceParams,
             c = np.array(c, dtype=float)
 
             return np.array([a, b, c])
+        random.shuffle(files)
 
         parPlots = fmap(give_plots, files, n=nproc)
 

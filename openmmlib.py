@@ -1208,7 +1208,7 @@ class Simulation():
             "Eattr_inner = - poly * ATTRe;"
             "Eattr_outer = - poly * (ATTRe - TAILe) - TAILe;"
             "poly = rshft12 * (rshft2 - 1.0) / emin12 + 1.0;"
-            "rshft12 = rshft4 * rshft2 * rshft4;"
+            "rshft12 = rshft4 * rshft4 * rshft4;"
             "rshft4 = rshft2 * rshft2;"
             "rshft2 = rshft * rshft;"
             "rshft = (r - REPsigma - ATTRdelta) / ATTRdelta * rmin12;"

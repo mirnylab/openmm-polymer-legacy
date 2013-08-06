@@ -405,8 +405,7 @@ def giveContacts(data, cutoff=1.7, maxContacts=300, method="auto"):
 
     dists2 = numpy.sqrt(numpy.sum(numpy.diff(data, axis=0) ** 2, axis=1))
     maxRatio = dists2.max() / numpy.median(dists2)
-    if cutoff > 6.1:
-        return giveContactsPython(data, cutoff)
+
     if method == "any":
         return giveContactsAny(data, cutoff, maxContacts)
     if (method == "auto") and (maxRatio > 5):
@@ -414,12 +413,7 @@ def giveContacts(data, cutoff=1.7, maxContacts=300, method="auto"):
                       "to arbitrary contact finger 'give_contacts_any'"
                       "\n This is ok, just be aware of this! ")
         print "ratio of smaller to larger bonds is {0}".format(maxRatio)
-
-        if max(data.shape) < 30000:
-            return giveContactsAny(data, cutoff, maxContacts)
-        else:
-            return giveContactsPython(data, cutoff)
-
+        return giveContactsAny(data, cutoff, maxContacts)
         safeDistance = numpy.percentile(dists2, 99)
         cutoff = cutoff / safeDistance
         data = data / safeDistance

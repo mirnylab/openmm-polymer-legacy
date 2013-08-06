@@ -239,13 +239,13 @@ def create_spiral(r1, r2, N):
                 add_point(fullcoord(curphi, z))
 
 def create_random_walk(step_size, N):
-    theta = 2.0 * np.pi * np.random.uniform(0.,1.,N)
-    u = 2.0 * np.random.uniform(0.,1.,N) - 1.0
-    x = step_size * np.sqrt(1. - u*u) * numpy.cos( theta )
-    y = step_size * np.sqrt(1. - u*u) * numpy.sin( theta )
+    theta = 2.0 * np.pi * np.random.uniform(0., 1., N)
+    u = 2.0 * np.random.uniform(0., 1., N) - 1.0
+    x = step_size * np.sqrt(1. - u * u) * numpy.cos(theta)
+    y = step_size * np.sqrt(1. - u * u) * numpy.sin(theta)
     z = step_size * u
-    x, y, z = np.cumsum(x),np.cumsum(y),np.cumsum(z)
-    return np.vstack([x,y,z]).T
+    x, y, z = np.cumsum(x), np.cumsum(y), np.cumsum(z)
+    return np.vstack([x, y, z]).T
 
 def grow_rw(step, size, method="line"):
     numpy = np

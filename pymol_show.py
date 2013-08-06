@@ -254,7 +254,7 @@ def do_coloring(data, regions, colors, transparencies,
             out.write("set cartoon_transparency,%f,%s\n" % (transparencies[i], name))
 
         elif showChain == "spheres":
-            out.write("alter {0}, vdw={1}\n".format(name, 5 * subchainRadius[i]))
+            out.write("alter {0}, vdw={1}\n".format(name, 1.5 * subchainRadius[i]))
             out.write("show spheres, %s\n" % name)
             out.write("as spheres\n")
             out.write("color %s,subchain%s\n" % (colors[i], names[i]))

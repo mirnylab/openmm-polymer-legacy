@@ -6,10 +6,13 @@ import sys
 import subprocess
 import joblib
 
-def showData(data, rotate=(0,0,0), links=None):
+def showData(data, rotate=(0,0,0), links=None, drawBonds=True):
     #if you want to change positions of the spheres along each segment, change these numbers
     #e.g. [0,.1, .2 ...  .9] will draw 10 spheres, and this will look better
-    shifts = [0., 0.2, 0.4, 0.6, 0.8]
+    if drawBonds:
+        shifts = [0., 0.2, 0.4, 0.6, 0.8]
+    else:
+        shifts = [0.]
 
     #determining the 95 percentile distance between particles,
     meandist = numpy.percentile(numpy.sqrt(
@@ -60,7 +63,7 @@ def showData(data, rotate=(0,0,0), links=None):
             raise Exception('Unknown format of the links')
 
         for i in xrange(len(shifts)):
-            linksData[i:-1:len(shifts), :3] = (data[links[:,0]] * shifts[i] + 
+            linksData[i:-1:len(shifts), :3] = (data[links[:,0]] * shifts[i] +
                 data[links[:,1]] * (1 - shifts[i]))
             linksData[i:-1:len(shifts), 3] = colors[-1]
 
@@ -76,7 +79,7 @@ def showData(data, rotate=(0,0,0), links=None):
     #For windows you might need to change the place where your rasmol file is
     if os.name == "posix":  # if linux
         subprocess.Popen(
-            "rasmol -xyz {0} -script {1}; rm {0}; rm {1}".format(towrite.name, rascript.name), 
+            "rasmol -xyz {0} -script {1}; rm {0}; rm {1}".format(towrite.name, rascript.name),
             shell=True)
     else:  # if windows
         os.system("C:/RasWin/raswin.exe -xyz %s -script %s" % (

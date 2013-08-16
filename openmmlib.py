@@ -232,7 +232,7 @@ class Simulation():
         self.collisionRate = thermostat * (1 / ps)
         self.temperature = temperature
         self.verbose = verbose
-        self.velocityReinialize = velocityReinitialize
+        self.velocityReinitialize = velocityReinitialize
         self.loaded = False  # check if the data is loaded
         self.forcesApplied = False
         self.folder = "."
@@ -339,6 +339,9 @@ class Simulation():
         if integrator == "langevin":
             self.integrator = self.mm.LangevinIntegrator(self.temperature,
                 self.collisionRate, self.timestep)
+        elif integrator == "variableLangevin":
+            self.integrator = self.mm.VariableLangevinIntegrator(self.temperature,
+                self.collisionRate, errorTol)
         elif integrator == 'brownian':
             self.integrator = self.mm.BrownianIntegrator(self.temperature,
                 self.collisionRate, self.timestep)
@@ -618,7 +621,7 @@ class Simulation():
         from mirnylib.h5dict import h5dict
 
         if mode not in ['w', 'w-', 'r+']:
-            raise ValueError("Wrong mode to open file."\
+            raise ValueError("Wrong mode to open file."
                              " Only 'w','w-' and 'r+' are supported")
         if (mode == "w-") and os.path.exists(filename):
             raise IOError("Cannot create file... file already exists."\
@@ -1068,8 +1071,8 @@ class Simulation():
 
     def addPolynomialRepulsiveForce(self, trunc=3.0, radiusMult=1.):
         """This is a simple polynomial repulsive potential. It has the value
-        of `trunc` at zero, stays flat until 0.6-0.7 and then drops to zero 
-        together with its first derivative at r=1.0. 
+        of `trunc` at zero, stays flat until 0.6-0.7 and then drops to zero
+        together with its first derivative at r=1.0.
 
         Parameters
         ----------
@@ -1080,7 +1083,7 @@ class Simulation():
         """
         radius = self.conlen * radiusMult
         self.metadata["PolynomialRepulsiveForce"] = {"trunc": trunc}
-        nbCutOffDist = radius 
+        nbCutOffDist = radius
         repul_energy = (
             "rsc12 * (rsc2 - 1.0) * REPe / REPemin + REPe;"
             "rsc12 = rsc4 * rsc4 * rsc4;"
@@ -1104,7 +1107,7 @@ class Simulation():
 
         repulforceGr.setCutoffDistance(nbCutOffDist)
 
-    def addSmoothSquareWellForce(self, 
+    def addSmoothSquareWellForce(self,
         repulsionEnergy=3.0, repulsionRadius=1.,
         attractionEnergy=0.5, attractionRadius=2.0,
         ):
@@ -1112,21 +1115,21 @@ class Simulation():
         This is a simple and fast polynomial force that looks like a smoothed
         version of the square-well potential. The energy equals `repulsionEnergy`
         around r=0, stays flat until 0.6-0.7, then drops to zero together
-        with its first derivative at r=1.0. After that it drop down to 
+        with its first derivative at r=1.0. After that it drop down to
         `attractionEnergy` and gets back to zero at r=`attractionRadius`.
 
-        The energy function is based on polynomials of 12th power. Both the 
-        function and its first derivative is continuous everywhere within its 
+        The energy function is based on polynomials of 12th power. Both the
+        function and its first derivative is continuous everywhere within its
         domain and they both get to zero at the boundary.
 
         Parameters
         ----------
 
         repulsionEnergy: float
-            the heigth of the repulsive part of the potential. 
+            the heigth of the repulsive part of the potential.
             E(0) = `repulsionEnergy`
         repulsionRadius: float
-            the radius of the repulsive part of the potential. 
+            the radius of the repulsive part of the potential.
             E(`repulsionRadius`) = 0,
             E'(`repulsionRadius`) = 0
         attractionEnergy: float
@@ -1152,7 +1155,7 @@ class Simulation():
             "rshft4 = rshft2 * rshft2;"
             "rshft2 = rshft * rshft;"
             "rshft = (r - REPsigma - ATTRdelta) / ATTRdelta * rmin12"
-            
+
             )
         self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(
             energy)
@@ -1162,7 +1165,7 @@ class Simulation():
         repulforceGr.addGlobalParameter('REPsigma', repulsionRadius * self.conlen)
 
         repulforceGr.addGlobalParameter('ATTRe', attractionEnergy * self.kT)
-        repulforceGr.addGlobalParameter('ATTRdelta', 
+        repulforceGr.addGlobalParameter('ATTRdelta',
             self.conlen * (attractionRadius - repulsionRadius) / 2.0)
         # Coefficients for the minimum of x^12*(x*x-1)
         repulforceGr.addGlobalParameter('emin12', 46656.0 / 823543.0)
@@ -1173,7 +1176,7 @@ class Simulation():
 
         repulforceGr.setCutoffDistance(nbCutOffDist)
 
-    def addSmoothSquareWellTailedForce(self, 
+    def addSmoothSquareWellTailedForce(self,
         repulsionEnergy=3.0, repulsionRadius=1.,
         attractionEnergy=0.5, attractionRadius=2.0,
         tailEnergy=0.1, tailRadius=3.0,
@@ -1182,7 +1185,7 @@ class Simulation():
         This is almost the same potential as in `addSmoothSquareWellTailedForce`.
         The only difference is that the attractive part of the potential
         flattens out to the value of `tailEnergy` at r=`attractionRadius` and
-        then goes quadratically to zero at `tailRadius`. 
+        then goes quadratically to zero at `tailRadius`.
         Please, refer to the documentation for `addSmoothSquareWellForce`
         for the details of the repulsive and attractive parts of the potential.
 
@@ -1229,7 +1232,7 @@ class Simulation():
         repulforceGr.addGlobalParameter('REPsigma', repulsionRadius * self.conlen)
 
         repulforceGr.addGlobalParameter('ATTRe', attractionEnergy * self.kT)
-        repulforceGr.addGlobalParameter('ATTRdelta', 
+        repulforceGr.addGlobalParameter('ATTRdelta',
             self.conlen * (attractionRadius - repulsionRadius) / 2.0)
 
         repulforceGr.addGlobalParameter('TAILe', tailEnergy * self.kT)
@@ -1853,7 +1856,7 @@ class Simulation():
             eK = (self.state.getKineticEnergy() / self.N / self.kT)
             eP = self.state.getPotentialEnergy() / self.N / self.kT
 
-            if self.velocityReinialize == True:
+            if self.velocityReinitialize:
                 if eK > 2.4:
                     print "(i)",
                     self.initVelocities()

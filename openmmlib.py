@@ -241,14 +241,6 @@ class Simulation():
         self.mass_scale = mass_scale
 
 
-    def clear(self):
-        for i in self.forceDict:
-            del i
-        del self.system
-        del self.integrator
-        del self.context
-        time.sleep(0.5)
-
 
     def setup(self, platform="CUDA", PBC=False, PBCbox=None, GPU="default",
               integrator="langevin", verbose=True, errorTol=None):
@@ -272,8 +264,14 @@ class Simulation():
             Machines with 1 GPU automatically select right GPU.
             Machines with 2 GPUs select GPU that is less used.
 
+        integrator : "langevin", "variableLangevin", "brownian", optional
+            Integrator to use (see Openmm class reference)
+
         verbose : bool, optional
             Shout out loud about every change.
+
+        errorTol : float, optional
+            Error tolerance parameter for variableLangevin integrator
 
         """
 
@@ -346,13 +344,13 @@ class Simulation():
             pass
 
         self.integrator_type = integrator
-        if integrator == "langevin":
+        if integrator.lower() == "langevin":
             self.integrator = self.mm.LangevinIntegrator(self.temperature,
                 self.collisionRate, self.timestep)
-        elif integrator == "variableLangevin":
+        elif integrator.lower() == "variablelangevin":
             self.integrator = self.mm.VariableLangevinIntegrator(self.temperature,
                 self.collisionRate, errorTol)
-        elif integrator == 'brownian':
+        elif integrator.lower() == 'brownian':
             self.integrator = self.mm.BrownianIntegrator(self.temperature,
                 self.collisionRate, self.timestep)
         else:
@@ -429,7 +427,7 @@ class Simulation():
         self.mode = mode
         #print self.N, chains
         layout = {"chains": chains, "mode": mode, "Nchains": Nchains}
-        self.metadata["layout"] = layout
+        self.metadata["layout"] = repr(layout)
 
     def getLayout(self):
         "returns configuration of chains"
@@ -581,8 +579,8 @@ class Simulation():
 
         if mode == "joblib":
             self.metadata["data"] = self.getScaledData()
-            self.metadata["timestep"] = self.timestep / fs
-            self.metadata["Collision rate"] = self.collisionRate / ps
+            self.metadata["timestep"] = repr(self.timestep / fs)
+            self.metadata["Collision rate"] = repr(self.collisionRate / ps)
             joblib.dump(self.metadata, filename=filename, compress=3)
 
         elif (mode == "txt") or (mode == "xyz"):
@@ -679,8 +677,11 @@ class Simulation():
             self.initPositions()
 
     def randomizeData(self):
+        """
+        run this if your data is integer-based - adds small offsets
+        """
         data = self.getData()
-        data += numpy.random.randn(*data.shape) * 0.0001
+        data = data + numpy.random.randn(*data.shape) * 0.0001
         self.setData(data)
 
     def RG(self):
@@ -892,7 +893,7 @@ class Simulation():
                 if self.verbose == True:
                     print "ring bond added", i[0], i[1] - 1
 
-        self.metadata["HarmonicPolymerBonds"] = {"wiggleDist": wiggleDist}
+        self.metadata["HarmonicPolymerBonds"] = repr({"wiggleDist": wiggleDist})
 
     def addGrosbergPolymerBonds(self, k=30):
         """Adds FENE bonds according to Grosberg paper.
@@ -916,7 +917,7 @@ class Simulation():
                 self.bondsForException.append((i[0], i[1] - 1))
                 if self.verbose == True:
                     print "ring bond added", i[0], i[1] - 1
-        self.metadata["GorsbergPolymerForce"] = {"k": k}
+        self.metadata["GorsbergPolymerForce"] = repr({"k": k})
 
     def addStiffness(self, k=1.5):
         """Adds harmonic angle bonds. k specifies energy in kT at one radian
@@ -949,7 +950,7 @@ class Simulation():
 
         stiffForce.addGlobalParameter("kT", self.kT)
         stiffForce.addPerAngleParameter("angK")
-        self.metadata["AngleForce"] = {"stiffness": k}
+        self.metadata["AngleForce"] = repr({"stiffness": k})
 
     def addGrosbergStiffness(self, k=1.5):
         """Adds stiffness according to the Grosberg paper.
@@ -986,60 +987,8 @@ class Simulation():
                 stiffForce.addAngle(i[1] - 2, i[1] - 1, i[0], [k[i[1] - 1]])
                 stiffForce.addAngle(i[1] - 1, i[0], i[0] + 1, [k[i[0]]])
 
-        self.metadata["GrosbergAngleForce"] = {"stiffness": k}
+        self.metadata["GrosbergAngleForce"] = repr({"stiffness": k})
 
-    def addSimpleRepulsiveForce(self, cutoff=1.7, trunc=None, rep=0.26):
-        """Creates a repulsive force between all particles.
-
-        .. warning::
-            This force is about to be deprecated.
-            GrosbergRepulsiveForce is more efficient and equally powerful.
-
-
-        Parameters
-        ----------
-
-        cutoff : float, optional, default value is good.
-            Cutoff distance. Small values are not adviced.
-
-        trunc : float or None, optional
-            Cutoff energy, used to allow chain passing. Measured in kT.
-            Value of 1.5 yields frequent passing,
-            3 - average passing, 5 - rare passing.
-        rep : float, optional
-            Strength of repulsive potential : U = rep * 1/r^12.
-            Default value is good.
-
-        """
-        self.metadata["SimgleRepulsiveForce"] = {"cutoff": cutoff,
-            "trunc": trunc, "rep": rep}
-        nbCutOffDist = self.conlen * \
-            cutoff  # repulsive part saturates quickly
-        if trunc is None:
-            repul_energy = 'REPepsilon*(REPsigma/r)^12'
-        else:
-            repul_energy = (
-                "step(REPcut2 - REPU) * REPU "
-                "+ step(REPU - REPcut2) * REPcut2 * (1 + tanh(REPU/REPcut2 - 1));"
-                "REPU = REPepsilon * (REPsigma / r) ^ 12;"
-                "r2 = (r^10. + (REPsigma03)^10.)^0.1")
-        #last equation is to avoid NANs when r is close to zero
-
-        epsilonRep = rep * units.kilocalorie_per_mole
-        sigmaRep = 1.06 * self.conlen
-        self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(
-            repul_energy)
-        repulforce = self.forceDict["Nonbonded"]
-        if trunc is not None:
-            repulforce.addGlobalParameter('REPcutoff', trunc * self.kT)
-            repulforce.addGlobalParameter('REPcut2', 0.5 * trunc * self.kT)
-        repulforce.addGlobalParameter('REPepsilon', epsilonRep)
-        repulforce.addGlobalParameter('REPsigma', sigmaRep)
-        repulforce.addGlobalParameter('REPsigma03', 0.3 * sigmaRep)
-        for _ in range(self.N):
-            repulforce.addParticle(())
-
-        repulforce.setCutoffDistance(nbCutOffDist)
 
     def addGrosbergRepulsiveForce(self, trunc=None, radiusMult=1.):
         """This is the fastest repulsive force.
@@ -1054,7 +1003,7 @@ class Simulation():
 
         """
         radius = self.conlen * radiusMult
-        self.metadata["GrosbergRepulsiveForce"] = {"trunc": trunc}
+        self.metadata["GrosbergRepulsiveForce"] = repr({"trunc": trunc})
         nbCutOffDist = radius * 2. ** (1. / 6.)
         if trunc is None:
             repul_energy = "4 * REPe * ((REPsigma/r)^12 - (REPsigma/r)^6) + REPe"
@@ -1092,7 +1041,7 @@ class Simulation():
 
         """
         radius = self.conlen * radiusMult
-        self.metadata["PolynomialRepulsiveForce"] = {"trunc": trunc}
+        self.metadata["PolynomialRepulsiveForce"] = repr({"trunc": trunc})
         nbCutOffDist = radius
         repul_energy = (
             "rsc12 * (rsc2 - 1.0) * REPe / REPemin + REPe;"
@@ -1150,7 +1099,7 @@ class Simulation():
 
         """
         nbCutOffDist = self.conlen * attractionRadius
-        self.metadata["PolynomialAttractiveForce"] = {"trunc": repulsionEnergy}
+        self.metadata["PolynomialAttractiveForce"] = repr({"trunc": repulsionEnergy})
         energy = (
             "step(REPsigma - r) * Erep + step(r - REPsigma) * Eattr;"
             ""
@@ -1210,7 +1159,7 @@ class Simulation():
             the maximal range of the tail part of the potential.
         """
 
-        self.metadata["PolynomialAttractiveForce"] = {"trunc": repulsionEnergy}
+        self.metadata["PolynomialAttractiveForce"] = repr({"trunc": repulsionEnergy})
         energy = (
             "step(REPsigma - r) * Erep "
             "+ step(r - REPsigma) * step(REPsigma + ATTRdelta - r) * Eattr_inner"
@@ -1293,10 +1242,9 @@ class Simulation():
             Radius of particles in the LJ force. For advanced fine-tuning.
 
          """
-        self.metadata["LennardJonesForce"] = {"cutoff": cutoff,
+        self.metadata["LennardJonesForce"] = repr({"cutoff": cutoff,
                   "domains": domains, "epsilonRep": epsilonRep,
-                  "epsilonAttr": epsilonAttr, "blindFraction": blindFraction,
-                  "sigmaRep": sigmaRep, "sigmaAttr": sigmaAttr}
+                  "epsilonAttr": epsilonAttr, "blindFraction": blindFraction})
 
         if blindFraction > 0.99:
             self.exitProgram("why do you need this force without particles???"\
@@ -1416,15 +1364,15 @@ class Simulation():
                 tt, 0, self.conlen, self.epsilonRep)
 
     def addCylindricalConfinement(self, r, bottom=None, k=0.1, top=9999):
-        "As it says. Weird was used for Natasha simulations... and is weird."
+        "As it says."
 
         if bottom == True:
             warnings.warn(DeprecationWarning(
                 "Use bottom=0 instead of bottom = True! "))
             bottom = 0
 
-        self.metadata["CylindricalConfinement"] = {"r": r,
-            "bottom": bottom, "k": k, "top":top}
+        self.metadata["CylindricalConfinement"] = repr({"r": r,
+            "bottom": bottom, "k": k, "top" : top})
 
         if bottom is not None:
             extforce2 = self.mm.CustomExternalForce(
@@ -1470,8 +1418,8 @@ class Simulation():
             Density is calculated in particles per nm^3,
             i.e. at density 1 each sphere has a 1x1x1 cube.
         """
-        self.metadata["SphericalConfinement"] = {"r": r, "k": k,
-            "density": density}
+        self.metadata["SphericalConfinement"] = repr({"r": r, "k": k,
+            "density": density})
 
         spherForce = self.mm.CustomExternalForce(
             "step(r-SPHaa) * SPHkb * (sqrt((r-SPHaa)*(r-SPHaa) + SPHt*SPHt) - SPHt) "
@@ -1533,8 +1481,8 @@ class Simulation():
             from previously defined spherical potential.
         """
 
-        self.metadata["laminaAttraction"] = {"width": width,
-            "depth": depth, "r": r}
+        self.metadata["laminaAttraction"] = repr({"width": width,
+            "depth": depth, "r": r})
         laminaForce = self.mm.CustomExternalForce(
             "step(LAMr-LAMaa + LAMwidth) * step(LAMaa + LAMwidth - LAMr) "
             "* LAMdepth * (LAMr-LAMaa + LAMwidth) * (LAMaa + LAMwidth - LAMr) "
@@ -1574,7 +1522,7 @@ class Simulation():
             Values >30 will require decreasing potential,
             but will make tethering rock solid.
         """
-        self.metadata["TetheredParticles"] = {"particles": particles, "k": k}
+        self.metadata["TetheredParticles"] = repr({"particles": particles, "k": k})
         if "Tethering Force" not in self.forceDict:
             tetherForce = self.mm.CustomExternalForce(
               " TETHkb * ((x - TETHx0)^2 + (y - TETHy0)^2 + (z - TETHz0)^2)")
@@ -1597,7 +1545,7 @@ class Simulation():
     def addGravity(self, k=0.1, cutoff=None):
         """adds force pulling downwards in z direction
         When using cutoff, acts only when z>cutoff"""
-        self.metadata["gravity"] = {"k": k, "cutoff": cutoff}
+        self.metadata["gravity"] = repr({"k": k, "cutoff": cutoff})
         if cutoff is None:
             gravity = self.mm.CustomExternalForce("kG * z")
         else:
@@ -1763,6 +1711,7 @@ class Simulation():
         All original parameters are deprecated
 
         """
+        warnings.warn(DeprecationWarning("Maybe use local energy minimization instead - it is better!"))
         print "Performing energy minimization"
         self._applyForces()
         oldName = self.name
@@ -1892,8 +1841,7 @@ class Simulation():
                 break
 
             if attempt in [3, 4]:
-                self.energyMinimization(stepsPerIteration=30,
-                                        failNotConverged=True)
+                self.localEnergyMinimization()
             if attempt == 5:
                 self.exitProgram("exceeded number of attempts")
         return True
@@ -2457,7 +2405,7 @@ class supercoilingSimulation(Simulation):
 
         """
         radius = self.conlen * radiusMult
-        self.metadata["GrosbergRepulsiveForce"] = {"trunc": trunc}
+        self.metadata["GrosbergRepulsiveForce"] = repr({"trunc": trunc})
         nbCutOffDist = radius * 2. ** (1. / 6.)
         if trunc is None:
             repul_energy = (

@@ -39,8 +39,8 @@ def exampleOpenmm():
     a.addStiffness(k=4)
     #K is more or less arbitrary, k=4 corresponds to presistence length of 4
 
-    a.energyMinimization()
-    #Adaptive algorithm to minimize energy
+    a.localEnergyMinimization()
+    #New fancy algorithm to minimize energy
 
     for _ in xrange(10):
         a.doBlock(3000)

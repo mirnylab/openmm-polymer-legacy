@@ -4,7 +4,6 @@ import os
 from math import sqrt, sin, cos
 from mirnylib import numutils
 import numpy
-import statsmodels.api as sm
 
 
 def load(filename, h5dictKey=None):
@@ -249,7 +248,7 @@ def create_random_walk(step_size, N):
     x, y, z = np.cumsum(x), np.cumsum(y), np.cumsum(z)
     return np.vstack([x, y, z]).T
 
- 
+
 def grow_rw(step, size, method="line"):
     numpy = np
     t = size / 2
@@ -361,21 +360,21 @@ def smooth_conformation(conformation, n_avg):
 
     for i in range(N):
         if i < n_avg:
-            new_conformation[i] = conformation[:i+n_avg].mean(axis=0)
+            new_conformation[i] = conformation[:i + n_avg].mean(axis=0)
         elif i >= N - n_avg:
-            new_conformation[i] = conformation[-(N-i+n_avg):].mean(axis=0)
+            new_conformation[i] = conformation[-(N - i + n_avg):].mean(axis=0)
         else:
-            new_conformation[i] = conformation[i-n_avg:i+n_avg].mean(axis=0)
+            new_conformation[i] = conformation[i - n_avg:i + n_avg].mean(axis=0)
     return new_conformation
 
 
 def distance_matrix(d):
-    """A brute-force to find a matrix of distances between i-th and j-th 
+    """A brute-force to find a matrix of distances between i-th and j-th
     particles.
     """
-    dists = np.zeros(shape=(d.shape[0],d.shape[0]))
+    dists = np.zeros(shape=(d.shape[0], d.shape[0]))
     for i in range(dists.shape[0]):
-        dists[i] = (((d-d[i])**2).sum(axis=1))**0.5
+        dists[i] = (((d - d[i]) ** 2).sum(axis=1)) ** 0.5
     return dists
 
 
@@ -391,39 +390,39 @@ def getCloudGeometry(d, frac=0.05, numSegments=1, widthPercentile=50, delta=0):
     """Trace the centerline of an extended cloud of points and determine
     its length and width.
 
-    The function switches to the principal axes of the cloud (e1,e2,e3) 
-    and applies LOWESS to define the centerline as (x2,x3)=f(x1). 
+    The function switches to the principal axes of the cloud (e1,e2,e3)
+    and applies LOWESS to define the centerline as (x2,x3)=f(x1).
     The length is then determined as the total length of the centerline.
-    The width is determined as the median shortest distance from the points of 
-    clouds to the centerline. 
+    The width is determined as the median shortest distance from the points of
+    clouds to the centerline.
     On top of that, the cloud can be chopped into `numSegments` in the order
     of data entries in `d`. The centerline is then determined independently for
     each segment.
-    
+
     Parameters
     ----------
-    
+
     d : np.array, 3xN
         an array of coordinates
 
     frac : float
         The fraction of all points used to determine the local position and
-        slope of the centerline in LOWESS. 
+        slope of the centerline in LOWESS.
 
     numSegments : int
-        The number of segments to split `d` into. The centerline in fit 
+        The number of segments to split `d` into. The centerline in fit
         independently for each data segment.
 
     widthPercentile : float
-        The width is determined at `widthPercentile` of shortest distances 
-        from the points to the centerline. The default value is 50, i.e. the 
+        The width is determined at `widthPercentile` of shortest distances
+        from the points to the centerline. The default value is 50, i.e. the
         width is the median distance to the centerline.
 
     delta : float
         The parameter of LOWESS. According to the documentation:
-        "delta can be used to save computations. For each x_i, regressions are 
-        skipped for points closer than delta. The next regression is fit for the 
-        farthest point within delta of x_i and all points in between are 
+        "delta can be used to save computations. For each x_i, regressions are
+        skipped for points closer than delta. The next regression is fit for the
+        farthest point within delta of x_i and all points in between are
         estimated by linearly interpolating between the two regression fits."
 
     Return
@@ -436,16 +435,16 @@ def getCloudGeometry(d, frac=0.05, numSegments=1, widthPercentile=50, delta=0):
     dists = []
     length = 0.0
     for segm in range(numSegments):
-        segmd = d[segm * (d.shape[0] // numSegments) : (segm +1) * (d.shape[0] // numSegments)]
-        (e1,e2),_ = numutils.PCA(segmd,2)
-        e3 = np.cross(e1,e2)
-        xs=np.dot(segmd,e1)
-        ys=np.vstack([np.dot(segmd,e2), np.dot(segmd,e3)])
-        ys_pred=np.vstack([
+        segmd = d[segm * (d.shape[0] // numSegments) : (segm + 1) * (d.shape[0] // numSegments)]
+        (e1, e2), _ = numutils.PCA(segmd, 2)
+        e3 = np.cross(e1, e2)
+        xs = np.dot(segmd, e1)
+        ys = np.vstack([np.dot(segmd, e2), np.dot(segmd, e3)])
+        ys_pred = np.vstack([
             sm.nonparametric.lowess(
-                ys[0],xs,frac=frac,return_sorted=False,delta=10),
+                ys[0], xs, frac=frac, return_sorted=False, delta=10),
             sm.nonparametric.lowess(
-                ys[1],xs,frac=frac,return_sorted=False,delta=10)])
+                ys[1], xs, frac=frac, return_sorted=False, delta=10)])
         order = np.argsort(xs)
         fit_d = np.vstack([xs[order],
                            ys_pred[0][order],
@@ -453,9 +452,9 @@ def getCloudGeometry(d, frac=0.05, numSegments=1, widthPercentile=50, delta=0):
 
         for i in range(len(xs)):
             dists.append(
-                (((fit_d - np.array([xs[i], ys[0][i], ys[1][i]]))**2).sum(axis=1)**0.5).min())
+                (((fit_d - np.array([xs[i], ys[0][i], ys[1][i]])) ** 2).sum(axis=1) ** 0.5).min())
 
-        length += (((fit_d[1:]-fit_d[:-1])**2).sum(axis=1)**0.5).sum()
+        length += (((fit_d[1:] - fit_d[:-1]) ** 2).sum(axis=1) ** 0.5).sum()
     width = np.percentile(dists, widthPercentile)
 
     return length, width

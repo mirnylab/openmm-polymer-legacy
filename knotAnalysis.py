@@ -5,6 +5,7 @@ import os.path
 from tempfile import NamedTemporaryFile
 from time import sleep
 from mirnylib.systemutils import run_in_separate_process
+from openmmlib import Simulation
 
 folderName = os.path.split(__file__)[0]
 reduceKnotFilename = os.path.join(folderName, "Reduce_knot20")
@@ -261,35 +262,31 @@ def expandPolymerRing(data, mode="auto", steps=20):
     mode : str, optional
         "ring", or "chain", default - autodetect
     """
-    def do_all(data, mode, steps):
-        from openmmlib import Simulation
-        from time import sleep
-        sim = Simulation(
-            timestep=100, thermostat=0.002, velocityReinitialize=True)
-        sim.setup(platform="cuda")
-        sim.load(data)
-        sim.randomizeData()
-        if mode == "auto":
-            if sim.dist(0, sim.N - 1) < 2:
-                mode = "ring"
-            else:
-                mode = "chain"
-        sim.setLayout(mode=mode)
-        sim.addHarmonicPolymerBonds(wiggleDist=0.06)
-        sim.addGrosbergRepulsiveForce(trunc=60)
-        sim.addGrosbergStiffness(k=4)
-        #sim.energyMinimization(stepsPerIteration=50)
-        sim.doBlock(10)
-        for _ in xrange(steps):
-            sim.doBlock(2000)
-        data = sim.getData()
-        sim.clear()
-        del sim
-        sleep(0.5)
-        return data
-    t = run_in_separate_process(do_all, data, mode, steps)
+
+
+    from time import sleep
+    sim = Simulation(
+        timestep=70, thermostat=0.002, velocityReinitialize=True)
+    sim.setup(platform="cuda")
+    sim.load(data)
+    sim.randomizeData()
+    if mode == "auto":
+        if sim.dist(0, sim.N - 1) < 2:
+            mode = "ring"
+        else:
+            mode = "chain"
+    sim.setLayout(mode=mode)
+    sim.addHarmonicPolymerBonds(wiggleDist=0.06)
+    sim.addGrosbergRepulsiveForce(trunc=60)
+    sim.addGrosbergStiffness(k=4)
+    #sim.energyMinimization(stepsPerIteration=50)
+    sim.doBlock(10)
+    for _ in xrange(steps):
+        sim.doBlock(2000)
+    data = sim.getData()
+    del sim
     sleep(0.5)
-    return t
+    return data
 
 
 

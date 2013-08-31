@@ -155,8 +155,8 @@ Select timestep or collision rate - :py:class:`Simulation`
 
 
 import numpy
+import numpy as np
 from polymerutils import getLinkingNumber
-np = numpy
 import cPickle
 import sys
 import os
@@ -232,7 +232,7 @@ class Simulation():
         self.collisionRate = thermostat * (1 / ps)
         self.temperature = temperature
         self.verbose = verbose
-        self.velocityReinialize = velocityReinitialize
+        self.velocityReinitialize = velocityReinitialize
         self.loaded = False  # check if the data is loaded
         self.forcesApplied = False
         self.folder = "."
@@ -349,6 +349,9 @@ class Simulation():
         if integrator == "langevin":
             self.integrator = self.mm.LangevinIntegrator(self.temperature,
                 self.collisionRate, self.timestep)
+        elif integrator == "variableLangevin":
+            self.integrator = self.mm.VariableLangevinIntegrator(self.temperature,
+                self.collisionRate, errorTol)
         elif integrator == 'brownian':
             self.integrator = self.mm.BrownianIntegrator(self.temperature,
                 self.collisionRate, self.timestep)
@@ -628,7 +631,7 @@ class Simulation():
         from mirnylib.h5dict import h5dict
 
         if mode not in ['w', 'w-', 'r+']:
-            raise ValueError("Wrong mode to open file."\
+            raise ValueError("Wrong mode to open file."
                              " Only 'w','w-' and 'r+' are supported")
         if (mode == "w-") and os.path.exists(filename):
             raise IOError("Cannot create file... file already exists."\
@@ -783,7 +786,10 @@ class Simulation():
     def _initAbsDistanceLimitation(self):
         "inits abs(x) FENE bond force"
         if "AbsLimitation" not in self.forceDict.keys():
-            force = "(1. / ABSwiggle) * ABSunivK * step(r - ABSr0 * ABSconlen) *  (sqrt((r-ABSr0 * ABSconlen)*(r - ABSr0 * ABSconlen) + ABSa * ABSa) - ABSa) "
+            force = (
+                "(1. / ABSwiggle) * ABSunivK * step(r - ABSr0 * ABSconlen) "
+                "* (sqrt((r-ABSr0 * ABSconlen)"
+                "*(r - ABSr0 * ABSconlen) + ABSa * ABSa) - ABSa)")
             bondforceAbsLim = self.mm.CustomBondForce(force)
             bondforceAbsLim.addPerBondParameter("ABSwiggle")
             bondforceAbsLim.addPerBondParameter("ABSr0")
@@ -1220,7 +1226,7 @@ class Simulation():
             "Eattr_inner = - poly * ATTRe;"
             "Eattr_outer = - poly * (ATTRe - TAILe) - TAILe;"
             "poly = rshft12 * (rshft2 - 1.0) / emin12 + 1.0;"
-            "rshft12 = rshft4 * rshft2 * rshft4;"
+            "rshft12 = rshft4 * rshft4 * rshft4;"
             "rshft4 = rshft2 * rshft2;"
             "rshft2 = rshft * rshft;"
             "rshft = (r - REPsigma - ATTRdelta) / ATTRdelta * rmin12;"
@@ -1427,7 +1433,9 @@ class Simulation():
                 "+ step(z - CYLtop) * CYLkb * (sqrt((z - CYLtop)^2 + CYLt^2) - CYLt);"
                 "r = sqrt(x^2 + y^2 + CYLtt^2)")
         else:
-            extforce2 = self.mm.CustomExternalForce("step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt) ;r = sqrt(x^2 + y^2 + CYLtt^2)")
+            extforce2 = self.mm.CustomExternalForce(
+                "step(r-CYLaa) * CYLkb * (sqrt((r-CYLaa)*(r-CYLaa) + CYLt*CYLt) - CYLt);"
+                "r = sqrt(x^2 + y^2 + CYLtt^2)")
 
         self.forceDict["CylindricalConfinement"] = extforce2
         for i in xrange(self.N):
@@ -1465,7 +1473,9 @@ class Simulation():
         self.metadata["SphericalConfinement"] = {"r": r, "k": k,
             "density": density}
 
-        spherForce = self.mm.CustomExternalForce("step(r-SPHaa) * SPHkb * (sqrt((r-SPHaa)*(r-SPHaa) + SPHt*SPHt) - SPHt) ;r = sqrt(x^2 + y^2 + z^2 + SPHtt^2)")
+        spherForce = self.mm.CustomExternalForce(
+            "step(r-SPHaa) * SPHkb * (sqrt((r-SPHaa)*(r-SPHaa) + SPHt*SPHt) - SPHt) "
+            ";r = sqrt(x^2 + y^2 + z^2 + SPHtt^2)")
         self.forceDict["SphericalConfinement"] = spherForce
 
         for i in xrange(self.N):
@@ -1487,7 +1497,9 @@ class Simulation():
         """Excludes particles from a sphere of radius r at certain position.
         """
 
-        spherForce = self.mm.CustomExternalForce("step(EXaa-r) * EXkb * (sqrt((r-EXaa)*(r-EXaa) + EXt*EXt) - EXt) ;r = sqrt((x-EXx)^2 + (y-EXy)^2 + (z-EXz)^2 + EXtt^2)")
+        spherForce = self.mm.CustomExternalForce(
+            "step(EXaa-r) * EXkb * (sqrt((r-EXaa)*(r-EXaa) + EXt*EXt) - EXt) ;"
+            "r = sqrt((x-EXx)^2 + (y-EXy)^2 + (z-EXz)^2 + EXtt^2)")
         self.forceDict["ExcludeSphere"] = spherForce
 
         for i in xrange(self.N):
@@ -1523,7 +1535,11 @@ class Simulation():
 
         self.metadata["laminaAttraction"] = {"width": width,
             "depth": depth, "r": r}
-        laminaForce = self.mm.CustomExternalForce("step(LAMr-LAMaa + LAMwidth) * step(LAMaa + LAMwidth - LAMr) * LAMdepth * (LAMr-LAMaa + LAMwidth) * (LAMaa + LAMwidth - LAMr) / (LAMwidth * LAMwidth)  ;LAMr = sqrt(x^2 + y^2 + z^2 + LAMtt^2)")
+        laminaForce = self.mm.CustomExternalForce(
+            "step(LAMr-LAMaa + LAMwidth) * step(LAMaa + LAMwidth - LAMr) "
+            "* LAMdepth * (LAMr-LAMaa + LAMwidth) * (LAMaa + LAMwidth - LAMr) "
+            "/ (LAMwidth * LAMwidth);"
+            "LAMr = sqrt(x^2 + y^2 + z^2 + LAMtt^2)")
         self.forceDict["Lamina attraction"] = laminaForce
 
         #adding all the particles on which force acts
@@ -1752,9 +1768,11 @@ class Simulation():
         oldName = self.name
         self.name = "minim"
         if (maxIterations is True) or (maxIterations is False):
-            raise ValueError("Please stop using the old notation and read the new energy minimization code")
+            raise ValueError(
+                "Please stop using the old notation and read the new energy minimization code")
         if (failNotConverged is not True) and (failNotConverged is not False):
-            raise ValueError("Please stop using the old notation and read the new energy minimization code")
+            raise ValueError(
+                "Please stop using the old notation and read the new energy minimization code")
 
         def_step = self.integrator.getStepSize()
         def_fric = self.integrator.getFriction()
@@ -1848,7 +1866,7 @@ class Simulation():
             eK = (self.state.getKineticEnergy() / self.N / self.kT)
             eP = self.state.getPotentialEnergy() / self.N / self.kT
 
-            if self.velocityReinialize == True:
+            if self.velocityReinitialize:
                 if eK > 2.4:
                     print "(i)",
                     self.initVelocities()
@@ -2251,7 +2269,9 @@ class ExperimentalSimulation(Simulation):
             print "left wall created at ", left / (1. * nm)
             print "right wall created at ", right / (1. * nm)
 
-        extforce2 = self.mm.CustomExternalForce(" WALLk * (sqrt((x - WALLright) * (x-WALLright) + WALLa * WALLa ) - WALLa) * step(x-WALLright) + WALLk * (sqrt((x - WALLleft) * (x-WALLleft) + WALLa * WALLa ) - WALLa) * step(WALLleft - x) ")
+        extforce2 = self.mm.CustomExternalForce(
+            " WALLk * (sqrt((x - WALLright) * (x-WALLright) + WALLa * WALLa ) - WALLa) * step(x-WALLright) "
+            "+ WALLk * (sqrt((x - WALLleft) * (x-WALLleft) + WALLa * WALLa ) - WALLa) * step(WALLleft - x) ")
         extforce2.addGlobalParameter("WALLk", k * self.kT / nm)
         extforce2.addGlobalParameter("WALLleft", left)
         extforce2.addGlobalParameter("WALLright", right)
@@ -2264,7 +2284,9 @@ class ExperimentalSimulation(Simulation):
         """pushes particles towards a boundary
         of a cylindrical well to create uniform well coverage"""
 
-        extforce4 = self.mm.CustomExternalForce("WELLdepth * (((sin((WELLr * 3.141592 * 0.5) / WELLwidth)) ^ 10)  -1) * step(-WELLr + WELLwidth)  ;WELLr = sqrt(x^2 + y^2 + z^2 + WELLtt^2)")
+        extforce4 = self.mm.CustomExternalForce(
+            "WELLdepth * (((sin((WELLr * 3.141592 * 0.5) / WELLwidth)) ^ 10)  -1) * step(-WELLr + WELLwidth);"
+            "WELLr = sqrt(x^2 + y^2 + z^2 + WELLtt^2)")
         self.forceDict["Well attraction"] = extforce4
 
         #adding all the particles on which force acts
@@ -2491,7 +2513,9 @@ class YeastSimulation(Simulation):
         if r is None:
             r = self.sphericalConfinementRadius
 
-        extforce3 = self.mm.CustomExternalForce("step(r-NUCaa) * NUCkb * (sqrt((r-NUCaa)*(r-NUCaa) + NUCt*NUCt) - NUCt) ;r = sqrt(x^2 + y^2 + (z + NUCoffset )^2 + NUCtt^2)")
+        extforce3 = self.mm.CustomExternalForce(
+            "step(r-NUCaa) * NUCkb * (sqrt((r-NUCaa)*(r-NUCaa) + NUCt*NUCt) - NUCt);"
+            "r = sqrt(x^2 + y^2 + (z + NUCoffset )^2 + NUCtt^2)")
 
         self.forceDict["NucleolusConfinement"] = extforce3
         #adding all the particles on which force acts
@@ -2507,8 +2531,10 @@ class YeastSimulation(Simulation):
             extforce3.addParticle(i, [])
 
     def addLaminaAttraction(self, width=1, depth=1, r=None, particles=None):
-        "method"
-        extforce3 = self.mm.CustomExternalForce("-1 * step(LAMr-LAMaa + LAMwidth) * step(LAMaa + LAMwidth - LAMr) * LAMdepth * abs( (LAMr-LAMaa + LAMwidth) * (LAMaa + LAMwidth - LAMr)) / (LAMwidth * LAMwidth)  ;LAMr = sqrt(x^2 + y^2 + z^2 + LAMtt^2)")
+        extforce3 = self.mm.CustomExternalForce(
+            "-1 * step(LAMr-LAMaa + LAMwidth) * step(LAMaa + LAMwidth - LAMr) * LAMdepth"
+            "* abs( (LAMr-LAMaa + LAMwidth) * (LAMaa + LAMwidth - LAMr)) / (LAMwidth * LAMwidth);"
+            "LAMr = sqrt(x^2 + y^2 + z^2 + LAMtt^2)")
         self.forceDict["Lamina attraction"] = extforce3
 
         #re-defines lamina attraction based on particle index instead of domains.

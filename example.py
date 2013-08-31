@@ -17,7 +17,7 @@ def exampleOpenmm():
     assert isinstance(a, Simulation)
     #This line is for Eclipse to know the type of a
 
-    a.setup(platform="OpenCL", verbose=True)
+    a.setup(platform="cuda", verbose=True)
     #Now use "Cuda" on dau, quill, proteome, kulibin, and on wiz CPU #1 (will be changed soon)
     a.saveFolder("trajectory")  # folder where to save trajectory
     #Folder to save trajectory

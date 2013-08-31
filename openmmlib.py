@@ -240,6 +240,16 @@ class Simulation():
         self.length_scale = length_scale
         self.mass_scale = mass_scale
 
+
+    def clear(self):
+        for i in self.forceDict:
+            del i
+        del self.system
+        del self.integrator
+        del self.context
+        time.sleep(0.5)
+
+
     def setup(self, platform="CUDA", PBC=False, PBCbox=None, GPU="default",
               integrator="langevin", verbose=True, errorTol=None):
         """Sets up the important low-level parameters of the platform.
@@ -311,7 +321,7 @@ class Simulation():
             if self.GPU.lower() != "default":
                 platformObject.setPropertyDefaultValue(
                     'OpenCLDeviceIndex', self.GPU)
-            platformObject.setPropertyDefaultValue('OpenCLPrecision', "single")
+            platformObject.setPropertyDefaultValue('OpenCLPrecision', "mixed")
 
         elif platform.lower() == "reference":
             platformObject = self.mm.Platform.getPlatformByName('Reference')
@@ -320,7 +330,7 @@ class Simulation():
             platformObject = self.mm.Platform.getPlatformByName('CUDA')
             if self.GPU.lower() != "default":
                 platformObject.setPropertyDefaultValue('CudaDeviceIndex', self.GPU)
-            platformObject.setPropertyDefaultValue('CudaPrecision', "single")
+            platformObject.setPropertyDefaultValue('CudaPrecision', "mixed")
             platformObject.setPropertyDefaultValue('CudaUseBlockingSync', "true")
 
         else:
@@ -1065,8 +1075,8 @@ class Simulation():
 
     def addPolynomialRepulsiveForce(self, trunc=3.0, radiusMult=1.):
         """This is a simple polynomial repulsive potential. It has the value
-        of `trunc` at zero, stays flat until 0.6-0.7 and then drops to zero 
-        together with its first derivative at r=1.0. 
+        of `trunc` at zero, stays flat until 0.6-0.7 and then drops to zero
+        together with its first derivative at r=1.0.
 
         Parameters
         ----------
@@ -1077,7 +1087,7 @@ class Simulation():
         """
         radius = self.conlen * radiusMult
         self.metadata["PolynomialRepulsiveForce"] = {"trunc": trunc}
-        nbCutOffDist = radius 
+        nbCutOffDist = radius
         repul_energy = (
             "rsc12 * (rsc2 - 1.0) * REPe / REPemin + REPe;"
             "rsc12 = rsc4 * rsc4 * rsc4;"
@@ -1101,7 +1111,7 @@ class Simulation():
 
         repulforceGr.setCutoffDistance(nbCutOffDist)
 
-    def addSmoothSquareWellForce(self, 
+    def addSmoothSquareWellForce(self,
         repulsionEnergy=3.0, repulsionRadius=1.,
         attractionEnergy=0.5, attractionRadius=2.0,
         ):
@@ -1109,21 +1119,21 @@ class Simulation():
         This is a simple and fast polynomial force that looks like a smoothed
         version of the square-well potential. The energy equals `repulsionEnergy`
         around r=0, stays flat until 0.6-0.7, then drops to zero together
-        with its first derivative at r=1.0. After that it drop down to 
+        with its first derivative at r=1.0. After that it drop down to
         `attractionEnergy` and gets back to zero at r=`attractionRadius`.
 
-        The energy function is based on polynomials of 12th power. Both the 
-        function and its first derivative is continuous everywhere within its 
+        The energy function is based on polynomials of 12th power. Both the
+        function and its first derivative is continuous everywhere within its
         domain and they both get to zero at the boundary.
 
         Parameters
         ----------
 
         repulsionEnergy: float
-            the heigth of the repulsive part of the potential. 
+            the heigth of the repulsive part of the potential.
             E(0) = `repulsionEnergy`
         repulsionRadius: float
-            the radius of the repulsive part of the potential. 
+            the radius of the repulsive part of the potential.
             E(`repulsionRadius`) = 0,
             E'(`repulsionRadius`) = 0
         attractionEnergy: float
@@ -1149,7 +1159,7 @@ class Simulation():
             "rshft4 = rshft2 * rshft2;"
             "rshft2 = rshft * rshft;"
             "rshft = (r - REPsigma - ATTRdelta) / ATTRdelta * rmin12"
-            
+
             )
         self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(
             energy)
@@ -1159,7 +1169,7 @@ class Simulation():
         repulforceGr.addGlobalParameter('REPsigma', repulsionRadius * self.conlen)
 
         repulforceGr.addGlobalParameter('ATTRe', attractionEnergy * self.kT)
-        repulforceGr.addGlobalParameter('ATTRdelta', 
+        repulforceGr.addGlobalParameter('ATTRdelta',
             self.conlen * (attractionRadius - repulsionRadius) / 2.0)
         # Coefficients for the minimum of x^12*(x*x-1)
         repulforceGr.addGlobalParameter('emin12', 46656.0 / 823543.0)
@@ -1170,7 +1180,7 @@ class Simulation():
 
         repulforceGr.setCutoffDistance(nbCutOffDist)
 
-    def addSmoothSquareWellTailedForce(self, 
+    def addSmoothSquareWellTailedForce(self,
         repulsionEnergy=3.0, repulsionRadius=1.,
         attractionEnergy=0.5, attractionRadius=2.0,
         tailEnergy=0.1, tailRadius=3.0,
@@ -1179,7 +1189,7 @@ class Simulation():
         This is almost the same potential as in `addSmoothSquareWellTailedForce`.
         The only difference is that the attractive part of the potential
         flattens out to the value of `tailEnergy` at r=`attractionRadius` and
-        then goes quadratically to zero at `tailRadius`. 
+        then goes quadratically to zero at `tailRadius`.
         Please, refer to the documentation for `addSmoothSquareWellForce`
         for the details of the repulsive and attractive parts of the potential.
 
@@ -1226,7 +1236,7 @@ class Simulation():
         repulforceGr.addGlobalParameter('REPsigma', repulsionRadius * self.conlen)
 
         repulforceGr.addGlobalParameter('ATTRe', attractionEnergy * self.kT)
-        repulforceGr.addGlobalParameter('ATTRdelta', 
+        repulforceGr.addGlobalParameter('ATTRdelta',
             self.conlen * (attractionRadius - repulsionRadius) / 2.0)
 
         repulforceGr.addGlobalParameter('TAILe', tailEnergy * self.kT)

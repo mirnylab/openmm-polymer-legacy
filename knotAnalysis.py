@@ -4,6 +4,7 @@ import os
 import os.path
 from tempfile import NamedTemporaryFile
 from time import sleep
+from mirnylib.systemutils import run_in_separate_process
 
 folderName = os.path.split(__file__)[0]
 reduceKnotFilename = os.path.join(folderName, "Reduce_knot20")
@@ -249,7 +250,7 @@ def getKnotNumber(data, evalAt= -1.1):
         return lines
 
 
-def expandPolymerRing(data, mode="auto"):
+def expandPolymerRing(data, mode="auto", steps=20):
     """
     Expands polymer ring or chain using OpenMM.
 
@@ -260,34 +261,39 @@ def expandPolymerRing(data, mode="auto"):
     mode : str, optional
         "ring", or "chain", default - autodetect
     """
-
-    from openmmlib import Simulation
-    sim = Simulation(
-        timestep=100, thermostat=0.002, velocityReinitialize=True)
-    sim.setup(platform="opencl")
-    sim.load(data)
-    sim.randomizeData()
-    if mode == "auto":
-        if sim.dist(0, sim.N - 1) < 2:
-            mode = "ring"
-        else:
-            mode = "chain"
-    sim.setLayout(mode=mode)
-    sim.addHarmonicPolymerBonds(wiggleDist=0.1)
-    sim.addGrosbergRepulsiveForce(trunc=40)
-    sim.addGrosbergStiffness(k=2)
-    #sim.energyMinimization(stepsPerIteration=50)
-    sim.doBlock(10)
-    for _ in xrange(10):
-        sim.doBlock(1000)
-    data = sim.getData()
-    del sim
+    def do_all(data, mode, steps):
+        from openmmlib import Simulation
+        from time import sleep
+        sim = Simulation(
+            timestep=100, thermostat=0.002, velocityReinitialize=True)
+        sim.setup(platform="cuda")
+        sim.load(data)
+        sim.randomizeData()
+        if mode == "auto":
+            if sim.dist(0, sim.N - 1) < 2:
+                mode = "ring"
+            else:
+                mode = "chain"
+        sim.setLayout(mode=mode)
+        sim.addHarmonicPolymerBonds(wiggleDist=0.06)
+        sim.addGrosbergRepulsiveForce(trunc=60)
+        sim.addGrosbergStiffness(k=4)
+        #sim.energyMinimization(stepsPerIteration=50)
+        sim.doBlock(10)
+        for _ in xrange(steps):
+            sim.doBlock(2000)
+        data = sim.getData()
+        sim.clear()
+        del sim
+        sleep(0.5)
+        return data
+    t = run_in_separate_process(do_all, data, mode, steps)
     sleep(0.5)
-    return data
+    return t
 
 
 
-def analyzeKnot(data, useOpenmm=False, evalAt= -1.1):
+def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None):
 
     data = numpy.asarray(data)
     if len(data) == 3:
@@ -295,8 +301,26 @@ def analyzeKnot(data, useOpenmm=False, evalAt= -1.1):
 
     t = findSimplifiedPolymer(data)
     if useOpenmm == True:
-        if len(t) > 200:
-            data = expandPolymerRing(data)
+        if len(t) > 250:
+            ll = len(t)
+            if ll < 300:
+                steps = 3
+            elif ll < 400:
+                steps = 10
+            elif ll < 600:
+                steps = 15
+            elif ll < 800:
+                steps = 30
+            elif ll < 1200:
+                steps = 40
+            else:
+                steps = 50
+            if lock != None:
+                lock.acquire()
+                data = expandPolymerRing(data, steps=steps)
+                lock.release()
+            else:
+                data = expandPolymerRing(data, steps=steps)
             t = findSimplifiedPolymer(data)
 
 

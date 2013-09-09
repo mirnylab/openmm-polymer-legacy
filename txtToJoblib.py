@@ -1,3 +1,7 @@
+#(c) 2013 Massachusetts Institute of Technology. All Rights Reserved
+# Code written by: Maksim Imakaev (imakaev@mit.edu)
+
+
 import os
 import joblib
 import numpy

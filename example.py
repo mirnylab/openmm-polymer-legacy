@@ -1,3 +1,6 @@
+#(c) 2013 Massachusetts Institute of Technology. All Rights Reserved
+# Code written by: Maksim Imakaev (imakaev@mit.edu)
+
 from openmmlib import Simulation
 
 

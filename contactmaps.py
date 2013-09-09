@@ -1,3 +1,7 @@
+#(c) 2013 Massachusetts Institute of Technology. All Rights Reserved
+# Code written by: Maksim Imakaev (imakaev@mit.edu)
+
+
 """
 This file contains a bunch of method to work on contact maps of a Hi-C data.
 It uses a lot of methods from mirnylib repository.

@@ -1,10 +1,11 @@
+#(c) 2013 Massachusetts Institute of Technology. All Rights Reserved
+# Code written by: Maksim Imakaev (imakaev@mit.edu)
+
 import numpy
 from scipy import weave
 import os
 import os.path
 from tempfile import NamedTemporaryFile
-from time import sleep
-from mirnylib.systemutils import run_in_separate_process
 from openmmlib import Simulation
 
 folderName = os.path.split(__file__)[0]
@@ -232,6 +233,16 @@ else return -1;
 
 
 def getKnotNumber(data, evalAt= -1.1):
+    """A wrapper to code which gets knotting number of a polymer
+
+    Parameters
+    ----------
+    data : an (nx3) or (3xn) array of points
+
+    evalAt : float
+        A number to evaluate Alexanders(x) * Alexandrs(1/x)
+        You can use -1 or -1.1 - these are classics
+    """
     data = numpy.array(data)
     if len(data) == 3:
         data = data.T
@@ -278,9 +289,10 @@ def expandPolymerRing(data, mode="auto", steps=20):
     sim.setLayout(mode=mode)
     sim.addHarmonicPolymerBonds(wiggleDist=0.06)
     sim.addGrosbergRepulsiveForce(trunc=60)
-    sim.addGrosbergStiffness(k=4)
+    sim.addGrosbergStiffness(k=3)
     #sim.energyMinimization(stepsPerIteration=50)
-    sim.doBlock(10)
+    #sim.localEnergyMinimization()
+    sim.doBlock(40)
     for _ in xrange(steps):
         sim.doBlock(2000)
     data = sim.getData()
@@ -291,6 +303,24 @@ def expandPolymerRing(data, mode="auto", steps=20):
 
 
 def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None):
+    """
+    Takes a polymer ring or chain, and analyzes knot number
+
+    Parameters
+    ----------
+
+    data : (nx3) or (3xn) array
+        Input data to analyze
+    useOpenmm : bool
+        If True, first simplify the polymer
+    evalAt : float
+        Evaluate A(x) * A(1/x). Use x=-1, or x=-1.1
+    lock : lock object
+        Lock object to prevent concurrent use of OpenMM
+        Use this if you use multithreading
+        I prefer multiprocessing.Pool.map, and multiprocessing.Manager.Lock()
+
+    """
 
     data = numpy.asarray(data)
     if len(data) == 3:
@@ -301,17 +331,23 @@ def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None):
         if len(t) > 250:
             ll = len(t)
             if ll < 300:
-                steps = 3
+                steps = 2
             elif ll < 400:
+                steps = 4
+            elif ll < 450:
                 steps = 10
-            elif ll < 600:
+            elif ll < 500:
                 steps = 15
+            elif ll < 550:
+                steps = 25
+            elif ll < 600:
+                steps = 35
             elif ll < 800:
-                steps = 30
+                steps = 60
             elif ll < 1200:
-                steps = 40
+                steps = 100
             else:
-                steps = 50
+                steps = 150
             if lock != None:
                 lock.acquire()
                 data = expandPolymerRing(data, steps=steps)
@@ -321,8 +357,14 @@ def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None):
             t = findSimplifiedPolymer(data)
 
 
+
     #t = data
     print "simplified to: %d monomers" % len(t)
+
+    try:
+        print "OpenMM helped: %d to %d" % (ll, len(t))
+    except:
+        pass
     number = getKnotNumber(t, evalAt=evalAt)
     print number
     num = float(number[0].split()[1])

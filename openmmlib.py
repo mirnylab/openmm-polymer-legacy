@@ -1,3 +1,7 @@
+#(c) 2013 Massachusetts Institute of Technology. All Rights Reserved
+# Code written by: Maksim Imakaev (imakaev@mit.edu)
+#                  Anton Goloborodko (golobor@mit.edu)
+
 """
 Openmm-lib - a wrapper above Openmm to use with polymer simulations
 ===================================================================

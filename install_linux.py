@@ -1,3 +1,7 @@
+#(c) 2013 Massachusetts Institute of Technology. All Rights Reserved
+# Code written by: Anton Goloborodko (golobor@mit.edu)
+
+
 '''Add the parent directory ../ to one of the bash settings files.
 '''
 import os

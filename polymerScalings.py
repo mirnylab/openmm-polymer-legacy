@@ -1,3 +1,6 @@
+#(c) 2013 Massachusetts Institute of Technology. All Rights Reserved
+# Code written by: Maksim Imakaev (imakaev@mit.edu)
+
 import mirnylib.systemutils
 from mirnylib.systemutils import fmap
 import polymerutils
@@ -14,7 +17,7 @@ import matplotlib.pyplot as plt
 from copy import copy
 
 
-def giveCpScaling(data, bins0, cutoff=1.1, integrate=False, 
+def giveCpScaling(data, bins0, cutoff=1.1, integrate=False,
                   ring=False, intContacts=False, verbose=False):
     """
     Returns contact probability scaling for a given polymer conformation

@@ -6,15 +6,7 @@
 This file contains a bunch of method to work on contact maps of a Hi-C data.
 It uses a lot of methods from mirnylib repository.
 
-Save/load functions
--------------------
 
-Use :py:func:`load` to load any polymer.
-
-Use :py:func:`save` to save an XYZ.
-Otherwise you can just use joblib.dump({"data":data},filename)
-
-Other functions are about to be deprecated
 
 
 Find contacts of a conformation
@@ -42,39 +34,6 @@ import mirnylib.numutils
 from polymerutils import load
 import warnings
 import polymerutils
-
-
-def Cload(filename, center=False):
-    """fast polymer loader using weave.inline
-
-    ..warning:: About to be deprecated
-    """
-    f = open(filename, 'r')
-    line = f.readline()
-    N = int(line)
-    ret = numpy.zeros((3, N), order="C", dtype=numpy.double)
-    code = """
-    #line 85 "binary_search.py"
-    using namespace std;
-    FILE *in;
-    const char * myfile = filename.c_str();
-    in = fopen(myfile,"r");
-    int dummy;
-    dummy = fscanf(in,"%d",&dummy);
-    for (int i = 0; i < N; i++)
-    {
-    dummy = fscanf(in,"%lf %lf %lf ",&ret[i],&ret[i + N],&ret[i + 2 * N]);
-    if (dummy < 3){printf("Error in the file!!!");throw -1;}
-    }
-    """
-    support = """
-    #include <math.h>
-    """
-    weave.inline(code, ['filename', 'N', 'ret'], extra_compile_args=[
-        '-march=native -malign-double'], support_code=support)
-    if center == True:
-        ret -= numpy.mean(ret, axis=1)[:, None]
-    return ret
 
 
 def intload(filename, center="N/A"):
@@ -110,27 +69,6 @@ def intload(filename, center="N/A"):
 
     return ret
 
-
-def save(filename, data, doint=False):
-    """
-    Old function to save an xyz conformation.
-    .. warning:: About to be deprecated.
-
-    """
-    f = open(filename, 'w')
-    f.write(str(len(data[0])) + "\n")
-    for i in xrange(len(data[0])):
-        if (doint == False):
-            for j in xrange(len(data)):
-                f.write(str(data[j][i]) + " ")
-            f.write("\n")
-        else:
-            for j in xrange(len(data)):
-                f.write(str(int(data[j][i])) + " ")
-            f.write("\n")
-    f.close()
-
-
 class h5dictLoad(object):
     """
     An experimental class to fetch h5dict values based on a fake filename.
@@ -161,7 +99,11 @@ class h5dictLoad(object):
 
 
 def rad2(data):
-    "returns Rg(N^(2/3)"
+    """
+    Returns Rg(N^(2/3)
+    This is an important point, as for a dense equilibrium globule at N^{2/3}
+    both P(s) and Rg(s) plots reach a plateau.
+    """
 
     if len(data) != 3:
         data = numpy.transpose(data)
@@ -224,78 +166,6 @@ def giveIntContacts(data):
     contacts4 = numpy.maximum(contacts1, contacts2)
     return numpy.concatenate([contacts3[:, None], contacts4[:, None]], 1)
 
-
-def giveContactsPython(data, cutoff=1.7):
-    """
-    A crazy algorithm which mimics "giveContacts" in a pure python... and is very efficient
-    """
-    if len(data.shape) != 2:
-        raise ValueError("Wrong dimensions of data")
-    if 3 not in data.shape:
-        raise ValueError("Wrong size of data: %s,%s" % data.shape)
-    if data.shape[0] == 3:
-        data = data.T
-
-    tileSize = 2 * cutoff  # create tile equal to the diameter of the cutoff
-    tileSize = float(tileSize)
-
-    datamin = np.min(data, axis=0)
-
-    data -= datamin[None, :]
-    maxSize = data.max()
-    tN = np.ceil(maxSize / tileSize)
-    tileIndex3D = np.floor(data / tileSize)
-    tileIndex1D = np.sum(
-        tileIndex3D * np.array([tN ** 2, tN, 1])[None, :], axis=1)
-
-    argsSort = np.argsort(tileIndex1D)
-    tileIndex1D = tileIndex1D[argsSort]
-
-    def myfun(offset):
-        #print tileIndex1D
-        ind1 = np.searchsorted(tileIndex1D[:-1], tileIndex1D - 1.5 + offset)
-        ind2 = np.searchsorted(tileIndex1D[:-1], tileIndex1D + 1.5 + offset)
-        #print ind1, ind2
-        c = fetchPieces(ind1, ind2)
-        #print c
-        return c
-    pieces = map(myfun, [0, tN, tN ** 2, tN ** 2 - tN, tN ** 2 + tN])
-        # only looking at 5 other chunks
-    pieces = zip(*pieces)
-    #print pieces
-    st, end = np.concatenate(pieces[0]), np.concatenate(pieces[1])
-
-    #st, end = convertStEnd(st, end)
-    mask = st != end
-    st = st[mask]
-    end = end[mask]
-
-    st = argsSort[st]
-    end = argsSort[end]
-
-    def calculateRealDistances():
-        data1 = data[st]
-        data2 = data[end]
-        dist2 = np.sum((data1 - data2) ** 2, axis=1)
-        pick = dist2 < (cutoff * cutoff)
-        return pick
-
-    pick = calculateRealDistances()
-    st, end = st[pick], end[pick]
-
-    def convertStEnd(st, end):
-        st, end = np.minimum(st, end), np.maximum(st, end)
-        index = 1000000000 * st + end
-        index = np.unique(index)
-        st = index / 1000000000
-        end = index % 1000000000
-        return st, end
-
-    st, end = convertStEnd(st, end)
-    toret = numpy.zeros((len(st), 2), dtype=st.dtype)
-    toret[:, 0] = st
-    toret[:, 1] = end
-    return toret
 
 
 def giveContactsAny(data, cutoff=1.7, maxContacts=300):
@@ -511,39 +381,6 @@ def giveDistanceMap(data, size=1000):
     return toret
 
 
-def fetchPieces(low, high):
-    """
-    An auxilliary algorithm for giveContactsPython.
-    Inputs two arrays: low and high.
-    Returns two array of length (high-low).sum().
-
-    for each i in range(0, len(low)):
-        append "i" to first array (high[i] - low[i]) times
-        append range(low[i], high[i]) to second array
-    if high = low, just assumes high = low + 1
-    """
-
-    low = np.asarray(low)
-    high = np.asarray(high)
-    #next line is not required, but makes this python implementation possible
-    high[high == low] += 1
-    numPieces = high - low
-    inds = np.cumsum(numPieces)  # indices of each element
-    size = inds[-1]
-
-    spikeIndex = np.zeros(size + 1, dtype=np.int64)
-    spikeIndex[inds[:-1]
-               ] = 1  # create 1 at each transition between two elements
-    baseElementIndex = np.cumsum(spikeIndex)  # create first array
-
-    otherElementIndex = np.ones_like(
-        spikeIndex)  # tricks with cumsum to create second array
-    otherElementIndex[inds[:-1]] += (low[1:] - high[:-1])
-    otherElementIndex[0] = low[0]
-    otherElementIndex = np.cumsum(otherElementIndex)
-    return baseElementIndex[:-1], otherElementIndex[:-1]
-
-
 def rescalePoints(points, bins):
     "converts array of contacts to the reduced resolution contact map"
     a = numpy.histogram2d(points[:, 0], points[:, 1], bins)[0]
@@ -722,9 +559,18 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
     Returns an average contact map of a set of conformations.
     Non-existing files are ignored if exceptionsToIgnore is set to IOError.
     example:\n
-    filenames = ["/home/magus/evo/GO41_interaction_test/different_strength
-    /expanded%d.dat" % i for i in xrange(100)] \n
-    mat_img(numpy.log( averageBinnedContactMap(filenames) +1))
+
+    An example:
+
+    .. code-block:: python
+        >>> filenames = ["myfolder/blockd%d.dat" % i for i in xrange(1000)]
+        >>> cmap = averageBinnedContactMap(filenames) + 1  #getting cmap
+        #either showing a log of a map (+1 for zeros)
+        >>> plt.imshow(numpy.log(cmap +1))
+        #or truncating a map
+        >>> vmax = np.percentile(cmap, 99.9)
+        >>> plt.imshow(cmap, vmax=vmax)
+        >>> plt.show()
 
     Parameters
     ----------
@@ -916,11 +762,6 @@ def _test():
     c1 = giveContactsAny(c, cutoff=2.2)
     print "time for contactsAny is:", time() - a
     assert transformContacts(c1) == transformContacts(c2)
-
-    a = time()
-    c3 = giveContactsPython(c, cutoff=2.2)
-    print "time for contactsPython:", time() - a
-    assert transformContacts(c1) == transformContacts(c3)
 
     print "Test completed successfully"
 

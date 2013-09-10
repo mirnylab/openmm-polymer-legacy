@@ -14,6 +14,21 @@ This is a wrapper above a GPU-assisted molecular dynamics package Openmm.
 You can find extensive description of openmm classes here:
 https://simtk.org/api_docs/openmm/api10/annotated.html
 
+The main library is located in openmmlib.Simulation
+
+A file knotAnalysis.py contains code needed to calculate Alexander's polynomials,
+a measure of knot complexity. It also uses OpenMM to help unwrap polymer and
+reduce time needed to calculate Alexander's polynomial
+
+A file polymerScalings.py has some utilities to calculate Rg(s) and Pc(s) for
+polymer conformations in a fast and efficient way.
+
+A file contactmaps.py has code to quickly calculate contacts within a polymer structure,
+and organize them as contactmaps. It is used by polymerScalings.
+
+A file pymol_show has utilities to visualize polymer conformations using pymol
+
+
 Input/Output file format
 ------------------------
 
@@ -30,30 +45,14 @@ Nx3 data array is stored under the key "data".
 The rest of the dictionary consists of metadata, describing details of the simulation.
 This metadata is for informative purpose only, and is ignored by the code.
 
-New Input/Output format
------------------------
-
-A new format of the input data was recently introduced.
-Now the data is sotred in a single h5dict file,
-where each saved conformation is represented as a single dictionary record.
-
-Keys are strings like "1", "2", etc.
-
-This was done to save some space, and avoid creating millions of files.
-This should be actually very fast, and is a recommended storage method.
-Show command was modified to incorporate new storage format.
-
-Now if show is runned with two arguments, it assumes that the first is
-filename of h5dict, and the second is a number to show.
-"-1" stands for the last number.
 
 Implemented forces
 ------------------
 
-All forces of the system are contained in the self.ForceDict dictionary.
-After the force is added, different methods are free to modify parameters
-of the force.
-Once the system is started, all forces are automatically applied
+All forces of the system are added by the code to the self.ForceDict dictionary.
+After the force is added, the class (or user) can get it out of the
+self.ForceDict and modify the force.
+Once the simulation is started, all forces are automatically applied
 and cannot be modified.
 
 Two types of bond forces are harmonic bond force
@@ -62,12 +61,15 @@ Individual bonds can be added using :py:func:`addBond <Simulation.addBond>`,
 while polymer bonds can be added using
 :py:func:`addHarmonicPolymerBonds <Simulation.addHarmonicPolymerBonds>`, etc.
 
-Repulsive force can be of 3 types: simple repulsife force U = 1/r^12;
+Nonbonded (inter-monomer) force can be of many types. Three Lennard-Jones-based forces:
+ simple repulsife force U = 1/r^12;
 Grosberg repulsive force - a faster and better implementation
 of repulsive force; and LennardJones Force, that can be attractive and
 allows to specify extra attraction/repulsion between any pairs of particles.
 
-Stiffness force can be harmonic, or "special" Grosberg force, kept only
+There are also polynomial repulsive and attractive forces which are faster due to a shorter cutoff radius.
+
+Stiffness force can be harmonic, or the "special" Grosberg force, kept
 for compatibility with the systems used in Grosberg forces
 
 External forces include spherical confinement, cylindrical confinement,
@@ -78,8 +80,8 @@ Information, printed on current step
 
 A sample line of information printed on each step looks like this:
 
-minim  bl=5 . . . . (i)  pos[1]=[99.2 52.1 52.4]  shift=0.54
-4.58 kin, 49.18 pot, 53.76 tot,  Rg=107.312 SPS=144:
+minim  bl=5 (i)  pos[1]=[99.2 52.1 52.4] dr=0.54
+kin=3.65 pot=3.44 Rg=107.312 SPS=144:
 
 Let's go over it step by step.
 
@@ -88,18 +90,15 @@ Other name can be provided in self.name).
 
 bl=5 - name of a current block
 
-. . . . . : each dot indicates current subblock. If dots stopped,
-maybe the system have crushed
-
 (i) indicate that velocity reinitialization was done at this step.
 You will simultaneously see that Ek is more than 2.4
 
 pos[1] is a position of a first monomer
 
-shift is sqrt(mean square displacement) of monomers, i.e.
+dr is sqrt(mean square displacement) of monomers, i.e.
 how much did a monomer shift on average.
 
-4.58 kin, 49.18 pot, 53.76 tot - energies: kinetic, potential, total
+kin=3.65 pot=3.44  - energies: kinetic, potential
 
 Rg=107.312 - current radius of gyration (size of the system)
 
@@ -243,8 +242,6 @@ class Simulation():
         self.metadata = {}
         self.length_scale = length_scale
         self.mass_scale = mass_scale
-
-
 
     def setup(self, platform="CUDA", PBC=False, PBCbox=None, GPU="default",
               integrator="langevin", verbose=True, errorTol=None):
@@ -1390,7 +1387,7 @@ class Simulation():
             bottom = 0
 
         self.metadata["CylindricalConfinement"] = repr({"r": r,
-            "bottom": bottom, "k": k, "top" : top})
+            "bottom": bottom, "k": k, "top": top})
 
         if bottom is not None:
             extforce2 = self.mm.CustomExternalForce(

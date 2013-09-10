@@ -900,9 +900,13 @@ class Simulation():
         self.metadata["HarmonicPolymerBonds"] = repr({"wiggleDist": wiggleDist})
 
     def addGrosbergPolymerBonds(self, k=30):
-        """Adds FENE bonds according to Grosberg paper.
+        """Adds FENE bonds according to Halverson-Grosberg paper.
+        (Halverson, Jonathan D., et al. "Molecular dynamics simulation study of
+         nonconcatenated ring polymers in a melt. I. Statics."
+         The Journal of chemical physics 134 (2011): 204904.)
+
         This method has a repulsive potential build-in,
-         so that Grosberg bonds could be used with truncated potentials.
+        so that Grosberg bonds could be used with truncated potentials.
         Is of no use unless you really need to simulate Grosberg-type system.
 
         Parameters
@@ -958,6 +962,10 @@ class Simulation():
 
     def addGrosbergStiffness(self, k=1.5):
         """Adds stiffness according to the Grosberg paper.
+        (Halverson, Jonathan D., et al. "Molecular dynamics simulation study of
+         nonconcatenated ring polymers in a melt. I. Statics."
+         The Journal of chemical physics 134 (2011): 204904.)
+
         Parameters are synchronized with normal stiffness
 
         If k is an array, it has to be of the length N.
@@ -995,8 +1003,11 @@ class Simulation():
 
 
     def addGrosbergRepulsiveForce(self, trunc=None, radiusMult=1.):
-        """This is the fastest repulsive force.
-
+        """This is the fastest non-transparent repulsive force.
+        Done according to the paper:
+        (Halverson, Jonathan D., et al. "Molecular dynamics simulation study of
+         nonconcatenated ring polymers in a melt. I. Statics."
+         The Journal of chemical physics 134 (2011): 204904.)
         Parameters
         ----------
 
@@ -1284,6 +1295,9 @@ class Simulation():
         repulforce.setCutoffDistance(nbCutOffDist)
 
     def addSoftLennardJonesForce(self, epsilon=0.42, trunc=2, cutoff=2.5):
+        """A softened version of lennard-Jones force.
+        Now we're moving to polynomial forces, so go there instead.
+        """
 
         nbCutOffDist = self.conlen * cutoff
 
@@ -1564,7 +1578,7 @@ class Simulation():
 
     def addPullForce(self, particles, forces):
         """adds force pulling on each particle
-        When using cutoff, acts only when z>cutoff"""
+        """
 
         pullForce = self.mm.CustomExternalForce(
             "PULLx * x + PULLy * y + PULLz * z")
@@ -1681,6 +1695,7 @@ class Simulation():
         self.initVelocities(mult)
 
     def localEnergyMinimization(self, tolerance=1, maxIterations=0):
+        "A wrapper to the build-in OpenMM Local Energy Minimization"
         print "Performing local energy minimization"
         self._applyForces()
         oldName = self.name
@@ -1711,9 +1726,8 @@ class Simulation():
         """Runs system at smaller timestep and higher collision
         rate to resolve possible conflicts.
 
-        This is a completely reworked class,
-        All original parameters are deprecated
-
+        Now we're moving towards local energy minimization,
+        this is here for backwards compatibility.
         """
         warnings.warn(DeprecationWarning("Maybe use local energy minimization instead - it is better!"))
         print "Performing energy minimization"
@@ -1991,63 +2005,9 @@ class Simulation():
 
 
 class SimulationWithCrosslinks(Simulation):
-
-    def addRandomCrosslinks(self, num=10):
-        data = numpy.array(self.getData())
-        for _ in xrange(num):
-            a = numpy.random.randint(0, self.N)
-            cur = data[a]
-            dist = numpy.sqrt(numpy.sum((data - cur[None, :]) ** 2, axis=1))
-            attempt = dist < 1.9
-
-            attempt[a] = False
-            attempt[a - 1] = False
-            attempt[a - 2] = False
-            attempt[a + 1] = False
-            attempt[a + 2] = False
-            if attempt.sum() <= 0:
-                print "no atoms"
-                continue
-            nums = numpy.nonzero(attempt)[0]
-
-            b = nums[numpy.random.randint(0, len(nums))]
-
-            if self.verbose == True:
-                print "random bond added", self.dist(a, b)
-            print a, b
-            self.addBond(a, b, 0.5)
-
-    def addPerChainRandomCrosslinks(self, num=10, chain=0):
-        data = numpy.array(self.getData())
-        for _ in xrange(num):
-            while True:
-                mychain = self.chains[chain]
-                a = numpy.random.randint(mychain[0], mychain[1])
-                cur = data[a]
-                dist = numpy.sqrt(numpy.sum(
-                    (data - cur[None, :]) ** 2, axis=1))
-                attempt = dist < 1.9
-
-                attempt[a] = False
-                attempt[a - 1] = False
-                attempt[a - 2] = False
-                attempt[a + 1] = False
-                attempt[a + 2] = False
-                attempt[:mychain[0]] = False
-                attempt[mychain[1]:] = False
-
-                if attempt.sum() <= 0:
-                    print "no atoms"
-                    continue
-                nums = numpy.nonzero(attempt)[0]
-
-                b = nums[numpy.random.randint(0, len(nums))]
-
-                if self.verbose == True:
-                    print "random bond added", self.dist(a, b)
-                print a, b
-                self.addBond(a, b, 0.5)
-                break
+    """
+    A subclass used to do simulations for the Metaphase project
+    """
 
     def addConsecutiveRandomBonds(self, loopSize, bondWiggle, bondLength=0.,
                                   smeerLoopSize=0.2, distanceBetweenBonds=2,
@@ -2259,205 +2219,10 @@ class ExperimentalSimulation(Simulation):
         extforce4.addGlobalParameter("WELLdepth", depth * self.kT)
         extforce4.addGlobalParameter("WELLtt", 0.01 * nm)
 
-    def add_cubic_grid(self, step, percent=0.5, mass=0.1):
-        """In PBC this function adds a cubic grid of atoms (solvent),
-            - separated by step units of length
-            - with the probability percent
-            -with mass = mass
-            -in a box defined by PBC
-            """
-
-        print "Be sure that changing to MULT=1 didn't affect it... "
-        raw_input("type any key to continue...")
-        size = self.SolventGridSize  # using box that was written in setup()
-        newdata = []  # array of solvent molecules
-        count = [int(i / step) for i in size]  # grid size
-        myarray = numpy.zeros(tuple(count), int) + 1  # grid itself
-        for particle in self.getData():  # exclude monomers
-            p = [int(i) for i in particle / step]
-            p = numpy.array(p)
-            lb = p - 1
-            lb[lb < 0] = 0
-
-            myarray[lb[0]: p[0] + 2, lb[1]: p[1] + 2, lb[2]: p[2] + 2] = 0
-        myarray[numpy.random.random(tuple(count)) > percent] = 0
-        print "Using solvent with %d particles," % numpy.sum(myarray)
-        for i in xrange(count[0]):
-            for j in xrange(count[1]):
-                for k in xrange(count[2]):
-                    if myarray[i, j, k] == 1:
-                        newdata.append((step * i, step * j, step * k))
-        newdata = numpy.array(newdata)
-        for i in newdata:
-            self.system.addParticle(self.mass * mass)
-        pastN = len(self.data)
-        fulldata = numpy.concatenate([self.getData(), newdata])
-        self.setData(fulldata)
-        self.domains = numpy.zeros(self.N, int)
-        self.domains[:pastN] = 1
-        self.domains[pastN:] = 0
-
-
-class supercoilingSimulation(Simulation):
-    def setCrosslinkLayout(self, numStrands, strandRadius=1):
-        self.strands = int(numStrands)
-        self.M = int(self.N / self.strands)
-
-        if self.M * self.strands != self.N:
-            raise ValueError("Total length should be multiple of total number of strands")
-
-        self.strandR = strandRadius
-
-        self.setLayout(mode="ring", chains=[(0, self.M)])
-
-    def initCircularChain(self, N, numStrands, twistPerTurn, strandRadius=1):
-        self.N = N
-        self.setCrosslinkLayout(numStrands=numStrands, strandRadius=strandRadius)
-        data = numpy.zeros((N, 3))
-        mainChain = polymerutils.createSpiralRing(self.M, 1, 0)
-        data[:self.M] = mainChain
-
-        numOtherChains = numStrands - 1
-        if self.M % numOtherChains != 0:
-            print "Chain length is %d" % self.M
-            print "Other chains: %d" % numOtherChains
-            raise ValueError("Chain length should be divisible by number of surrounding chains")
-        for chain in xrange(numOtherChains):
-            perTurnOffset = np.pi / numOtherChains
-            originalOffset = chain * (2 * np.pi) / numOtherChains
-            currentChain = polymerutils.createSpiralRing(self.M,
-                                                         twist=twistPerTurn,
-                                                         r=strandRadius,
-                                                         offsetPerParticle=perTurnOffset,
-                                                         offset=originalOffset)
-            data[self.M * (chain + 1):self.M * (chain + 2)] = currentChain
-        self.load(data)
-
-    def addCircularBonds(self, wiggle1=0.1, wiggle2=0.2, wiggle3=0.1, check=True):
-        M = self.M
-        strands = self.strands
-        b1 = self.strandR
-
-        a2 = np.pi / (strands - 1)
-        b2 = np.sqrt(2 * self.strandR ** 2 * (1 - np.cos(a2)) + 1)
-
-        a3 = 2 * np.pi / (strands - 1)
-        b3 = np.sqrt(2 * self.strandR ** 2 * (1 - np.cos(a3)))
-        print b1, b2, b3
-
-        def safeAddBond(i, j, bondWiggleDistance, distance):
-            i0, i1 = i
-            j0, j1 = j
-            if i0 == self.M:
-                i0 = 0
-            if j0 == self.M:
-                j0 = 0
-
-            i = i0 + i1 * self.M
-            j = j0 + j1 * self.M
-            if j >= self.N:
-                j = j % self.N
-            if i >= self.N:
-                i = i % self.N
-            realDist = self.dist(i, j)
-            #print (i, j)
-            if check == True:
-                if np.abs(distance - realDist) > 3 * bondWiggleDistance:
-                    print ("i,j : (%d, %d)" % (i, j)),
-                    print "Bond is very different! real:%lf, should be:%lf" % (realDist, distance)
-
-            self.addBond(i, j, bondWiggleDistance, distance, bondType="Harmonic")
-
-        for i in xrange(M):
-            for j in xrange(1, strands):
-                safeAddBond((i, 0), (i, j), wiggle1, b1)
-        for i in xrange(M):
-            for j in xrange(2, strands - 1):
-                safeAddBond((i, j), (i + 1, j), wiggle2, b2)
-                safeAddBond((i, j), (i + 1, j - 1), wiggle2, b2)
-            safeAddBond((i, 1), (i + 1, 1), wiggle2, b2)
-            safeAddBond((i, 1), (i + 1, strands - 1), wiggle2, b2)
-
-        if strands == 3:
-            for i in xrange(M):
-                safeAddBond((i, 1), (i, 2), wiggle1, b1 * 2)
-        else:
-            for i in xrange(M):
-                for j in xrange(1, strands - 1):
-                    safeAddBond((i, j), (i, j + 1), wiggle3, b3)
-                safeAddBond((i, 1), (i, strands - 1), wiggle3, b3)
-
-    def getChain(self):
-        return self.getData()[:self.M]
-
-    def checkLinking(self):
-        data = self.getData()
-        d1 = data[: self.M]
-        d2 = data[2 * self.M:3 * self.M]
-        print "Link num: ", getLinkingNumber(d1, d2), ";",
-
-    def addGrosbergRepulsiveForce(self, trunc=None, radiusMult=1.):
-        """This is the fastest repulsive force.
-
-        Parameters
-        ----------
-
-        trunc : None or float
-             truncation energy in kT, used for chain crossing.
-             Value of 1.5 yields frequent passing,
-             3 - average passing, 5 - rare passing.
-
-        """
-        radius = self.conlen * radiusMult
-        self.metadata["GrosbergRepulsiveForce"] = repr({"trunc": trunc})
-        nbCutOffDist = radius * 2. ** (1. / 6.)
-        if trunc is None:
-            repul_energy = (
-            "4 * REPe * REPall * ((REPsigma/r2)^12 - (REPsigma/r2)^6) + REPe;"
-            "REPall = REPincl1 * REPincl2  + (1 - REPincl1 * REPincl2) * "
-            "(step(2.5 - abs(REPnum1 - REPnum2)) + step(abs(REPnum1 - REPnum2) - REPm + 2.5));"
-            "r2 = r")
-
-        else:
-
-            repul_energy = (
-            "step(REPcut2 - REPU) * REPU"
-            " + step(REPU - REPcut2) * REPcut2 * (1 + tanh(REPU/REPcut2 - 1));"
-            "REPU = 4 * REPe * REPall * ((REPsigma/r2)^12 - (REPsigma/r2)^6) + REPe;"
-            "REPall = REPincl1 * REPincl2  + (1 - REPincl1 * REPincl2) * "
-            "(step(2.5 - abs(REPnum1 - REPnum2)) + step(abs(REPnum1 - REPnum2) - REPm + 2.5));"
-            "r2 = (r^10. + (REPsigma03)^10.)^0.1")
-        self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(
-            repul_energy)
-        repulforceGr = self.forceDict["Nonbonded"]
-        repulforceGr.addGlobalParameter('REPe', self.kT)
-        repulforceGr.addPerParticleParameter("REPincl")
-        repulforceGr.addPerParticleParameter("REPnum")
-        repulforceGr.addGlobalParameter("REPm", self.M)
-        repulforceGr.addGlobalParameter('REPsigma', radius)
-        repulforceGr.addGlobalParameter('REPsigma03', 0.1 * radius)
-        if trunc is not None:
-            repulforceGr.addGlobalParameter('REPcut', self.kT * trunc)
-            repulforceGr.addGlobalParameter('REPcut2', 0.5 * trunc * self.kT)
-        for i in range(self.N):
-            if i < self.M:
-                inc = 1.
-            else:
-                inc = 0.
-            num = float(i % self.M)
-
-            repulforceGr.addParticle([inc, num])
-
-        repulforceGr.setCutoffDistance(nbCutOffDist)
-
 
 class YeastSimulation(Simulation):
     """
-    This is a multi-line definition.
-    I use it to test some bugs.
-
-    This class is some crazy Geoff's work.
-    Don't even look at it.
+    This class is maintained by Geoff to do simulations for the Yeast project
     """
 
     def addNucleolus(self, k=1, r=None):

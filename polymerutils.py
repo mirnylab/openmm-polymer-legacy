@@ -1,5 +1,3 @@
-#(c) 2013 Massachusetts Institute of Technology. All Rights Reserved
-# Code written by: Maksim Imakaev (imakaev@mit.edu)
 
 
 import numpy as np
@@ -162,6 +160,10 @@ def generateRandomLooping(length=10000, oneMoverPerBp=1000, numSteps=100):
 
 
 def create_spiral(r1, r2, N):
+    """
+    Creates a "propagating spiral", often used as a starting conformation.
+    Run it with r1=10, r2 = 13, N=5000, and see what it does.
+    """
     Pi = 3.141592
     points = []
     finished = [False]
@@ -254,6 +256,16 @@ def create_random_walk(step_size, N):
 
 
 def grow_rw(step, size, method="line"):
+    """This does not grow a random walk, but the name stuck.
+
+    What it does - it grows a polymer in the middle of the sizeXsizeXsize box.
+    It can start with a small ring in the middle (method="standart"),
+    or it can start with a line ("method=line").
+    If method="linear", then it grows a linearly organized chain from 0 to size.
+
+    step has to be less than size^3
+
+    """
     numpy = np
     t = size / 2
     if method == "standart":

@@ -1,6 +1,12 @@
 #(c) 2013 Massachusetts Institute of Technology. All Rights Reserved
 # Code written by: Maksim Imakaev (imakaev@mit.edu)
 #                  Anton Goloborodko (golobor@mit.edu)
+
+"""
+This class is a collection of functions for showing data with pymol.
+Note that the limit of pymol is 100k monomers, therefore interpolateData is
+useful to collapse the 200k-long simulation into a 100k-long conformation.
+"""
 import os
 import sys
 import tempfile
@@ -397,6 +403,9 @@ def makeMoviePymol(
     rotationPeriod=0.0,
     resolution=(600, 600),
     fiberWidth=1.0, rescalingFactor=1.0, pymolScript=None):
+    """
+    experimental example script for making a movie...
+    """
 
     numFrames = len(fileList)
     numDigits = int(np.ceil(np.log10(numFrames)))

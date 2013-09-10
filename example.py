@@ -12,16 +12,18 @@ def exampleOpenmm():
     a.setup(platform = "reference")
     But this will be extremely slow...
 
-    Installing OpenMM may be not easy too... but you can try
+    To install OpenMM please go to their website:
+    https://simtk.org/home/openmm
+
     """
 
     a = Simulation(timestep=80, thermostat=0.002)
     # Consider increasing timestep if your system is very relaxed
-    assert isinstance(a, Simulation)
-    #This line is for Eclipse to know the type of a
 
     a.setup(platform="cuda", verbose=True)
-    #Now use "Cuda" on dau, quill, proteome, kulibin, and on wiz CPU #1 (will be changed soon)
+    #We use CUDA on 680 GTX, and OpenCL on 580 GTS
+    #MirnyLab: Now use "Cuda" on quill, proteome, kulibin, zubr and wiz
+
     a.saveFolder("trajectory")  # folder where to save trajectory
     #Folder to save trajectory
 
@@ -35,12 +37,14 @@ def exampleOpenmm():
     a.addHarmonicPolymerBonds(wiggleDist=0.05)
     #Bonds will fluctuate +- 0.05 on average
 
-    a.addGrosbergRepulsiveForce(trunc=5)  # Fastest pure repulsive force
-    #truncation at 5 kT to resolve chain overlaps in the original conformation
-    #Optional with this starting conformation, but may be useful in general
+    a.addGrosbergRepulsiveForce(trunc=50)
+    # this will resolve chain crossings and will not let chain cross anymore
+
+    #a.addGrosbergRepulsiveForce(trunc=5)
+    # this will let chains cross sometimes
 
     a.addStiffness(k=4)
-    #K is more or less arbitrary, k=4 corresponds to presistence length of 4
+    #K is more or less arbitrary, k=4 corresponds to presistence length of 4,
 
     a.localEnergyMinimization()
     #New fancy algorithm to minimize energy

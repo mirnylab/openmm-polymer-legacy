@@ -6,7 +6,7 @@ from mirnylib.systemutils import fmap
 import polymerutils
 from mirnylib.numutils import logbins
 import contactmaps
-from contactmaps import Cload, giveContacts
+from contactmaps import load, giveContacts
 import cPickle
 from math import sqrt
 import random
@@ -271,7 +271,7 @@ def subchainDensityFunction(filenames, bins, normalize="Rg", maxLength=3, Nbins=
 
 
 def give_slices(base, tosave, slices, sliceParams,
-                multipliers, mode="chain", loadFunction=Cload,
+                multipliers, mode="chain", loadFunction=load,
                 integrate=False, normalize=False, exceptionList=[],
                 nproc=4, cutoff=1.7, binstep=1.15):
     np.seterr(invalid='raise')

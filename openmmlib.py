@@ -679,7 +679,7 @@ class Simulation():
 
     def randomizeData(self):
         """
-        run this if your data is integer-based - adds small offsets
+        Runs automatically to offset data if it is integer based
         """
         data = self.getData()
         data = data + numpy.random.randn(*data.shape) * 0.0001
@@ -1719,14 +1719,16 @@ class Simulation():
 
     def energyMinimization(self, stepsPerIteration=100,
                            maxIterations=1000,
-                           failNotConverged=True):
+                           failNotConverged=True, force=False):
         """Runs system at smaller timestep and higher collision
         rate to resolve possible conflicts.
 
         Now we're moving towards local energy minimization,
         this is here for backwards compatibility.
         """
-        warnings.warn(DeprecationWarning("Maybe use local energy minimization instead - it is better!"))
+        if force == False:
+            raise RuntimeError("Please use local energy minimizer, or set force=True")
+
         print "Performing energy minimization"
         self._applyForces()
         oldName = self.name

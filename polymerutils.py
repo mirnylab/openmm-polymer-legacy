@@ -384,15 +384,27 @@ def smooth_conformation(conformation, n_avg):
     return new_conformation
 
 
-def distance_matrix(d):
+def distance_matrix(d1, d2=None):
     """A brute-force to find a matrix of distances between i-th and j-th
     particles.
-    """
-    dists = np.zeros(shape=(d.shape[0], d.shape[0]))
-    for i in range(dists.shape[0]):
-        dists[i] = (((d - d[i]) ** 2).sum(axis=1)) ** 0.5
-    return dists
 
+    Parameters
+    ----------
+        d1 : numpy.array
+            If the only array supplied, find the pairwise distances.
+        d2 : numpy.array
+            If supplied, find distances from every point in d1 to
+            every point in d2.
+    """
+    if d2 is None:
+        dists = np.zeros(shape=(d1.shape[0],d1.shape[0]))
+        for i in range(dists.shape[0]):
+            dists[i] = (((d1-d1[i])**2).sum(axis=1))**0.5
+    else:
+        dists = np.zeros(shape=(d1.shape[0],d2.shape[0]))
+        for i in range(d1.shape[0]):
+            dists[i] = (((d2-d1[i])**2).sum(axis=1))**0.5
+    return dists
 
 def endtoend(d):
     """A brute-force method to find average end-to-end distance v.s. separation.
@@ -447,6 +459,8 @@ def getCloudGeometry(d, frac=0.05, numSegments=1, widthPercentile=50, delta=0):
         (length, width) : (float, float)
 
     """
+
+    import statsmodels as sm
 
     dists = []
     length = 0.0

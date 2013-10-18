@@ -1852,6 +1852,7 @@ class Simulation():
                     self.getData()) ** 2, axis=1)))
                 print "dr=%.2lf" % (dif,),
                 self.data = coords
+                print "time=%.2lfps" % (self.state.getTime() / ps),
                 print "kin=%.2lf pot=%.2lf" % (eK,
                     eP), "Rg=%.3lf" % self.RG(),
                 print "SPS=%.0lf" % (steps / (float(b - a)))

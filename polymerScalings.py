@@ -277,7 +277,7 @@ def subchainDensityFunction(filenames, bins, normalize="Rg", maxLength=3, Nbins=
 def give_slices(base, tosave, slices, sliceParams,
                 multipliers, mode="chain", loadFunction=load,
                 integrate=False, normalize=False, exceptionList=[],
-                nproc=4, cutoff=1.7, binstep=1.15):
+                nproc=4, cutoff=1.7, binstep=1.15, verbose=False):
     np.seterr(invalid='raise')
 
     plotsBySlice = []
@@ -367,14 +367,14 @@ def give_slices(base, tosave, slices, sliceParams,
                 b = give_radius_scaling(i, binsrg, ring=False)
 
             if (mode == "chain"):
-                a = giveCpScaling(i, bins2, cutoff, integrate)
+                a = giveCpScaling(i, bins2, cutoff, integrate, verbose=verbose)
             if (mode == "ring"):
-                a = giveCpScaling(i, bins2, cutoff, integrate, ring=True)
+                a = giveCpScaling(i, bins2, cutoff, integrate, ring=True, verbose=verbose)
             if (mode == "intring"):
                 a = giveCpScaling(i, bins2, cutoff, integrate, ring=True,
-                                  project=False, intContacts=True)
+                                  project=False, intContacts=True, verbose=verbose)
             if (mode == "project"):
-                a = giveCpScaling(i, bins2, 1.450, integrate, project=True)
+                a = giveCpScaling(i, bins2, 1.450, integrate, project=True, verbose=verbose)
 
             if (mode == "ring") or (mode == "intring"):
                 c = give_distance(i, bins2, ring=True)

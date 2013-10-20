@@ -56,7 +56,7 @@ def load(filename, h5dictKey=None):
         raise IOError("Failed to open file")
 
 
-def save(data, filename, mode="txt", h5dictKey="1"):
+def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
     h5dictKey = str(h5dictKey)
     mode = mode.lower()
 
@@ -90,14 +90,18 @@ def save(data, filename, mode="txt", h5dictKey="1"):
                 return st[:n]
             else:
                 return st + " " * (n - len(st))
+        if pdbGroups == None:
+            pdbGroups = ["A" for i in range(len(data))]
+        else:
+            pdbGroups = [str(int(i))[0] for i in pdbGroups]
 
-        for i, line in enumerate(data):
+        for i, line, group in zip(range(len(data)), data, pdbGroups):
             line = [1. * (float(j) + 1) for j in line]
             ret = add("ATOM", 7)
             ret = add(ret + "%i" % (i + 1), 13)
             ret = add(ret + "CA", 17)
-            ret = add(ret + "ALA", 22)
-
+            ret = add(ret + "ALA", 21)
+            ret = add(ret + group, 22)
             ret = add(ret + "%i" % (i), 30)
             ret = add(ret + ("%8.3f" % line[0]), 37)
             ret = add(ret + ("%8.3f" % line[1]), 45)
@@ -397,13 +401,13 @@ def distance_matrix(d1, d2=None):
             every point in d2.
     """
     if d2 is None:
-        dists = np.zeros(shape=(d1.shape[0],d1.shape[0]))
+        dists = np.zeros(shape=(d1.shape[0], d1.shape[0]))
         for i in range(dists.shape[0]):
-            dists[i] = (((d1-d1[i])**2).sum(axis=1))**0.5
+            dists[i] = (((d1 - d1[i]) ** 2).sum(axis=1)) ** 0.5
     else:
-        dists = np.zeros(shape=(d1.shape[0],d2.shape[0]))
+        dists = np.zeros(shape=(d1.shape[0], d2.shape[0]))
         for i in range(d1.shape[0]):
-            dists[i] = (((d2-d1[i])**2).sum(axis=1))**0.5
+            dists[i] = (((d2 - d1[i]) ** 2).sum(axis=1)) ** 0.5
     return dists
 
 def endtoend(d):

@@ -112,6 +112,7 @@ def do_coloring(data, regions, colors, transparencies,
                 transparentBackground=True,
                 multiplier=.4,
                 spherePositions=[],
+                pdbGroups=None,
                 sphereRadius=.3,
                 force=False,
                 miscArguments=""):
@@ -192,7 +193,7 @@ def do_coloring(data, regions, colors, transparencies,
     tmpPdbFilename = tmpPdbFile.name
     pdbname = os.path.split(tmpPdbFilename)[-1]
     tmpPdbFile.close()
-    polymerutils.save(data, tmpPdbFilename, mode='pdb')
+    polymerutils.save(data, tmpPdbFilename, mode='pdb', pdbGroups=pdbGroups)
 
     #starting background check
     N = len(data)

@@ -4,7 +4,6 @@ import numpy as np
 import joblib
 import os
 from math import sqrt, sin, cos
-from mirnylib import numutils
 import numpy
 
 
@@ -93,7 +92,7 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
         if pdbGroups == None:
             pdbGroups = ["A" for i in range(len(data))]
         else:
-            pdbGroups = [str(int(i))[0] for i in pdbGroups]
+            pdbGroups = [str(int(i)) for i in pdbGroups]
 
         for i, line, group in zip(range(len(data)), data, pdbGroups):
             line = [1. * (float(j) + 1) for j in line]
@@ -101,13 +100,15 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
             ret = add(ret + "%i" % (i + 1), 13)
             ret = add(ret + "CA", 17)
             ret = add(ret + "ALA", 21)
-            ret = add(ret + group, 22)
+            ret = add(ret + group[0], 22)
             ret = add(ret + "%i" % (i), 30)
             ret = add(ret + ("%8.3f" % line[0]), 37)
             ret = add(ret + ("%8.3f" % line[1]), 45)
             ret = add(ret + ("%8.3f" % line[2]), 53)
             ret = add(ret + (" 1.00"), 61)
             ret = add(ret + str(float(i % 8 > 4)), 67)
+            ret = add(ret, 73)
+            ret = add(ret + group[:4], 77)
             retret += (ret + "\n")
 
         f = open(filename, 'w')
@@ -352,6 +353,7 @@ def createSpiralRing(N, twist, r=0, offsetPerParticle=np.pi, offset=0):
     """
     Creates a ring of length N. Then creates a spiral
     """
+    from mirnylib import numutils
     if not numutils.isInteger(N * offsetPerParticle / (2 * np.pi)):
         print N * offsetPerParticle / (2 * np.pi)
         raise ValueError("offsetPerParticle*N should be multitudes of 2*Pi")
@@ -465,6 +467,7 @@ def getCloudGeometry(d, frac=0.05, numSegments=1, widthPercentile=50, delta=0):
     """
 
     import statsmodels as sm
+    from mirnylib import numutils
 
     dists = []
     length = 0.0

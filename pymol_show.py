@@ -66,7 +66,7 @@ def interpolateData(data, targetN=90000, colorArrays=[]):
 
     for color in colorArrays:
         spline = InterpolatedUnivariateSpline(evaluateRange,
-                                        color, k=1)
+                                        color, k=2)
         evaled = spline(targetRange)
         colorsSplined.append(evaled)
 
@@ -201,23 +201,21 @@ def do_coloring(data, regions, colors, transparencies,
     if len(nregions) > 0:
         if nregions.min() < 0 or nregions.max() > N:
             raise ValueError("region boundaries should be between 0 and N-1")
-    regions = np.array(regions)
-    regions = np.sort(regions, axis=1)
+        regions = np.array(regions)
+        regions = np.sort(regions, axis=1)
 
-    args = np.argsort(regions[:, 0])[::-1]
-    regions = regions[args]
-    colors = [colors[i] for i in args]
-    subchainRadius = [subchainRadius[i] for i in args]
-    transparencies = [transparencies[i] for i in args]
+        args = np.argsort(regions[:, 0])[::-1]
+        regions = regions[args]
+        colors = [colors[i] for i in args]
+        subchainRadius = [subchainRadius[i] for i in args]
+        transparencies = [transparencies[i] for i in args]
 
-    ends = regions[1:, 1]
-    starts = regions[:-1, 0]
+        ends = regions[1:, 1]
+        starts = regions[:-1, 0]
 
-
-
-    if (force is False) and (starts < ends).any():
-        raise ValueError("Overlapped regions detected! Rasmol will not work. "\
-                         "E.g. valid regions are ((0,10),(10,20)), but not ((0,10),(9,20))")
+        if (force is False) and (starts < ends).any():
+            raise ValueError("Overlapped regions detected! Rasmol will not work. "\
+                             "E.g. valid regions are ((0,10),(10,20)), but not ((0,10),(9,20))")
 
     bgcolor = "grey"
     letters = [i for i in "1234567890abcdefghijklmnopqrstuvwxyz"]
@@ -246,13 +244,15 @@ def do_coloring(data, regions, colors, transparencies,
         out.write("color %s,%s\n" % (bgcolor, pdbname))
 
     elif showChain == "spheres":
-        out.write("alter {0}, vdw={1}\n".format(pdbname, 5 * chainRadius))
+        out.write("alter {0}, vdw={1}\n".format(pdbname, 1.5 * chainRadius))
         out.write("show spheres\n")
         out.write("as spheres\n")
         out.write("set sphere_transparency,%f,%s\n" % (chainTransparency, pdbname))
         out.write("color %s,%s\n" % (bgcolor, pdbname))
+    elif showChain == "none":
+        pass
     else:
-        raise ValueError("please select showChain to be 'worm' or 'spheres'")
+        raise ValueError("please select showChain to be 'worm' or 'spheres' or 'none'")
     for i in xrange(len(regions)):
 
         name = "subchain%s" % names[i]
@@ -274,6 +274,14 @@ def do_coloring(data, regions, colors, transparencies,
         out.write("show spheres, i. {0}-{0}\n".format(i))
         out.write("set sphere_color, grey60 \n")
 
+    if showChain == "worm":
+        out.write("show cartoon,name ca\n")
+    out.write("zoom %s\n" % pdbname)
+
+    out.write(support)
+    out.write("\n")
+    out.flush()
+
     if returnScriptName is not None:
         out.flush()
         return "".join(open(out.name).readlines())
@@ -282,13 +290,6 @@ def do_coloring(data, regions, colors, transparencies,
     #out.write("alter all, vdw={0} \n".format(sphereRadius))
 
 
-    if showChain == "worm":
-        out.write("show cartoon,name ca\n")
-    out.write("zoom %s\n" % pdbname)
-
-    out.write(support)
-    out.write("\n")
-    out.flush()
     script = "".join(open(out.name).readlines())
     if not (saveTo is None):
         #out.write("viewport 1200,1200\n")
@@ -310,6 +311,174 @@ def do_coloring(data, regions, colors, transparencies,
     print os.system("pymol {1} -u {0} {2}".format(out.name, tmpPdbFilename,
                                                   miscArguments))
     return script
+
+def new_coloring(data, regions, colors, transparencies,
+                showGui=True, saveTo=None, showChain="worm",
+                returnScriptName=None,
+                chainRadius=0.02, subchainRadius=0.04,
+                chainTransparency=0.5, support="", presupport="",
+                transparentBackground=True,
+                multiplier=.4,
+                spherePositions=[],
+                pdbGroups=None,
+                sphereRadius=.3,
+                force=False,
+                miscArguments=""):
+
+    """
+    !!! Please read this completely. Otherwise you'll suck :( !!!
+
+    Creates a PDB file and a rasmol script that shows an XYZ polymer
+    using pymol. Polymer consists of two parts: chain and subchain.
+    A chain is a grey polymer, that is meant to resemble the main chain.
+    It is meant to be thin, gray and transparent (overall, here transparency 1
+    means transparent, transparency 0 means fully visible). A subchain
+    consists of a certain number of regions, each has it's own color,
+    transparency, etc.
+
+    Parameters
+    ----------
+
+    data : an Nx3 array of XYZ coordinates
+
+    regions : a list of tuples (start, end)
+        Note that rasmol acceps subchains in a format
+        (first monomer, last monomer), not the usual python
+        convention (first, last+1)!!! An overlap check will watch this.
+        If you want two colorings to gradually transition into each other,
+        then you should use ((0,10),(10,25),(25,...)).
+
+
+    colors : a list of colors ("red", "green", "blue", etc.)  for each region
+
+    transparencies : a list of floats between 0 and 1. 0 is fully visible
+
+    chain_radius : radius of a main chain in arbitraty units
+
+    subchain_radius : radius of a subchain in arbitrary units
+
+    chain_transparency : transparency of a main chain
+
+    support : code to put at the end of the script
+        put all the "save" or "ray" commands here if you want automation
+
+    multiplier : a number, probably between .1 and 3
+        Increasing it makes chain more smooth
+        Decreasing it makes it more kinky, but may cause bugs
+        or even missing chain regions
+
+    misc_arguments : str
+        Misc arguments to pymol command at the very end (mainly >/dev/null)
+
+    .. warning :: Do not call this scripy "pymol.py!"
+
+    .. warning ::
+        Please resize the window to the needed size and run
+        "ray" command (press "ray" button) to get a nice image.
+        Then DO NOT MOVE the image and find "export" in the menu.
+        Otherwise your image will be not that high quality
+
+    .. note ::
+        performance of "ray" command depends on two things.
+        First is resolution : it is more than quadratic in that
+        Second is chain complexity. Tens thousand of monomers
+        at high resolution may take up to an hour to ray.
+        Though it actually looks awesome then!
+
+    Run an example method below to see how the code works.
+    See full automation examples below.
+    """
+    data = np.array(data)
+    data *= multiplier
+    chainRadius *= multiplier
+    sphereRadius *= multiplier
+
+    if not hasattr(subchainRadius, "__iter__"):
+        subchainRadius = [subchainRadius for _ in regions]
+    subchainRadius = [i * multiplier for i in subchainRadius]
+
+    tmpPdbFile = tempfile.NamedTemporaryFile()
+    tmpPdbFilename = tmpPdbFile.name
+    pdbname = os.path.split(tmpPdbFilename)[-1]
+    tmpPdbFile.close()
+    polymerutils.save(data, tmpPdbFilename, mode='pdb', pdbGroups=pdbGroups)
+
+    letters = [i for i in "1234567890abcdefghijklmnopqrstuvwxyz"]
+    names = [i + j + k for i in letters for j in letters for k in letters]
+
+    out = tempfile.NamedTemporaryFile()
+
+    if returnScriptName is not None:
+        pdbname = returnScriptName
+    out.write(presupport)
+    out.write("hide all\n")
+    out.write("bg white\n")
+    if transparentBackground:
+        out.write("set ray_opaque_background, off\n")
+
+    for i in xrange(len(regions)):
+        out.write("select %s, resi %d-%d\n" % (names[i], regions[i][0], regions[i][1]))
+        out.write("create subchain%s,%s\n" % (names[i], names[i]))
+        #out.write("remove subchain%s in %s\n"%(names[i],pdbname))
+
+    for i in xrange(len(regions)):
+
+        name = "subchain%s" % names[i]
+        if showChain == "worm":
+            out.write("set cartoon_trace,1,%s\n" % name)
+            out.write("set cartoon_tube_radius,%f,%s\n" % (subchainRadius[i], name))
+            out.write("cartoon tube,%s\n" % name)
+            out.write("color %s,subchain%s\n" % (colors[i], names[i]))
+            out.write("set cartoon_transparency,%f,%s\n" % (transparencies[i], name))
+            #out.write("show cartoon,%s\n" % (name))
+
+        elif showChain == "spheres":
+            out.write("alter {0}, vdw={1}\n".format(name, 1.5 * subchainRadius[i]))
+            out.write("show spheres, %s\n" % name)
+            out.write("as spheres\n")
+            out.write("color %s,subchain%s\n" % (colors[i], names[i]))
+            out.write("set sphere_transparency,%f,%s\n" % (transparencies[i], name))
+
+
+    #if showChain == "worm":
+    #    out.write("show cartoon,name ca\n")
+    #out.write("zoom %s\n" % pdbname)
+
+    out.write(support)
+    out.write("\n")
+    out.flush()
+
+    if returnScriptName is not None:
+        out.flush()
+        return "".join(open(out.name).readlines())
+
+
+    #out.write("alter all, vdw={0} \n".format(sphereRadius))
+
+
+    script = "".join(open(out.name).readlines())
+    if not (saveTo is None):
+        #out.write("viewport 1200,1200\n")
+        out.write("ray 800,800\n")
+        out.write("png {}\n".format(saveTo))
+        print "saved to: ", saveTo
+    if not showGui:
+        out.write("quit\n")
+
+    out.flush()
+
+
+    #saving data
+
+
+    from time import sleep
+    sleep(0.5)
+
+    print os.system("pymol {1} -u {0} {2}".format(out.name, tmpPdbFilename,
+                                                  miscArguments))
+    return script
+
+
 
 
 def example_pymol():

@@ -141,7 +141,7 @@ def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None):
 
 
     #t = data
-    print "simplified to: %d monomers" % len(t)
+    print "simplified from {0} to {1} monomers".format(len(data), len(t))
 
     try:
         print "OpenMM helped: %d to %d" % (ll, len(t))

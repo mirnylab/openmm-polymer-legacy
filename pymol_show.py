@@ -225,7 +225,6 @@ def do_coloring(data, regions, colors, transparencies,
 
     if returnScriptName is not None:
         pdbname = returnScriptName
-
     out.write("hide all\n")
     out.write("bg white\n")
     if transparentBackground:

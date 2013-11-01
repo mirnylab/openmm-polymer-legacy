@@ -81,7 +81,7 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
         return
 
     elif mode == 'pdb':
-        data = data - np.min(data, axis=0)[None, :]
+        data = data - np.minimum(np.min(data, axis=0), np.zeros(3, float) - 100)[None, :]
         retret = ""
 
         def add(st, n):
@@ -95,7 +95,7 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
             pdbGroups = [str(int(i)) for i in pdbGroups]
 
         for i, line, group in zip(range(len(data)), data, pdbGroups):
-            line = [1. * (float(j) + 1) for j in line]
+            line = [float(j) for j in line]
             ret = add("ATOM", 7)
             ret = add(ret + "%i" % (i + 1), 13)
             ret = add(ret + "CA", 17)

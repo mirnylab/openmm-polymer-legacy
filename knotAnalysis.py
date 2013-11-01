@@ -37,9 +37,15 @@ def getKnotNumber(data, evalAt= -1.1):
         name = newfile.name
         newfile.flush()
 
+
+        print "runnung command {0} {1} -p {4}  > {2}_{3}".format(reduceKnotFilename, name,
+                                     name, "_output", evalAt)
         os.system("{0} {1} -p {4}  > {2}_{3}".format(reduceKnotFilename, name,
                                      name, "_output", evalAt))
         lines = open("%s_%s" % (name, "_output")).readlines()
+        print "Contents of the output: -----"
+        print lines
+        print "End of the output-----"
         os.remove("%s_%s" % (name, "_output"))
         return lines
 

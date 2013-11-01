@@ -8,9 +8,15 @@ import os.path
 from tempfile import NamedTemporaryFile
 from polymerutils import grow_rw, getLinkingNumber, create_random_walk
 from polymerutils import findSimplifiedPolymer
+import platform
+arch = platform.architecture()
 
 folderName = os.path.split(__file__)[0]
-reduceKnotFilename = os.path.join(folderName, "Reduce_knot20")
+
+if arch == "32bit":
+    reduceKnotFilename = os.path.join(folderName, "Reduce_knot20_x86")
+else:
+    reduceKnotFilename = os.path.join(folderName, "Reduce_knot20")
 
 
 

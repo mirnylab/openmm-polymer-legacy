@@ -160,7 +160,6 @@ def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None):
     except:
         pass
     number = getKnotNumber(t, evalAt=evalAt)
-    print number
     num = float(number[0].split()[1])
     return num
 

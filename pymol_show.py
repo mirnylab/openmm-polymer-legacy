@@ -510,7 +510,7 @@ def getTmpPath(folder=None):
     tmpFile.close()
     return tmpPath, tmpFilename
 
-def show_chain(data, showGui=True, saveTo=None, showChain="worm", **kwargs):
+def show_chain(data, showGui=True, saveTo=None, showChain="worm", chains=None, **kwargs):
     """Shows a single rainbow-colored chain using PyMOL.
 
     Arguments:
@@ -528,7 +528,13 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", **kwargs):
     print data.min()
 
     tmpPdbPath, pdbname = getTmpPath()
-    polymerutils.save(data, tmpPdbPath, mode="pdb")
+    if chains == None:
+        polymerutils.save(data, tmpPdbPath, mode="pdb")
+    else:
+        pdbArray = np.zeros(len(data))
+        for j, i in enumerate(chains):
+            pdbArray[i[0]:i[1]] = j
+        polymerutils.save(data, tmpPdbPath, mode="pdb", pdbGroups=pdbArray)
 
     tmpScript = tempfile.NamedTemporaryFile()
     tmpScript.write("hide all\n")

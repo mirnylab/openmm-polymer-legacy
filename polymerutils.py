@@ -250,9 +250,13 @@ def create_spiral(r1, r2, N):
                 add_point(fullcoord(curphi, z))
 
 
-def create_random_walk(step_size, N):
-    theta = 2.0 * np.pi * np.random.uniform(0., 1., N)
-    u = 2.0 * np.random.uniform(0., 1., N) - 1.0
+def create_random_walk(step_size, N, segment_length=1):
+    theta = np.repeat(np.random.uniform(0., 1., N // segment_length + 1),
+                      segment_length)
+    theta = 2.0 * np.pi * theta[:N]
+    u = np.repeat(np.random.uniform(0., 1., N // segment_length + 1),
+                  segment_length)
+    u = 2.0 * u[:N] - 1.0
     x = step_size * np.sqrt(1. - u * u) * numpy.cos(theta)
     y = step_size * np.sqrt(1. - u * u) * numpy.sin(theta)
     z = step_size * u
@@ -411,6 +415,7 @@ def distance_matrix(d1, d2=None):
         for i in range(d1.shape[0]):
             dists[i] = (((d2 - d1[i]) ** 2).sum(axis=1)) ** 0.5
     return dists
+
 
 def endtoend(d):
     """A brute-force method to find average end-to-end distance v.s. separation.

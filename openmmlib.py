@@ -1811,7 +1811,7 @@ class Simulation():
             self.printStats()
 
         for attempt in xrange(6):
-            print "%s  bl=%d" % (self.name, self.step),
+            print "bl=%d" % (self.step),
             if num is None:
                 num = steps / 5 + 1
             a = time.time()
@@ -1852,7 +1852,7 @@ class Simulation():
                     self.getData()) ** 2, axis=1)))
                 print "dr=%.2lf" % (dif,),
                 self.data = coords
-                print "time=%.2lfps" % (self.state.getTime() / ps),
+                print "t=%2.1lfps" % (self.state.getTime() / ps),
                 print "kin=%.2lf pot=%.2lf" % (eK,
                     eP), "Rg=%.3lf" % self.RG(),
                 print "SPS=%.0lf" % (steps / (float(b - a)))

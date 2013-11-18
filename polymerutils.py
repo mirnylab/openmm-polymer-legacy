@@ -95,20 +95,22 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
             pdbGroups = [str(int(i)) for i in pdbGroups]
 
         for i, line, group in zip(range(len(data)), data, pdbGroups):
+            atomNum = (i + 1) % 90000
+            segmentNum = (i + 1) / 90000 + 1
             line = [float(j) for j in line]
             ret = add("ATOM", 7)
-            ret = add(ret + "%i" % (i + 1), 13)
+            ret = add(ret + "%i" % (atomNum), 13)
             ret = add(ret + "CA", 17)
             ret = add(ret + "ALA", 21)
             ret = add(ret + group[0], 22)
-            ret = add(ret + "%i" % (i), 30)
+            ret = add(ret + "%i" % (atomNum), 30)
             ret = add(ret + ("%8.3f" % line[0]), 37)
             ret = add(ret + ("%8.3f" % line[1]), 45)
             ret = add(ret + ("%8.3f" % line[2]), 53)
             ret = add(ret + (" 1.00"), 61)
             ret = add(ret + str(float(i % 8 > 4)), 67)
             ret = add(ret, 73)
-            ret = add(ret + group[:4], 77)
+            ret = add(ret + str(segmentNum), 77)
             retret += (ret + "\n")
 
         f = open(filename, 'w')

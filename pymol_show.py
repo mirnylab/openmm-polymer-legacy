@@ -180,6 +180,26 @@ def do_coloring(data, regions, colors, transparencies,
     Run an example method below to see how the code works.
     See full automation examples below.
     """
+    def getSelectionString(start, end):
+        if start > end:
+            raise ValueError("start should be less than end")
+        maxNum = 90000
+        atom1 = (start + 1) % maxNum
+        seg1 = (start + 1) / maxNum + 1
+        atom2 = (end + 1) % maxNum
+        seg2 = (end + 1) / maxNum + 1
+
+        if seg1 == seg2:
+            return "resi {atom1}-{atom2} and segi {seg1}".format(**locals())
+        elif np.abs(seg1 - seg2) == 1:
+            return "(resi {atom1}-{maxNum) and segi {seg1}) or (resi 0-{atom2} and segi {seg2})".format(**locals())
+        elif np.abs(seg1 - seg2) == 2:
+            segMid = seg1 + 1
+            return "(resi {atom1}-{maxNum) and segi {seg1}) or (resi 0-{atom2} and segi {seg2}) or (segi {segMid})".format(**locals())
+        else:
+            raise ValueError("Atoms are too far")
+
+
     data = np.array(data)
     data *= multiplier
     chainRadius *= multiplier
@@ -231,8 +251,8 @@ def do_coloring(data, regions, colors, transparencies,
         out.write("set ray_opaque_background, off\n")
 
     for i in xrange(len(regions)):
-        out.write("select %s, resi %d-%d\n" % (names[i], regions[i][0], regions[i][1]))
-        out.write("create subchain%s,%s\n" % (names[i], names[i]))
+        out.write("select %s\n" % (getSelectionString(*regions[i])))
+        out.write("create subchain%s,sele\n" % (names[i]))
         #out.write("remove subchain%s in %s\n"%(names[i],pdbname))
 
     if showChain == "worm":

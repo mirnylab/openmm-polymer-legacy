@@ -178,7 +178,6 @@ nm = units.meter * 1e-9
 fs = units.second * 1e-15
 ps = units.second * 1e-12
 
-
 class Simulation():
     """Base class for openmm simulations
 
@@ -242,6 +241,7 @@ class Simulation():
         self.metadata = {}
         self.length_scale = length_scale
         self.mass_scale = mass_scale
+        self.eKcritical = 200 # Max allowed kinetic energy
 
     def setup(self, platform="CUDA", PBC=False, PBCbox=None, GPU="default",
               integrator="langevin", verbose=True, errorTol=None):
@@ -385,8 +385,43 @@ class Simulation():
         print "--------------> Bye <---------------"
         exit()
 
+
+    def setChains(self, chains=[(0, None, 0)]):
+        """
+        Sets configuration of the chains in the system. This information is
+        later used by the chain-forming methods, e.g. addHarmonicPolymerBonds()
+        and addStiffness().
+        This method supersedes the less general getLayout().
+
+        Parameters
+        ----------
+
+        chains: list of tuples
+            The list of chains in format [(start, end, isRing)]. The particle
+            range should be semi-open, i.e. a chain (0,3,0) links
+            the particles 0, 1 and 2. If bool(isRing) is True than the first
+            and the last particles of the chain are linked into a ring.
+            The default value links all particles of the system into one chain.
+        """
+
+        if not hasattr(self, "N"):
+            raise ValueError("Load the chain first, or provide chain length")
+
+        self.chains = chains
+        for i in range(len(self.chains)):
+            start, end, isRing = self.chains[i]
+            end = self.N if (end is None) else end
+            self.chains[i] = (start, end, isRing)
+
+    def getChains(self):
+        "returns configuration of chains"
+        return self.chains
+
     def setLayout(self, mode="chain", chains=None, Nchains=1):
-        """sets layout of chains for chains or rings.
+        """!!! This method is deprecated, please use setChains instead.
+
+
+        sets layout of chains for chains or rings.
         By default makes one chain. You can change it to one ring (mode=ring).
         You can either have chains/rings of equal length (mode=, Nchains=).
         Or you can have chains or rings of different lengthes (mode=, chains=).
@@ -411,28 +446,31 @@ class Simulation():
             Number of chains, if they all are of the same lengths.
             Ignored if chains is specified exactly.
 
-
         """
 
-        if mode in ["chain", "ring"]:
+        if not hasattr(self, "N"):
+            raise ValueError("Load the chain first, or provide chain length")
 
-            if chains is not None:
-                self.chains = chains
-            else:
-                if not hasattr(self, "N"):
-                    raise ValueError("Load the chain first, or provide chain length")
-                self.chains = []
+        if mode in ["chain", "ring"]:
+            if not (chains is None):
+                self.setChains(
+                    [(start, end, mode=='ring') for start, end in chains])
+                Nchains = len(self.chains)
+            elif Nchains:
+                chains = []
                 for i in xrange(Nchains):
-                    self.chains.append(((self.N * i) /
-                        Nchains, (self.N * (i + 1)) / Nchains))
-        self.mode = mode
-        #print self.N, chains
-        layout = {"chains": chains, "mode": mode, "Nchains": Nchains}
+                    chains.append(
+                        ((self.N * i) / Nchains,
+                         (self.N * (i + 1)) / Nchains,
+                         mode =='ring'))
+                self.setChains(chains)
+
+        layout = {"chains": chains, "Nchains": Nchains}
         self.metadata["layout"] = repr(layout)
 
     def getLayout(self):
         "returns configuration of chains"
-        return self.chains
+        return self.getChains()
 
     def load(self, filename,  # Input filename, or input data array
              center=False,  # Shift center of mass to zero?
@@ -881,18 +919,18 @@ class Simulation():
         energy of the bond equals kT
         """
 
-        for i in self.chains:
-            for j in xrange(i[0], i[1] - 1):
+        for start, end, isRing in self.chains:
+            for j in xrange(start, end - 1):
                 self.addBond(j, j + 1, wiggleDist, distance=1,
                     bondType="Harmonic", verbose=False)
                 self.bondsForException.append((j, j + 1))
 
-            if self.mode == "ring":
-                self.addBond(i[0], i[1] - 1, wiggleDist,
+            if isRing:
+                self.addBond(start, end - 1, wiggleDist,
                     distance=1, bondType="Harmonic")
-                self.bondsForException.append((i[0], i[1] - 1))
+                self.bondsForException.append((start, end - 1))
                 if self.verbose == True:
-                    print "ring bond added", i[0], i[1] - 1
+                    print "ring bond added", start, end - 1
 
         self.metadata["HarmonicPolymerBonds"] = repr({"wiggleDist": wiggleDist})
 
@@ -913,15 +951,17 @@ class Simulation():
 
          """
 
-        for i in self.chains:
-            for j in xrange(i[0], i[1] - 1):
+        for start, end, isRing in self.chains:
+            for j in xrange(start, end - 1):
                 self.addBond(j, j + 1, bondType="Grosberg")
                 self.bondsForException.append((j, j + 1))
-            if self.mode == "ring":
-                self.addBond(i[0], i[1] - 1, bondType="Grosberg")
-                self.bondsForException.append((i[0], i[1] - 1))
+
+            if isRing:
+                self.addBond(start, end - 1, distance=1, bondType="Harmonic")
+                self.bondsForException.append((start, end - 1))
                 if self.verbose == True:
-                    print "ring bond added", i[0], i[1] - 1
+                    print "ring bond added", start, end - 1
+
         self.metadata["GorsbergPolymerForce"] = repr({"k": k})
 
     def addStiffness(self, k=1.5):
@@ -946,12 +986,12 @@ class Simulation():
         stiffForce = self.mm.CustomAngleForce(
             "kT*angK * (theta - 3.141592) * (theta - 3.141592) * (0.5)")
         self.forceDict["AngleForce"] = stiffForce
-        for i in self.chains:
-            for j in xrange(i[0] + 1, i[1] - 1):
+        for start, end, isRing in self.chains:
+            for j in xrange(start + 1, end - 1):
                 stiffForce.addAngle(j - 1, j, j + 1, [float(k[j])])
-            if self.mode == "ring":
-                stiffForce.addAngle(i[1] - 2, i[1] - 1, i[0], [k[i[1] - 1]])
-                stiffForce.addAngle(i[1] - 1, i[0], i[0] + 1, [k[i[0]]])
+            if isRing:
+                stiffForce.addAngle(end - 2, end - 1, start, [k[end - 1]])
+                stiffForce.addAngle(end - 1, start, start + 1, [k[start]])
 
         stiffForce.addGlobalParameter("kT", self.kT)
         stiffForce.addPerAngleParameter("angK")
@@ -989,15 +1029,14 @@ class Simulation():
 
         stiffForce.addGlobalParameter("kT", self.kT)
         stiffForce.addPerAngleParameter("GRk")
-        for i in self.chains:
-            for j in xrange(i[0] + 1, i[1] - 1):
+        for start, end, isRing in self.chains:
+            for j in xrange(start + 1, end - 1):
                 stiffForce.addAngle(j - 1, j, j + 1, [k[j]])
-            if self.mode == "ring":
-                stiffForce.addAngle(i[1] - 2, i[1] - 1, i[0], [k[i[1] - 1]])
-                stiffForce.addAngle(i[1] - 1, i[0], i[0] + 1, [k[i[0]]])
+            if isRing:
+                stiffForce.addAngle(end - 2, end - 1, start, [k[end - 1]])
+                stiffForce.addAngle(end - 1, start, start + 1, [k[start]])
 
         self.metadata["GrosbergAngleForce"] = repr({"stiffness": k})
-
 
     def addGrosbergRepulsiveForce(self, trunc=None, radiusMult=1.):
         """This is the fastest non-transparent repulsive force.
@@ -1838,7 +1877,7 @@ class Simulation():
                     self.initVelocities()
             print "pos[1]=[%.1lf %.1lf %.1lf]" % tuple(newcoords[0]),
 
-            if ((numpy.isnan(newcoords).any()) or (eK > 200) or
+            if ((numpy.isnan(newcoords).any()) or (eK > self.eKcritical) or
                 (numpy.isnan(eK)) or (numpy.isnan(eP))):
 
                 self.context.setPositions(self.data)
@@ -1893,8 +1932,8 @@ class Simulation():
 
         print
         print "Statistics for the simulation %s, number of particles: %d, "\
-        " number of chains: %d,  mode:  %s" % (
-            self.name, self.N, len(self.chains), self.mode)
+        " number of chains: %d" % (
+            self.name, self.N, len(self.chains))
         print
         print "Statistics for particle position"
         print "     mean position is: ", numpy.mean(

@@ -192,10 +192,10 @@ def do_coloring(data, regions, colors, transparencies,
         if seg1 == seg2:
             return "resi {atom1}-{atom2} and segi {seg1}".format(**locals())
         elif np.abs(seg1 - seg2) == 1:
-            return "(resi {atom1}-{maxNum) and segi {seg1}) or (resi 0-{atom2} and segi {seg2})".format(**locals())
+            return "(resi {atom1}-{maxNum} and segi {seg1}) or (resi 0-{atom2} and segi {seg2})".format(**locals())
         elif np.abs(seg1 - seg2) == 2:
             segMid = seg1 + 1
-            return "(resi {atom1}-{maxNum) and segi {seg1}) or (resi 0-{atom2} and segi {seg2}) or (segi {segMid})".format(**locals())
+            return "(resi {atom1}-{maxNum} and segi {seg1}) or (resi 0-{atom2} and segi {seg2}) or (segi {segMid})".format(**locals())
         else:
             raise ValueError("Atoms are too far")
 

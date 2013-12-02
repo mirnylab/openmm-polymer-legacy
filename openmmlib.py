@@ -3,8 +3,8 @@
 #                  Anton Goloborodko (golobor@mit.edu)
 
 """
-Openmm-lib - a wrapper above Openmm to use with polymer simulations
-===================================================================
+Openmm-lib - a wrapper around Openmm to use with polymer simulations
+====================================================================
 
 Summary
 -------
@@ -241,7 +241,7 @@ class Simulation():
         self.metadata = {}
         self.length_scale = length_scale
         self.mass_scale = mass_scale
-        self.eKcritical = 200 # Max allowed kinetic energy
+        self.eKcritical = 200  # Max allowed kinetic energy
 
     def setup(self, platform="CUDA", PBC=False, PBCbox=None, GPU="default",
               integrator="langevin", verbose=True, errorTol=None):
@@ -454,7 +454,7 @@ class Simulation():
         if mode in ["chain", "ring"]:
             if not (chains is None):
                 self.setChains(
-                    [(start, end, mode=='ring') for start, end in chains])
+                    [(start, end, mode == 'ring') for start, end in chains])
                 Nchains = len(self.chains)
             elif Nchains:
                 chains = []
@@ -462,7 +462,7 @@ class Simulation():
                     chains.append(
                         ((self.N * i) / Nchains,
                          (self.N * (i + 1)) / Nchains,
-                         mode =='ring'))
+                         mode == 'ring'))
                 self.setChains(chains)
 
         layout = {"chains": chains, "Nchains": Nchains}
@@ -1840,6 +1840,9 @@ class Simulation():
         """
 
         if self.forcesApplied == False:
+            if self.verbose:
+                print "applying forces"
+                sys.stdout.flush()
             self._applyForces()
             self.forcesApplied = True
         if increment == True:
@@ -1851,10 +1854,17 @@ class Simulation():
 
         for attempt in xrange(6):
             print "bl=%d" % (self.step),
+            sys.stdout.flush()
+            if self.verbose:
+                print
+                sys.stdout.flush()
+
             if num is None:
                 num = steps / 5 + 1
             a = time.time()
             for _ in xrange(steps / num):
+                if self.verbose:
+                    print "performing integration"
                 self.integrator.step(num)  # integrate!
                 sys.stdout.flush()
             if (steps % num) > 0:

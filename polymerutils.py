@@ -1,10 +1,43 @@
 
-
+import sys
 import numpy as np
 import joblib
 import os
 from math import sqrt, sin, cos
 import numpy
+
+def Cload(filename, center=False):
+    """fast polymer loader using weave.inline
+
+    ..warning:: About to be deprecated
+    """
+    f = open(filename, 'r')
+    line = f.readline()
+    N = int(line)
+    ret = numpy.zeros((3, N), order="C", dtype=numpy.double)
+    code = """
+    #line 85 "binary_search.py"
+    using namespace std;
+    FILE *in;
+    const char * myfile = filename.c_str();
+    in = fopen(myfile,"r");
+    int dummy;
+    dummy = fscanf(in,"%d",&dummy);
+    for (int i = 0; i < N; i++)
+    {
+    dummy = fscanf(in,"%lf %lf %lf ",&ret[i],&ret[i + N],&ret[i + 2 * N]);
+    if (dummy < 3){printf("Error in the file!!!");throw -1;}
+    }
+    """
+    support = """
+    #include <math.h>
+    """
+    from scipy import weave
+    weave.inline(code, ['filename', 'N', 'ret'], extra_compile_args=[
+        '-march=native -malign-double'], support_code=support)
+    if center == True:
+        ret -= numpy.mean(ret, axis=1)[:, None]
+    return ret.T
 
 
 def load(filename, h5dictKey=None):
@@ -20,8 +53,7 @@ def load(filename, h5dictKey=None):
             N = int(line0)
         except ValueError:
             raise TypeError("Cannot read text file... reading pickle file")
-        lines = open(filename).readlines()[1:]
-        data = [[float(i) for i in j.split()] for j in lines if len(j) > 3]
+        data = Cload(filename, center=False)
 
         if len(data) != N:
             raise ValueError("N does not correspond to the number of lines!")
@@ -119,6 +151,53 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
 
     else:
         raise ValueError("Unknown mode : %s, use h5dict, joblib, txt or pdb" % mode)
+
+
+def msd(data1, data2, rotate=True, N=999999, fullReturn=False):
+    from numpy import sin, cos
+    import scipy.optimize
+
+    def rotation_matrix(rotate):
+        tx, ty, tz = rotate
+        Rx = np.array([[1, 0, 0], [0, cos(tx), -sin(tx)], [0, sin(tx), cos(tx)]])
+        Ry = np.array([[cos(ty), 0, -sin(ty)], [0, 1, 0], [sin(ty), 0, cos(ty)]])
+        Rz = np.array([[cos(tz), -sin(tz), 0], [sin(tz), cos(tz), 0], [0, 0, 1]])
+        return np.dot(Rx, np.dot(Ry, Rz))
+
+    def distN(a, b, N=N):
+        num = len(a) / N + 1
+        newa = a[::num]
+        newb = b[::num]
+        return numpy.sqrt(numpy.mean((newa - newb) ** 2) * 3)
+
+    def distance(rotate_shift, N=N):
+    #    print rotate
+        rotate = rotate_shift[:3]
+        shift = rotate_shift[3:]
+        rotated = numpy.dot(data2, rotation_matrix(rotate))
+        shifted = rotated + shift[None, :]
+        return distN(data1, shifted, N=N)
+
+    if not rotate:
+        return distN(data1, data2, 999999)
+
+    optimal = scipy.optimize.fmin(distance, (0, 0, 0, 0, 0, 0), xtol=1e-4, ftol=1e-4)
+
+    r = numpy.arange(len(data1))
+    numpy.random.shuffle(r)
+    mydist = distance(optimal, N=999999)
+    shuffled = distN(data1, data1[r], N=999999)
+    original = distN(data1, data2, N=999999)
+    print "shuffled distance = ", shuffled
+    print "original distance =", original
+    print "optimized distance= ", mydist
+    if not fullReturn:
+        return mydist
+    else:
+        return {"optimized":mydist, "original":original,
+                "shuffled":shuffled, "angle":optimal[:3],
+                "shift":optimal[3:]}
+
 
 
 def generateRandomLooping(length=10000, oneMoverPerBp=1000, numSteps=100):

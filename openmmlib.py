@@ -244,7 +244,7 @@ class Simulation():
         self.eKcritical = 200  # Max allowed kinetic energy
 
     def setup(self, platform="CUDA", PBC=False, PBCbox=None, GPU="default",
-              integrator="langevin", verbose=True, errorTol=None):
+              integrator="langevin", verbose=True, errorTol=None, precision="mixed"):
         """Sets up the important low-level parameters of the platform.
         Mandatory to run.
 
@@ -279,6 +279,10 @@ class Simulation():
         self.step = 0
         if PBC == True:
             self.metadata["PBC"] = True
+
+        precision = precision.lower()
+        if precision not in ["mixed", "single", "double"]:
+            raise ValueError("Presision must be mixed, single or double")
 
         self.kB = units.BOLTZMANN_CONSTANT_kB * \
             units.AVOGADRO_CONSTANT_NA  # Boltzmann constant
@@ -320,7 +324,7 @@ class Simulation():
             if self.GPU.lower() != "default":
                 platformObject.setPropertyDefaultValue(
                     'OpenCLDeviceIndex', self.GPU)
-            platformObject.setPropertyDefaultValue('OpenCLPrecision', "mixed")
+            platformObject.setPropertyDefaultValue('OpenCLPrecision', precision)
 
         elif platform.lower() == "reference":
             platformObject = self.mm.Platform.getPlatformByName('Reference')
@@ -329,7 +333,7 @@ class Simulation():
             platformObject = self.mm.Platform.getPlatformByName('CUDA')
             if self.GPU.lower() != "default":
                 platformObject.setPropertyDefaultValue('CudaDeviceIndex', self.GPU)
-            platformObject.setPropertyDefaultValue('CudaPrecision', "mixed")
+            platformObject.setPropertyDefaultValue('CudaPrecision', precision)
             platformObject.setPropertyDefaultValue('CudaUseBlockingSync', "true")
 
         else:

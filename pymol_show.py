@@ -291,6 +291,7 @@ def do_coloring(data, regions, colors, transparencies,
 
     for i  in spherePositions:
         out.write("show spheres, i. {0}-{0}\n".format(i))
+        out.write("alter resi {0}, vdw={1}\n".format(i, 1.5 * sphereRadius))
         out.write("set sphere_color, grey60 \n")
 
     if showChain == "worm":
@@ -519,7 +520,8 @@ def example_pymol():
                 regions=regions,
                 colors=colors,
                 transparencies=transp,
-                spherePositions=[500, 600])
+                spherePositions=[500, 600],
+                sphereRadius=0.3)
 
 #example_pymol()
 

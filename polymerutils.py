@@ -1,10 +1,11 @@
-
 import sys
 import numpy as np
 import joblib
 import os
 from math import sqrt, sin, cos
 import numpy
+
+import scipy, scipy.stats
 
 def Cload(filename, center=False):
     """fast polymer loader using weave.inline
@@ -198,6 +199,21 @@ def msd(data1, data2, rotate=True, N=999999, fullReturn=False):
                 "shuffled":shuffled, "angle":optimal[:3],
                 "shift":optimal[3:]}
 
+
+def bondLengths(data):
+    bonds = np.diff(data, axis=0)
+    return np.sqrt((bonds**2).sum(axis=1))
+
+
+def persistenceLength(data):
+    bonds = np.diff(data, axis=0)
+    lens = np.sqrt((bonds**2).sum(axis=1))
+    bondCosines = np.dot(bonds, bonds.T) / lens[:,None] / lens[:, None].T
+    avgCosines = np.array([np.diag(bondCosines, i).mean() for i in range(lens.size)])
+    truncCosines = avgCosines[:np.where(avgCosines < 1.0 / np.e / np.e)[0][0]]
+    slope, intercept, _, _, _ = scipy.stats.linregress(
+        range(truncCosines.size), np.log(truncCosines))
+    return - 1.0 / slope
 
 
 def generateRandomLooping(length=10000, oneMoverPerBp=1000, numSteps=100):
@@ -565,9 +581,10 @@ def getCloudGeometry(d, frac=0.05, numSegments=1, widthPercentile=50, delta=0):
         ys = np.vstack([np.dot(segmd, e2), np.dot(segmd, e3)])
         ys_pred = np.vstack([
             sm.nonparametric.lowess(
-                ys[0], xs, frac=frac, return_sorted=False, delta=10),
+                        ys[0], xs, frac=frac, return_sorted=False, delta=10),
             sm.nonparametric.lowess(
-                ys[1], xs, frac=frac, return_sorted=False, delta=10)])
+                        ys[1], xs, frac=frac, return_sorted=False,
+                         delta=10)])
         order = np.argsort(xs)
         fit_d = np.vstack([xs[order],
                            ys_pred[0][order],

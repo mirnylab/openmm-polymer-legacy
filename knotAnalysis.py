@@ -96,7 +96,7 @@ def expandPolymerRing(data, mode="auto", steps=20):
 
 
 
-def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None):
+def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None, offset=0):
     """
     Takes a polymer ring or chain, and analyzes knot number
 
@@ -106,13 +106,26 @@ def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None):
     data : (nx3) or (3xn) array
         Input data to analyze
     useOpenmm : bool
-        If True, first simplify the polymer
+        If True, first simplify the polymer with OpenMM.
+        Note that this may unfold chains a little bit.
     evalAt : float
         Evaluate A(x) * A(1/x). Use x=-1, or x=-1.1
     lock : lock object
         Lock object to prevent concurrent use of OpenMM
         Use this if you use multithreading
         I prefer multiprocessing.Pool.map, and multiprocessing.Manager.Lock()
+
+    offset : int (optional)
+        OpenMM is usually adjusted to kick in only for sufficiently complex knots.
+        OpenMM would not start for knots which simplify to less than 250 monomers.
+        However, sometimes knot calculation may take longer than expected.
+        This is, for example, relevant for very knotted short polymers.
+        Then you can set offset to a negative number to let OpenMM kick in earlier.
+        Or set it to a positive number to let it kick in later.
+
+        If offset is -100, then OpenMM will start working when a polymer is
+        simplified only to 150 monomers, not to 250.
+
 
     """
 
@@ -122,23 +135,23 @@ def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None):
 
     t = findSimplifiedPolymer(data)
     if useOpenmm == True:
-        if len(t) > 250:
+        if len(t) > 250 + offset:
             ll = len(t)
-            if ll < 300:
+            if ll < 300 + offset:
                 steps = 2
-            elif ll < 400:
+            elif ll < 400 + offset:
                 steps = 4
-            elif ll < 450:
+            elif ll < 450 + offset:
                 steps = 10
-            elif ll < 500:
+            elif ll < 500 + offset:
                 steps = 15
-            elif ll < 550:
+            elif ll < 550 + offset:
                 steps = 25
-            elif ll < 600:
+            elif ll < 600 + offset:
                 steps = 35
-            elif ll < 800:
+            elif ll < 800 + offset:
                 steps = 60
-            elif ll < 1200:
+            elif ll < 1200 + offset:
                 steps = 100
             else:
                 steps = 150

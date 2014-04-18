@@ -6,6 +6,7 @@ from math import sqrt, sin, cos
 import numpy
 
 import scipy, scipy.stats
+from mirnylib.plotting import showPolymerRasmol
 
 def Cload(filename, center=False):
     """fast polymer loader using weave.inline
@@ -202,18 +203,18 @@ def msd(data1, data2, rotate=True, N=999999, fullReturn=False):
 
 def bondLengths(data):
     bonds = np.diff(data, axis=0)
-    return np.sqrt((bonds**2).sum(axis=1))
+    return np.sqrt((bonds ** 2).sum(axis=1))
 
 
 def persistenceLength(data):
     bonds = np.diff(data, axis=0)
-    lens = np.sqrt((bonds**2).sum(axis=1))
-    bondCosines = np.dot(bonds, bonds.T) / lens[:,None] / lens[:, None].T
+    lens = np.sqrt((bonds ** 2).sum(axis=1))
+    bondCosines = np.dot(bonds, bonds.T) / lens[:, None] / lens[:, None].T
     avgCosines = np.array([np.diag(bondCosines, i).mean() for i in range(lens.size)])
     truncCosines = avgCosines[:np.where(avgCosines < 1.0 / np.e / np.e)[0][0]]
     slope, intercept, _, _, _ = scipy.stats.linregress(
         range(truncCosines.size), np.log(truncCosines))
-    return - 1.0 / slope
+    return -1.0 / slope
 
 
 def generateRandomLooping(length=10000, oneMoverPerBp=1000, numSteps=100):
@@ -359,6 +360,21 @@ def create_random_walk(step_size, N, segment_length=1):
     z = step_size * u
     x, y, z = np.cumsum(x), np.cumsum(y), np.cumsum(z)
     return np.vstack([x, y, z]).T
+
+
+matlabImported = False
+def createFBM(length, H):
+    if not matlabImported:
+        import mlabwrap
+        from mlabwrap import mlab
+    x = mlab.wfbm(H, length)
+    y = mlab.wfbm(H, length)
+    z = mlab.wfbm(H, length)
+    result = np.zeros((length, 3))
+    result[:, 0] = x
+    result[:, 1] = y
+    result[:, 2] = z
+    return result
 
 
 def grow_rw(step, size, method="line"):

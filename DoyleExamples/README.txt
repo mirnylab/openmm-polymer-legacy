@@ -1,4 +1,4 @@
-The code presented here  complements publication by Doyle et al, "Chromatin loops as modulators of enhancer-promoter interactions". 
+The code presented here complements publication by Doyle et al., "Chromatin loops as modulators of enhancer-promoter interactions". 
 
 Currently we present the code which performs polymer simulations and generates a set of 3D conformations: sampleSimulation.py
 Parameter values are defined in the text of the code. 

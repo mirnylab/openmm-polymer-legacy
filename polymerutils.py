@@ -1,3 +1,4 @@
+import warnings
 import sys
 import numpy as np
 import joblib
@@ -156,10 +157,36 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
 
 
 def msd(data1, data2, rotate=True, N=999999, fullReturn=False):
+    """
+    An utility to calculate mean square displacement between two polymer conformations
+    Parameters
+    ----------
+
+    data1, dat2 : Mx3 array
+        First conformation
+    rotate : bool (true by default)
+        Compensate for rotation and displacement between conformation
+    N : int (optional)
+        If conformations are large, use only M monomers for comparison.
+        If N > M (num. of particles), use all monomers (default)
+    fullReturn : bool, default=False
+        Return information about all displacements
+
+    returns
+    -------
+
+    MSD : float
+        Diplacement between conformation
+    if fullReturn==False: dictionary of results
+        See the end of the code for reference
+    """
     from numpy import sin, cos
     import scipy.optimize
 
+    warnings.warn("Please use polymerCython.fastMSD; this function will be deprecated")
+
     def rotation_matrix(rotate):
+        """Calculates rotation matrix based on three rotation angles"""
         tx, ty, tz = rotate
         Rx = np.array([[1, 0, 0], [0, cos(tx), -sin(tx)], [0, sin(tx), cos(tx)]])
         Ry = np.array([[cos(ty), 0, -sin(ty)], [0, 1, 0], [sin(ty), 0, cos(ty)]])
@@ -167,6 +194,7 @@ def msd(data1, data2, rotate=True, N=999999, fullReturn=False):
         return np.dot(Rx, np.dot(Ry, Rz))
 
     def distN(a, b, N=N):
+
         num = len(a) / N + 1
         newa = a[::num]
         newb = b[::num]

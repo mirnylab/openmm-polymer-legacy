@@ -581,6 +581,7 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", chains=None, *
     else:
         raise ValueError("please select showChain to be 'worm' or 'spheres'")
     tmpScript.write("zoom {0}\n".format(pdbname))
+    tmpScript.write(kwargs.get("support", ""))
     if not (saveTo is None):
         tmpScript.write("viewport 1200,1200\n")
         tmpScript.write("png {}\n".format(saveTo))

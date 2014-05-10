@@ -108,12 +108,21 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
         return
 
     elif mode == "txt":
-        lines = [str(len(data)) + "\n"]
+        lines = []
+        lines.append(str(len(data)) + "\n")
+
         for particle in data:
-            lines.append("".join([str(j) + " " for j in particle]) + "\n")
-        with open(filename, 'w') as myfile:
-            myfile.writelines(lines)
-        return
+            lines.append("{0} {1} {2}\n".format(*particle))
+        if type(filename) == str:
+            with open(filename, 'w') as myfile:
+                myfile.writelines(lines)
+
+        elif hasattr(filename, "writelines"):
+            filename.writelines(lines)
+        else:
+            return lines
+
+
 
     elif mode == 'pdb':
         data = data - np.minimum(np.min(data, axis=0), np.zeros(3, float) - 100)[None, :]

@@ -1,5 +1,6 @@
 #(c) 2013 Massachusetts Institute of Technology. All Rights Reserved
 # Code written by: Maksim Imakaev (imakaev@mit.edu)
+import subprocess
 
 
 """
@@ -31,9 +32,18 @@ from math import sqrt
 from mirnylib.systemutils import fmapred, fmap, deprecate, setExceptionHook
 import sys
 import mirnylib.numutils
-from polymerutils import load
+from polymerutils import load, save
 import warnings
 import polymerutils
+
+
+try:
+    import simtk.openmm
+    simtk.openmm.Platform_getPlatformByName("CPU")
+    CPU = True
+except:
+    CPU = False
+
 
 
 def intload(filename, center="N/A"):
@@ -167,6 +177,32 @@ def giveIntContacts(data):
     return numpy.concatenate([contacts3[:, None], contacts4[:, None]], 1)
 
 
+def giveContactsOpenMM(data, cutoff=1.7):
+    """
+    A wrapper to an ultra-fast openmm filter by VJ Pande
+    If you use it, you may want to cite OpenMM
+    """
+    print "Using OpenMM contacts"
+    newProcess = subprocess.Popen(["./getCpuNeighborList"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize= -1)
+    try:
+        newProcess.stdin.write("{0}\n".format(cutoff))
+    except IOError:
+        print "Cannot use CpuNeighborList"
+        return None
+    #print newProcess.returncode
+    newProcess.stdin.write("\n")
+    towrite = "".join(save(data, mode="txt", filename=None))
+    output, err = newProcess.communicate(towrite)
+    returncode = newProcess.returncode
+    if returncode != 0:
+        return None
+    array = np.fromstring(output, dtype=int, sep=" ")
+    array = array.reshape((-1, 2))
+    dists2 = np.sum((data[array[:, 0]] - data[array[:, 1]]) ** 2, axis=1)
+    mask = dists2 < cutoff ** 2
+
+    return array[mask]
+
 
 def giveContactsAny(data, cutoff=1.7, maxContacts=300):
     """Returns contacts of any sets of molecules with a given cutoff.
@@ -238,7 +274,10 @@ def giveContactsAny(data, cutoff=1.7, maxContacts=300):
     return points[:k + 1, :]
 
 
-def giveContacts(data, cutoff=1.7, maxContacts=300, method="auto"):
+
+
+
+def giveContacts(data, cutoff=1.7, maxContacts=300, method="auto", tryOpenMM=True):
     """Returns contacts of a single polymer with a given cutoff
 
     .. warning:: Use this only to find contacts of a single polymer chain
@@ -263,6 +302,7 @@ def giveContacts(data, cutoff=1.7, maxContacts=300, method="auto"):
 
     k by 2 array of contacts. Each row corresponds to a contact.
     """
+
     data = numpy.asarray(data)
     if np.isnan(data).any():
         raise RuntimeError("Data contains NANs")
@@ -276,6 +316,18 @@ def giveContacts(data, cutoff=1.7, maxContacts=300, method="auto"):
         raise ValueError("Wrong size of data: %s,%s" % data.shape)
     if data.shape[0] == 3:
         data = data.T
+
+
+    if (CPU == True) and (tryOpenMM == True) and (len(data) > 20000):
+        try:
+            conts = giveContactsOpenMM(data, cutoff)
+            if conts == None:
+                raise RuntimeError("CPU not supported")
+            else:
+                return conts
+        except:
+            pass
+
 
     dists2 = numpy.sqrt(numpy.sum(numpy.diff(data, axis=0) ** 2, axis=1))
     maxRatio = dists2.max() / numpy.median(dists2)
@@ -381,6 +433,8 @@ def giveDistanceMap(data, size=1000):
     return toret
 
 
+
+
 def rescalePoints(points, bins):
     "converts array of contacts to the reduced resolution contact map"
     a = numpy.histogram2d(points[:, 0], points[:, 1], bins)[0]
@@ -389,7 +443,8 @@ def rescalePoints(points, bins):
     return a
 
 
-def rescaledMap(data, bins, cutoff=1.4):
+def rescaledMap(data, bins, cutoff=1.7):
+    #print data.sum(), bins.sum(), cutoff
     """calculates a rescaled contact map of a structure
     Parameters
     ----------
@@ -411,7 +466,7 @@ def rescaledMap(data, bins, cutoff=1.4):
     return rescalePoints(t, bins)
 
 
-def pureMap(data, cutoff=1.4, contactMap=None):
+def pureMap(data, cutoff=1.7, contactMap=None):
     """calculates an all-by-all contact map of a single polymer chain.
     Doesn't work for multi-chain polymers!!!
     If contact map is supplied, it just updates it
@@ -642,7 +697,8 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
             # if file faled to load, return empty map
             print "file not found"
             return numpy.zeros((Nbase, Nbase), "float")
-        return rescaledMap(data, bins, cutoff=cutoff)
+        value = rescaledMap(data, bins, cutoff=cutoff)
+        return value
 
     return fmapred(action, filenames, n=n, exceptionList=exceptionsToIgnore), chromosomeStarts[0:-1]
 
@@ -754,14 +810,25 @@ def _test():
 
     from time import time
     a = time()
-    c2 = giveContacts(c, cutoff=2.2)
+    c2 = giveContacts(c, cutoff=2.2, tryOpenMM=False)
     print "time for giveContacts is: ",
     print time() - a
+
+    if CPU == True:
+        a = time()
+        c3 = giveContactsOpenMM(c, cutoff=2.2)
+        print "time for giveContacts with openmm is: ",
+        print time() - a
+    else:
+        c3 = c1
+
+
 
     a = time()
     c1 = giveContactsAny(c, cutoff=2.2)
     print "time for contactsAny is:", time() - a
     assert transformContacts(c1) == transformContacts(c2)
+    assert transformContacts(c1) == transformContacts(c3)
 
     print "Test completed successfully"
 
@@ -773,16 +840,18 @@ def _test():
         else:
             return c
 
-    onemap = rescaledMap(c, range(0, len(c) + 10, 10))
+    onemap = rescaledMap(c, -0.5 + np.arange(0, len(c) + 10, 10), cutoff=1.7)
 
     manyMap = averageBinnedContactMap(range(10),
                                       binSize=10,
                                       n=1,
+                                      cutoff=1.7,
                                       loadFunction=funnyLoad,
                                       exceptionsToIgnore=[IOError])[0]
     fmapMap = averageBinnedContactMap(range(50),
                                       binSize=10,
                                       n=8,
+                                      cutoff=1.7,
                                       loadFunction=funnyLoad,
                                       exceptionsToIgnore=[IOError])[0]
 

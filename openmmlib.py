@@ -610,7 +610,7 @@ class Simulation():
             if not hasattr(self, "storage"):
                 raise StandardError("Cannot save to h5dict!"\
                                     " Initialize storage first!")
-            self.storage[str(self.step)] = self.getScaledData()
+            self.storage[str(self.step)] = self.getData()
             return
 
         if filename is None:
@@ -621,13 +621,13 @@ class Simulation():
             filename = os.path.join(self.folder, filename)
 
         if mode == "joblib":
-            self.metadata["data"] = self.getScaledData()
+            self.metadata["data"] = self.getData()
             self.metadata["timestep"] = repr(self.timestep / fs)
             self.metadata["Collision rate"] = repr(self.collisionRate / ps)
             joblib.dump(self.metadata, filename=filename, compress=3)
 
         elif (mode == "txt") or (mode == "xyz"):
-            data = self.getScaledData()
+            data = self.getData()
             lines = [str(len(data)) + "\n"]
             if mode == "xyz":
                 lines.append("\n")

@@ -7,7 +7,6 @@ from math import sqrt, sin, cos
 import numpy
 
 import scipy, scipy.stats
-from mirnylib.plotting import showPolymerRasmol
 
 def Cload(filename, center=False):
     """fast polymer loader using weave.inline
@@ -113,7 +112,11 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
 
         for particle in data:
             lines.append("{0} {1} {2}\n".format(*particle))
-        if type(filename) == str:
+        
+        
+        if filename == None:
+            return lines
+        elif type(filename) == str:
             with open(filename, 'w') as myfile:
                 myfile.writelines(lines)
 

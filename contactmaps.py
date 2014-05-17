@@ -36,6 +36,11 @@ from polymerutils import load, save
 import warnings
 import polymerutils
 
+try: 
+    from polymerCython import fastTxtSave
+except:
+    warnings.warn("Please build polymerCython package")
+
 
 try:
     import simtk.openmm
@@ -182,26 +187,44 @@ def giveContactsOpenMM(data, cutoff=1.7):
     A wrapper to an ultra-fast openmm filter by VJ Pande
     If you use it, you may want to cite OpenMM
     """
-    print "Using OpenMM contacts"
-    newProcess = subprocess.Popen(["./getCpuNeighborList"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize= -1)
-    try:
-        newProcess.stdin.write("{0}\n".format(cutoff))
-    except IOError:
-        print "Cannot use CpuNeighborList"
+    print "Using OpenMM contacts..."
+
+
+    folderName = os.path.split(__file__)[0]
+    binaryName = os.path.join(folderName, "getCpuNeighborList")
+    
+    data = numpy.asarray(data)
+    if len(data.shape) != 2:
+        print "bad data"
+        raise ValueError("Wrong dimensions of data")
+    if 3 not in data.shape:
+        print "bad data"
+        raise ValueError("Wrong size of data: %s,%s" % data.shape)
+    if data.shape[0] == 3:
+        data = data.T
+    
+    data = np.asarray(data, order="C", dtype=np.float32)
+        
+    newProcess = subprocess.Popen([binaryName, str(cutoff), str(len(data))], stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize= -1)
+    
+    try: 
+        output, err = newProcess.communicate(data.tostring(order="C"))
+    except:
+        print "Process failed!"
         return None
-    #print newProcess.returncode
-    newProcess.stdin.write("\n")
-    towrite = "".join(save(data, mode="txt", filename=None))
-    output, err = newProcess.communicate(towrite)
+
     returncode = newProcess.returncode
     if returncode != 0:
+        print "Bad return code"
         return None
-    array = np.fromstring(output, dtype=int, sep=" ")
+    
+    array = np.fromstring(output, dtype=np.int32)
     array = array.reshape((-1, 2))
-    dists2 = np.sum((data[array[:, 0]] - data[array[:, 1]]) ** 2, axis=1)
-    mask = dists2 < cutoff ** 2
+    print "finished!"
 
-    return array[mask]
+    return array
+
+
 
 
 def giveContactsAny(data, cutoff=1.7, maxContacts=300):
@@ -318,15 +341,13 @@ def giveContacts(data, cutoff=1.7, maxContacts=300, method="auto", tryOpenMM=Tru
         data = data.T
 
 
-    if (CPU == True) and (tryOpenMM == True) and (len(data) > 20000):
-        try:
-            conts = giveContactsOpenMM(data, cutoff)
-            if conts == None:
-                raise RuntimeError("CPU not supported")
-            else:
-                return conts
-        except:
-            pass
+    if (CPU == True) and (tryOpenMM == True) and (len(data) > 2000):
+        
+        conts = giveContactsOpenMM(data, cutoff)
+        if conts == None:
+            raise RuntimeError("CPU not supported")
+        else:
+            return conts
 
 
     dists2 = numpy.sqrt(numpy.sum(numpy.diff(data, axis=0) ** 2, axis=1))

@@ -349,15 +349,18 @@ class Simulation():
             pass
 
         self.integrator_type = integrator
-        if integrator.lower() == "langevin":
-            self.integrator = self.mm.LangevinIntegrator(self.temperature,
-                self.collisionRate, self.timestep)
-        elif integrator.lower() == "variablelangevin":
-            self.integrator = self.mm.VariableLangevinIntegrator(self.temperature,
-                self.collisionRate, errorTol)
-        elif integrator.lower() == 'brownian':
-            self.integrator = self.mm.BrownianIntegrator(self.temperature,
-                self.collisionRate, self.timestep)
+        if type(integrator) == str: 
+            if integrator.lower() == "langevin":
+                self.integrator = self.mm.LangevinIntegrator(self.temperature,
+                    self.collisionRate, self.timestep)
+            elif integrator.lower() == "variablelangevin":
+                self.integrator = self.mm.VariableLangevinIntegrator(self.temperature,
+                    self.collisionRate, errorTol)
+            elif integrator.lower() == 'brownian':
+                self.integrator = self.mm.BrownianIntegrator(self.temperature,
+                    self.collisionRate, self.timestep)
+            else:
+                print 'please select from "langevin", "variablelangevin", "brownian"'
         else:
             self.integrator = integrator
 
@@ -1041,6 +1044,22 @@ class Simulation():
                 stiffForce.addAngle(end - 1, start, start + 1, [k[start]])
 
         self.metadata["GrosbergAngleForce"] = repr({"stiffness": k})
+        
+    def addMinimizingRepulsiveForce(self):
+        radius = self.conlen * 1.3
+        
+        nbCutOffDist = radius * 1.         
+        repul_energy = "1000* REPe * (1-r/REPr)^2 "
+        
+        self.forceDict["NonbondedMinim"] = self.mm.CustomNonbondedForce(
+            repul_energy)
+        repulforceGr = self.forceDict["NonbondedMinim"]
+        repulforceGr.addGlobalParameter('REPe', self.kT)
+        repulforceGr.addGlobalParameter('REPr', self.kT)
+        for _ in range(self.N):
+            repulforceGr.addParticle(())
+        repulforceGr.setCutoffDistance(nbCutOffDist)
+        
 
     def addGrosbergRepulsiveForce(self, trunc=None, radiusMult=1.):
         """This is the fastest non-transparent repulsive force.
@@ -1737,7 +1756,7 @@ class Simulation():
     def localEnergyMinimization(self, tolerance=1, maxIterations=0):
         "A wrapper to the build-in OpenMM Local Energy Minimization"
         print "Performing local energy minimization"
-        self._applyForces()
+        self._applyForces()                
         oldName = self.name
         self.name = "minim"
 
@@ -1915,7 +1934,7 @@ class Simulation():
                 self.localEnergyMinimization()
             if attempt == 5:
                 self.exitProgram("exceeded number of attempts")
-        return True
+        return {"Ep":eP,"Ek":eK}
 
     def printStats(self):
         """Prints detailed statistics of a system.

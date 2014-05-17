@@ -1,7 +1,46 @@
 import numpy as np 
 cimport numpy as np
+cimport cython   
+
 
 from cpolymerCython cimport *
+
+ctypedef fused my_type:
+    cython.int
+    cython.float
+    cython.char
+    cython.long
+    cython.short
+    cython.double
+    cython.complex
+        
+
+    
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+def fastTxtSave(np.ndarray data,filename):
+    
+    cdef np.ndarray[np.float64_t,ndim = 2] _data = np.array(data, dtype=float)
+    cdef int i 
+    cdef np.ndarray[np.float64_t,ndim = 1] particle
+    
+    lines = []
+    lines.append(str(len(data)) + "\n")
+    
+    for i in range(len(data)):
+        particle = _data[i]
+        lines.append("%lf %lf %lf\n" % (particle[0], particle[1], particle[2]))
+    
+    if type(filename) == str:
+        with open(filename, 'w') as myfile:
+            myfile.writelines(lines)
+
+    elif hasattr(filename, "writelines"):
+        filename.writelines(lines)
+    else:
+        return lines
+
 
 def fastMSD(data1, data2):
     """

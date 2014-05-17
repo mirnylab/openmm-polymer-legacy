@@ -81,7 +81,7 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False,
     if integrate == True:
         connections = np.cumsum(connections) / connections.sum()
 
-    a = [sqrt(i[0] * i[1]) for i in bins]
+    a = [sqrt(i[0] * (i[1]-1)) for i in bins]
     if verbose:
         print list(connections)
     return (a, connections)
@@ -127,7 +127,7 @@ def give_radius_scaling(data, bins=None, ring=False):
     "main working horse for radius of gyration"
     "uses dymanic programming algorithm"
 
-    bins = [sqrt(bins[i] * bins[i + 1]) for i in xrange(len(bins) - 1)]
+    bins = [int(sqrt(bins[i] * bins[i + 1])) for i in xrange(len(bins) - 1)]
 
     data = np.array(data, float)
     coms = np.cumsum(data, 1)  # cumulative sum of locations to calculate COM

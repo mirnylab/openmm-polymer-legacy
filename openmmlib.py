@@ -1753,7 +1753,7 @@ class Simulation():
         self.initPositions()
         self.initVelocities(mult)
 
-    def localEnergyMinimization(self, tolerance=1, maxIterations=0):
+    def localEnergyMinimization(self, tolerance=0.01, maxIterations=0):
         "A wrapper to the build-in OpenMM Local Energy Minimization"
         print "Performing local energy minimization"
         self._applyForces()                

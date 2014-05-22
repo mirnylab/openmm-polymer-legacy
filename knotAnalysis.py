@@ -80,11 +80,13 @@ def expandPolymerRing(data, mode="auto", steps=20):
             mode = "ring"
         else:
             mode = "chain"
+            sim.tetherParticles([0,sim.N-1], 5)
+            #sim.addGravity()
     sim.setLayout(mode=mode)
     sim.addHarmonicPolymerBonds(wiggleDist=0.06)
     sim.addGrosbergRepulsiveForce(trunc=60)
     sim.addGrosbergStiffness(k=3)
-    #sim.energyMinimization(stepsPerIteration=50)
+    #sim.localEnergyMinimization(tolerance = 0.001)
     #sim.localEnergyMinimization()
     sim.doBlock(40)
     for _ in xrange(steps):
@@ -96,7 +98,7 @@ def expandPolymerRing(data, mode="auto", steps=20):
 
 
 
-def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None, offset=0):
+def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None, offset=0, stepMult=1):
     """
     Takes a polymer ring or chain, and analyzes knot number
 
@@ -125,6 +127,14 @@ def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None, offset=0):
 
         If offset is -100, then OpenMM will start working when a polymer is
         simplified only to 150 monomers, not to 250.
+    
+    stepMult : float (optional) 
+        Multiplies the number of steps which OpenMm will do. 
+        OpenMM is run for some time. If you want to reduce or increase this time, 
+        You can use this flag. The main purpose would be to trigger OpenMM early, but 
+        let it run for less. 
+        Setting stepMult to 0.25 will do four times less OpenMM.
+        Setting it to 2 would make twice the amount of OpenMM
 
 
     """
@@ -157,7 +167,7 @@ def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None, offset=0):
                 steps = 150
             if lock != None:
                 lock.acquire()
-                data = expandPolymerRing(data, steps=steps)
+                data = expandPolymerRing(data, steps=int((steps - 1)  * stepMult) + 1)
                 lock.release()
             else:
                 data = expandPolymerRing(data, steps=steps)

@@ -1,4 +1,4 @@
-#(c) 2013 Massachusetts Institute of Technology. All Rights Reserved
+# (c) 2013 Massachusetts Institute of Technology. All Rights Reserved
 # Code written by: Maksim Imakaev (imakaev@mit.edu)
 #                  Anton Goloborodko (golobor@mit.edu)
 
@@ -289,7 +289,7 @@ class Simulation():
         self.kT = self.kB * self.temperature  # thermal energy
         self.mass = 100.0 * units.amu * self.mass_scale
         # All masses are the same,
-        #changing them would be difficult in this formalism
+        # changing them would be difficult in this formalism
         self.bondsForException = []
         self.mm = openmm
         self.conlen = 1. * nm * self.length_scale
@@ -349,7 +349,7 @@ class Simulation():
             pass
 
         self.integrator_type = integrator
-        if type(integrator) == str: 
+        if type(integrator) == str:
             if integrator.lower() == "langevin":
                 self.integrator = self.mm.LangevinIntegrator(self.temperature,
                     self.collisionRate, self.timestep)
@@ -707,6 +707,11 @@ class Simulation():
         assert toRet.min() >= 0
         return toRet
 
+    def addUnits(self, coords):
+        coords = np.asarray(coords, dtype="float")
+        coords = units.Quantity(coords, nm)
+        return coords
+
     def setData(self, data):
         """Sets particle positions
 
@@ -1044,13 +1049,13 @@ class Simulation():
                 stiffForce.addAngle(end - 1, start, start + 1, [k[start]])
 
         self.metadata["GrosbergAngleForce"] = repr({"stiffness": k})
-        
+
     def addMinimizingRepulsiveForce(self):
         radius = self.conlen * 1.3
-        
-        nbCutOffDist = radius * 1.         
+
+        nbCutOffDist = radius * 1.
         repul_energy = "1000* REPe * (1-r/REPr)^2 "
-        
+
         self.forceDict["NonbondedMinim"] = self.mm.CustomNonbondedForce(
             repul_energy)
         repulforceGr = self.forceDict["NonbondedMinim"]
@@ -1059,7 +1064,7 @@ class Simulation():
         for _ in range(self.N):
             repulforceGr.addParticle(())
         repulforceGr.setCutoffDistance(nbCutOffDist)
-        
+
 
     def addGrosbergRepulsiveForce(self, trunc=None, radiusMult=1.):
         """This is the fastest non-transparent repulsive force.
@@ -1130,8 +1135,8 @@ class Simulation():
         repulforceGr.addGlobalParameter('REPe', trunc * self.kT)
         repulforceGr.addGlobalParameter('REPsigma', radius)
         # Coefficients for x^8*(x*x-1)
-        #repulforceGr.addGlobalParameter('REPemin', 256.0 / 3125.0)
-        #repulforceGr.addGlobalParameter('REPrmin', 2.0 / np.sqrt(5.0))
+        # repulforceGr.addGlobalParameter('REPemin', 256.0 / 3125.0)
+        # repulforceGr.addGlobalParameter('REPrmin', 2.0 / np.sqrt(5.0))
         # Coefficients for x^12*(x*x-1)
         repulforceGr.addGlobalParameter('REPemin', 46656.0 / 823543.0)
         repulforceGr.addGlobalParameter('REPrmin', np.sqrt(6.0 / 7.0))
@@ -1479,7 +1484,7 @@ class Simulation():
                 r="density",  # radius... by default uses certain density
                 k=5.,  # How steep the walls are
                 density=.3):  # target density, measured in particles
-                                #per cubic nanometer (bond size is 1 nm)
+                                # per cubic nanometer (bond size is 1 nm)
         """Constrain particles to be within a sphere.
         With no parameters creates sphere with density .3
 
@@ -1511,7 +1516,7 @@ class Simulation():
         self.sphericalConfinementRadius = r
         if self.verbose == True:
             print "Spherical confinement with radius = %lf" % r
-        #assigning parameters of the force
+        # assigning parameters of the force
         spherForce.addGlobalParameter("SPHkb", k * self.kT / nm)
         spherForce.addGlobalParameter("SPHaa", (r - 1. / k) * nm)
         spherForce.addGlobalParameter("SPHt", (1. / k) * nm / 10.)
@@ -1533,7 +1538,7 @@ class Simulation():
         self.sphericalConfinementRadius = r
         if self.verbose == True:
             print "Spherical confinement with radius = %lf" % r
-        #assigning parameters of the force
+        # assigning parameters of the force
         spherForce.addGlobalParameter("EXkb", 2 * self.kT / nm)
         spherForce.addGlobalParameter("EXaa", (r - 1. / 3) * nm)
         spherForce.addGlobalParameter("EXt", (1. / 3) * nm / 10.)
@@ -1567,7 +1572,7 @@ class Simulation():
             "LAMr = sqrt(x^2 + y^2 + z^2 + LAMtt^2)")
         self.forceDict["Lamina attraction"] = laminaForce
 
-        #adding all the particles on which force acts
+        # adding all the particles on which force acts
         for i in xrange(self.N):
             if self.domains[i] > 0.5:
                 laminaForce.addParticle(i, [])
@@ -1585,7 +1590,7 @@ class Simulation():
         laminaForce.addGlobalParameter("LAMdepth", depth * self.kT)
         laminaForce.addGlobalParameter("LAMtt", 0.01 * nm)
 
-    def tetherParticles(self, particles, k=30):
+    def tetherParticles(self, particles, k=30, positions="current"):
         """tethers particles in the 'particles' array.
         Increase k to tether them stronger, but watch the system!
 
@@ -1607,15 +1612,19 @@ class Simulation():
         else:
             tetherForce = self.forceDict["Tethering Force"]
 
-        #assigning parameters of the force
+        # assigning parameters of the force
         tetherForce.addGlobalParameter("TETHkb", k * self.kT / nm)
         tetherForce.addPerParticleParameter("TETHx0")
         tetherForce.addPerParticleParameter("TETHy0")
         tetherForce.addPerParticleParameter("TETHz0")
-        for i in particles:  # adding all the particles on which force acts
+        if positions == "current":
+            positions = [self.data[i] for i in particles]
+        else:
+            positions = self.addUnits(positions)
+
+        for i, pos in zip(particles, positions):  # adding all the particles on which force acts
             i = int(i)
-            coordinates = self.data[i]
-            tetherForce.addParticle(i, list(coordinates))
+            tetherForce.addParticle(i, list(pos))
             if self.verbose == True:
                 print "particle %d tethered! " % i
 
@@ -1676,7 +1685,7 @@ class Simulation():
             elif hasattr(force, "addExclusion"):
                 print 'Add exclusions for {0} force'.format(i)
                 for pair in exc:
-                    #force.addExclusion(*pair)
+                    # force.addExclusion(*pair)
                     force.addExclusion(int(pair[0]), int(pair[1]))
 
             if hasattr(force, "CutoffNonPeriodic") and hasattr(
@@ -1714,9 +1723,9 @@ class Simulation():
             0))  # calculating mean velocity
         velocs = units.Quantity(mult * numpy.random.normal(
             size=(self.N, 3)), units.meter) * (sigma / units.meter)
-        #Guide to simtk.unit: 1. Always use units.quantity.
-        #2. Avoid dimensionless shit.
-        #3. If you have to, create fake units, as done here with meters
+        # Guide to simtk.unit: 1. Always use units.quantity.
+        # 2. Avoid dimensionless shit.
+        # 3. If you have to, create fake units, as done here with meters
         self.context.setVelocities(velocs)
 
     def initPositions(self):
@@ -1734,7 +1743,7 @@ class Simulation():
         self.context.setPositions(self.data)
         print " loaded!",
         state = self.context.getState(getPositions=True, getEnergy=True)
-            #get state of a system: positions, energies
+            # get state of a system: positions, energies
         eP = state.getPotentialEnergy() / self.N / self.kT
         print "potential energy is %lf" % eP
 
@@ -1756,7 +1765,7 @@ class Simulation():
     def localEnergyMinimization(self, tolerance=0.01, maxIterations=0):
         "A wrapper to the build-in OpenMM Local Energy Minimization"
         print "Performing local energy minimization"
-        self._applyForces()                
+        self._applyForces()
         oldName = self.name
         self.name = "minim"
 
@@ -1816,12 +1825,12 @@ class Simulation():
 
                 self.integrator.setStepSize(def_step / float(drop))
                 self.integrator.setFriction(def_fric * drop)
-                #self.reinitialize()
+                # self.reinitialize()
                 numAttempts = 5
                 for attempt in xrange(numAttempts):
                     a = self.doBlock(stepsPerIteration, increment=False,
                         reinitialize=False)
-                    #self.initVelocities()
+                    # self.initVelocities()
                     if a == False:
                         drop *= 2
                         print "Drop increased to {0}".format(drop)
@@ -1842,7 +1851,7 @@ class Simulation():
         self.name = oldName
         self.integrator.setFriction(def_fric)
         self.integrator.setStepSize(def_step)
-        #self.reinitialize()
+        # self.reinitialize()
         print "Finished energy minimization"
 
     def doBlock(self, steps=None, increment=True, num=None, reinitialize=True):
@@ -1934,7 +1943,7 @@ class Simulation():
                 self.localEnergyMinimization()
             if attempt == 5:
                 self.exitProgram("exceeded number of attempts")
-        return {"Ep":eP,"Ek":eK}
+        return {"Ep":eP, "Ek":eK}
 
     def printStats(self):
         """Prints detailed statistics of a system.
@@ -2003,8 +2012,8 @@ class Simulation():
         draws 4 spheres in between any two points (5 * N spheres total)
         """
 
-        #if you want to change positions of the spheres along each segment,
-        #change these numbers: e.g. [0,.1, .2 ...  .9] will draw 10 spheres,
+        # if you want to change positions of the spheres along each segment,
+        # change these numbers: e.g. [0,.1, .2 ...  .9] will draw 10 spheres,
         # and this will look better
 
         data = self.getData()
@@ -2013,11 +2022,11 @@ class Simulation():
         if len(data[0]) != 3:
             print "wrong data!"
             return
-        #determining the 95 percentile distance between particles,
+        # determining the 95 percentile distance between particles,
         meandist = numpy.percentile(numpy.sqrt(
             numpy.sum(numpy.diff(data, axis=0) ** 2, axis=1)), 95)
-        #rescaling the data, so that bonds are of the order of 1.
-        #This is because rasmol spheres are of the fixed diameter.
+        # rescaling the data, so that bonds are of the order of 1.
+        # This is because rasmol spheres are of the fixed diameter.
         data /= meandist
 
         if self.N > 1000:  # system is sufficiently large
@@ -2046,7 +2055,7 @@ class Simulation():
         colors = numpy.array([int((j * 450.) / (len(data))) -
             225 for j in xrange(len(data))])
 
-        #creating spheres along the trajectory
+        # creating spheres along the trajectory
         newData = numpy.zeros(
             (len(data) * len(shifts) - (len(shifts) - 1), 4))
         for i in xrange(len(shifts)):
@@ -2273,7 +2282,7 @@ class ExperimentalSimulation(Simulation):
             "WELLr = sqrt(x^2 + y^2 + z^2 + WELLtt^2)")
         self.forceDict["Well attraction"] = extforce4
 
-        #adding all the particles on which force acts
+        # adding all the particles on which force acts
         for i in xrange(self.N):
             if self.domains[i] > 0.5:
                 extforce4.addParticle(i, [])
@@ -2286,7 +2295,7 @@ class ExperimentalSimulation(Simulation):
         if self.verbose == True:
             print "Well attraction added with r = %d" % r
 
-        #assigning parameters of the force
+        # assigning parameters of the force
         extforce4.addGlobalParameter("WELLwidth", r * nm)
         extforce4.addGlobalParameter("WELLdepth", depth * self.kT)
         extforce4.addGlobalParameter("WELLtt", 0.01 * nm)
@@ -2307,10 +2316,10 @@ class YeastSimulation(Simulation):
             "r = sqrt(x^2 + y^2 + (z + NUCoffset )^2 + NUCtt^2)")
 
         self.forceDict["NucleolusConfinement"] = extforce3
-        #adding all the particles on which force acts
+        # adding all the particles on which force acts
         if self.verbose == True:
             print "NUCleolus confinement from radius = %lf" % r
-        #assigning parameters of the force
+        # assigning parameters of the force
         extforce3.addGlobalParameter("NUCkb", k * self.kT / nm)
         extforce3.addGlobalParameter("NUCaa", (r - 1. / k) * nm * 1.75)
         extforce3.addGlobalParameter("NUCoffset", (r - 1. / k) * nm * 1.1)
@@ -2326,9 +2335,9 @@ class YeastSimulation(Simulation):
             "LAMr = sqrt(x^2 + y^2 + z^2 + LAMtt^2)")
         self.forceDict["Lamina attraction"] = extforce3
 
-        #re-defines lamina attraction based on particle index instead of domains.
+        # re-defines lamina attraction based on particle index instead of domains.
 
-        #adding all the particles on which force acts
+        # adding all the particles on which force acts
         if particles is None:
             for i in xrange(self.N):
                 extforce3.addParticle(i, [])
@@ -2351,7 +2360,7 @@ class YeastSimulation(Simulation):
         if self.verbose == True:
             print "Lamina attraction added with r = %d" % r
 
-        #assigning parameters of the force
+        # assigning parameters of the force
         extforce3.addGlobalParameter("LAMaa", r * nm)
         extforce3.addGlobalParameter("LAMwidth", width * nm)
         extforce3.addGlobalParameter("LAMdepth", depth * self.kT)

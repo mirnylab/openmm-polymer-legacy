@@ -1762,7 +1762,7 @@ class Simulation():
         self.initPositions()
         self.initVelocities(mult)
 
-    def localEnergyMinimization(self, tolerance=0.01, maxIterations=0):
+    def localEnergyMinimization(self, tolerance=0.3, maxIterations=0):
         "A wrapper to the build-in OpenMM Local Energy Minimization"
         print "Performing local energy minimization"
         self._applyForces()
@@ -1790,15 +1790,13 @@ class Simulation():
 
     def energyMinimization(self, stepsPerIteration=100,
                            maxIterations=1000,
-                           failNotConverged=True, force=False):
+                           failNotConverged=True):
         """Runs system at smaller timestep and higher collision
         rate to resolve possible conflicts.
 
         Now we're moving towards local energy minimization,
         this is here for backwards compatibility.
         """
-        if force == False:
-            raise RuntimeError("Please use local energy minimizer, or set force=True")
 
         print "Performing energy minimization"
         self._applyForces()
@@ -1833,14 +1831,14 @@ class Simulation():
                     # self.initVelocities()
                     if a == False:
                         drop *= 2
-                        print "Drop increased to {0}".format(drop)
+                        print "Timestep decreased {0}".format(1. / drop)
                         self.initVelocities()
                         break
                     if attempt == numAttempts - 1:
                         if drop == 1.:
                             return 0
                         drop /= 2
-                        print "Drop decreased to {0}".format(drop)
+                        print "Timestep decreased by {0}".format(drop)
                         self.initVelocities()
             return -1
 

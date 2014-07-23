@@ -112,8 +112,8 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
 
         for particle in data:
             lines.append("{0} {1} {2}\n".format(*particle))
-        
-        
+
+
         if filename == None:
             return lines
         elif type(filename) == str:
@@ -430,9 +430,9 @@ def grow_rw(step, size, method="line"):
     """
     numpy = np
     t = size / 2
-    if method == "standart":
+    if method == "standard":
         a = [(t, t, t), (t, t, t + 1), (t, t + 1, t + 1), (t, t + 1, t)]
-    if method == "line":
+    elif method == "line":
         a = []
         for i in xrange(1, size):
             a.append((t, t, i))
@@ -440,18 +440,21 @@ def grow_rw(step, size, method="line"):
         for i in xrange(size - 1, 0, -1):
             a.append((t, t - 1, i))
 
-    if method == "linear":
+    elif method == "linear":
         a = []
         for i in xrange(0, size + 1):
             a.append((t, t, i))
         if (len(a) % 2) != (step % 2):
             a = a[:-1]
 
+    else:
+        raise ValueError("select methon from line, standard, linear")
+
     b = numpy.zeros((size + 1, size + 1, size + 1), int)
     for i in a:
         b[i] = 1
     for i in xrange((step - len(a)) / 2):
-        #print len(a)
+        # print len(a)
         while True:
             t = numpy.random.randint(0, len(a))
             if t != len(a) - 1:
@@ -481,7 +484,7 @@ def grow_rw(step, size, method="line"):
                 b[tuple(t3)] = 1
                 b[tuple(t4)] = 1
                 break
-        #print a
+        # print a
     return numpy.array(a)
 
 
@@ -517,11 +520,11 @@ def createSpiralRing(N, twist, r=0, offsetPerParticle=np.pi, offset=0):
     totalTwist = twist * N
     totalTwist = np.floor(totalTwist / (2 * np.pi)) * 2 * np.pi
     alpha = np.linspace(0, 2 * np.pi, N + 1)[:-1]
-    #print alpha
+    # print alpha
     twistPerParticle = totalTwist / float(N) + offsetPerParticle
     R = float(N) / (2 * np.pi)
     twist = np.cumsum(np.ones(N, dtype=float) * twistPerParticle) + offset
-    #print twist
+    # print twist
     x0 = R + r * np.cos(twist)
     z = 0 + r * np.sin(twist)
     x = x0 * np.cos(alpha)
@@ -1337,7 +1340,7 @@ def _testMutualSimplify():
     print 'Test finished successfully'
 
 
-#_testMutualSimplify()
+# _testMutualSimplify()
 
 
 
@@ -1350,4 +1353,4 @@ def testLinkingNumber():
         nb = np.dot(mat, b)
         print getLinkingNumber(na, nb, randomOffset=False)
 
-#testLinkingNumber()
+# testLinkingNumber()

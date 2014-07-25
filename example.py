@@ -7,62 +7,61 @@ import os
 
 def exampleOpenmm():
     """
-    An example script which generates a compact polymer and expands it to occupy the entire volume
-
-    You need to have a OpenMM-compatible GPU and
-    OpenMM installed to run this script.
-    Otherwise you can switch to "reference" platform
-    a.setup(platform = "reference")
-
-    To install OpenMM please go to their website:
-    https://simtk.org/home/openmm
-
+    An example script which generates an extended polymer, and lets it collapse to a sphere.
+    Please follow comments along the text for explanations.
     """
 
-    # a = Simulation(timestep=80, thermostat=0.002)
-    # Old version to use with integrator="langevin"
+    # ----------- Initializing general simulation parameters---------
 
-    a = Simulation(thermostat=0.002)
-    # timestep not necessary for variableLangevin
+    # Initialization for simulations with constant environment, using default integrator (langevin)
+    # Fine-tune timestep and thermostat parameters so that your simulation does not blow up,
+    # But is going as fast as possible. You might need to increase timestep, but don't let
+    # your kinetic energy be above 1.6 in the "steady" regime
 
-    # a.setup(platform="cuda", verbose=True)
+    # a = Simulation(timestep=80, thermostat=0.005)
+    # a.setup(platform="cuda", verbose=True)  # Switch to platform="OpenCL" if you don't have cuda
 
-    a.setup(platform="cuda", integrator="variableLangevin", errorTol=0.01, verbose=True)
-    # If simulation blows up, decrease errorTol twice and try again
-
-    # We use CUDA on 680 GTX, and OpenCL on 580 GTS
-    # MirnyLab: Now use "Cuda" on quill, proteome, kulibin, zubr and wiz
+    # Alternative initialization for dynamic simulations with strong forces,
+    #  which would automatically adjusts timestep
+    # This is relevant, for example, for simulations of polymer collapse
+    # If simulation blows up, decrease errorTol by a factor of two and try again
+    a = Simulation(thermostat=0.02)  # timestep not necessary for variableLangevin
+    a.setup(platform="cuda", integrator="variableLangevin", errorTol=0.06, verbose=True)
 
     a.saveFolder("trajectory")  # folder where to save trajectory
-    # Folder to save trajectory
+
+
+    # ------- Creation of the initial conformation-----------
 
     # polymer = polymerutils.load("globule")
-    # loads compact polymer conformation
+    # loads compact polymer conformation of the length 6000
 
     # polymer = polymerutils.grow_rw(8000, 50, method="standard")
     # grows a compact polymer ring of a length 8000 in a 50x50x50 box
 
-    # polymer = polymerutils.create_spiral(r1=4, r2=20, N=8000)
-    # Creates a polymer arranged in a cylinder of diameter 20, 8000 monomers long
+    # polymer = polymerutils.create_spiral(r1=4, r2=10, N=8000)
+    # Creates a compact polymer arranged in a cylinder of radius 10, 8000 monomers long
 
-    polymer = polymerutils.create_random_walk(1, 12000)
+    polymer = polymerutils.create_random_walk(1, 8000)
+    # Creates an extended "random walk" conformation of length 8000
 
     a.load(polymer, center=True)  # loads a polymer, puts a center of mass at zero
 
-    a.save(os.path.join(a.folder, "original"))
-    # saves the original file in the same folder
+    # -----------Initialize conformation of the chains--------
+    # By default the library assumes you have one polymer chain
+    # If you want to make it a ring, or more than one chain, use self.setChains
+    # self.setChains([(0,50,1),(50,None,0)]) will set a 50-monomer ring and a chain from monomer 50 to the end
 
-    a.setLayout(mode="chain")
-    # This line initializes the fact that we have one chain
 
+    # -----------Adding forces ---------------
     a.addSphericalConfinement(density=0.85, k=1)
-    # Specifying density is more intuitive
-    # k is the slope of confinement potential, measured in kt/mon
+    # Specifying density is more intuitive than radius
+    # k is the slope of confinement potential, measured in kT/mon
     # set k=5 for harsh confinement
-    # and k = 0.2 or something for collapse simulation
+    # and k = 0.2 or less for collapse simulation
 
     a.addHarmonicPolymerBonds(wiggleDist=0.05)
-    # Bonds will fluctuate +- 0.05 on average
+    # Bond distance will fluctuate +- 0.05 on average
 
     a.addGrosbergRepulsiveForce(trunc=50)
     # this will resolve chain crossings and will not let chain cross anymore
@@ -81,17 +80,19 @@ def exampleOpenmm():
     # Use it to minimize energy if you're doing diffusion simulations
     # If you're simulating dynamics of collapse or expansion, please do not use it
 
-    # a.energyMinimization(stepsPerIteration=10)
+    a.energyMinimization(stepsPerIteration=10)  # increase to 100 for larger or more complex systems
     # An algorithm to start a simulation
-    # Works only with langevin integrator
-    # Decreases a timestep for some time and lets simulation settle down
+    # Which works only with langevin integrator (but will not throw an error otherwise)
+    # Decreases a timestep, and then increases it slowly back to normal
 
-    a.save()
-    for _ in xrange(10):
-        a.doBlock(2000)
-        a.save()
-    a.printStats()
-    a.show()
+    # -----------Running a simulation ---------
+
+    a.save()  # save original conformation
+    for _ in xrange(10):  # Do 10 blocks
+        a.doBlock(2000)  # Of 2000 timesteps each
+        a.save()  # and save data every block
+    a.printStats()  # In the end, print statistics
+    a.show()  # and show the polymer if you want to see it.
 
 
 exampleOpenmm()

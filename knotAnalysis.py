@@ -1,4 +1,4 @@
-#(c) 2013 Massachusetts Institute of Technology. All Rights Reserved
+# (c) 2013 Massachusetts Institute of Technology. All Rights Reserved
 # Code written by: Maksim Imakaev (imakaev@mit.edu)
 
 import numpy
@@ -9,6 +9,7 @@ from tempfile import NamedTemporaryFile
 from polymerutils import grow_rw, getLinkingNumber, create_random_walk
 from polymerutils import findSimplifiedPolymer
 import platform
+import polymerutils
 arch = platform.architecture()
 
 folderName = os.path.split(__file__)[0]
@@ -20,7 +21,7 @@ else:
 
 
 
-def getKnotNumber(data, evalAt= -1.1):
+def getKnotNumber(data, evalAt=-1.1):
     """A wrapper to code which gets knotting number of a polymer
 
     Parameters
@@ -80,14 +81,14 @@ def expandPolymerRing(data, mode="auto", steps=20):
             mode = "ring"
         else:
             mode = "chain"
-            sim.tetherParticles([0,sim.N-1], 5)
-            #sim.addGravity()
+            sim.tetherParticles([0, sim.N - 1], 5)
+            # sim.addGravity()
     sim.setLayout(mode=mode)
     sim.addHarmonicPolymerBonds(wiggleDist=0.06)
     sim.addGrosbergRepulsiveForce(trunc=60)
     sim.addGrosbergStiffness(k=3)
-    #sim.localEnergyMinimization(tolerance = 0.001)
-    #sim.localEnergyMinimization()
+    # sim.localEnergyMinimization(tolerance = 0.001)
+    # sim.localEnergyMinimization()
     sim.doBlock(40)
     for _ in xrange(steps):
         sim.doBlock(2000)
@@ -98,7 +99,7 @@ def expandPolymerRing(data, mode="auto", steps=20):
 
 
 
-def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None, offset=0, stepMult=1):
+def analyzeKnot(data, useOpenmm=False, simplify=True, evalAt=-1.1, lock=None, offset=0, stepMult=1):
     """
     Takes a polymer ring or chain, and analyzes knot number
 
@@ -127,12 +128,12 @@ def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None, offset=0, stepMu
 
         If offset is -100, then OpenMM will start working when a polymer is
         simplified only to 150 monomers, not to 250.
-    
-    stepMult : float (optional) 
-        Multiplies the number of steps which OpenMm will do. 
-        OpenMM is run for some time. If you want to reduce or increase this time, 
-        You can use this flag. The main purpose would be to trigger OpenMM early, but 
-        let it run for less. 
+
+    stepMult : float (optional)
+        Multiplies the number of steps which OpenMm will do.
+        OpenMM is run for some time. If you want to reduce or increase this time,
+        You can use this flag. The main purpose would be to trigger OpenMM early, but
+        let it run for less.
         Setting stepMult to 0.25 will do four times less OpenMM.
         Setting it to 2 would make twice the amount of OpenMM
 
@@ -143,47 +144,88 @@ def analyzeKnot(data, useOpenmm=False, evalAt= -1.1, lock=None, offset=0, stepMu
     if len(data) == 3:
         data = data.T
 
-    t = findSimplifiedPolymer(data)
-    if useOpenmm == True:
-        if len(t) > 250 + offset:
-            ll = len(t)
-            if ll < 300 + offset:
-                steps = 2
-            elif ll < 400 + offset:
-                steps = 4
-            elif ll < 450 + offset:
-                steps = 10
-            elif ll < 500 + offset:
-                steps = 15
-            elif ll < 550 + offset:
-                steps = 25
-            elif ll < 600 + offset:
-                steps = 35
-            elif ll < 800 + offset:
-                steps = 60
-            elif ll < 1200 + offset:
-                steps = 100
-            else:
-                steps = 150
-            if lock != None:
-                lock.acquire()
-                data = expandPolymerRing(data, steps=int((steps - 1)  * stepMult) + 1)
-                lock.release()
-            else:
-                data = expandPolymerRing(data, steps=steps)
-            t = findSimplifiedPolymer(data)
+    if simplify:
+        t = findSimplifiedPolymer(data)
+        if useOpenmm == True:
+            if len(t) > 250 + offset:
+                ll = len(t)
+                if ll < 300 + offset:
+                    steps = 2
+                elif ll < 400 + offset:
+                    steps = 4
+                elif ll < 450 + offset:
+                    steps = 10
+                elif ll < 500 + offset:
+                    steps = 15
+                elif ll < 550 + offset:
+                    steps = 25
+                elif ll < 600 + offset:
+                    steps = 35
+                elif ll < 800 + offset:
+                    steps = 60
+                elif ll < 1200 + offset:
+                    steps = 100
+                else:
+                    steps = 150
+                if lock != None:
+                    lock.acquire()
+                    data = expandPolymerRing(data, steps=int((steps - 1) * stepMult) + 1)
+                    lock.release()
+                else:
+                    data = expandPolymerRing(data, steps=steps)
+                t = findSimplifiedPolymer(data)
+    else:
+        t = data
 
-
-
-    #t = data
     print "simplified from {0} to {1} monomers".format(len(data), len(t))
 
     try:
         print "OpenMM helped: %d to %d" % (ll, len(t))
     except:
         pass
-    number = getKnotNumber(t, evalAt=evalAt)
-    num = float(number[0].split()[1])
-    return num
+    output = getKnotNumber(t, evalAt=evalAt)
+    word = output[0].split()[1]
+    if word == "0_0":
+        return 1
+    return float(word)
 
 
+def _testAnalyzeKnot():
+    np = numpy
+
+    for _ in xrange(100):
+        a = polymerutils.grow_rw(1000, 12, method="standard")
+        kn = analyzeKnot(a, simplify=False)
+        print kn
+        assert kn == 1
+
+
+    for _ in xrange(50):
+        a = np.random.random((40, 3))
+        ka = analyzeKnot(a, simplify=False)
+        mat = np.random.random((3, 3))
+        kb = analyzeKnot(np.dot(a, mat), simplify=False)
+        print
+        print ka, kb
+        assert np.abs(ka / kb - 1) < 0.0001
+        print
+
+# _testAnalyzeKnot()
+
+def _testSimplify():
+    np = numpy
+
+    for _ in xrange(200):
+        s = 20
+        # a = np.cumsum(np.random.randn(s, 3), axis=0) + np.random.randn(s, 3) * 2
+        a = np.random.randn(s, 3) * 2
+
+        ka = analyzeKnot(a, simplify=False)
+        kb = analyzeKnot(a, simplify=True)
+        print
+        print ka, kb
+        assert np.abs(ka / kb - 1) < 0.0001
+        print
+
+
+# _testSimplify()

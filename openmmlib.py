@@ -169,7 +169,8 @@ import tempfile
 import warnings
 import polymerutils
 
-os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda/lib64:/usr/local/openmm/lib"
+
+os.environ["LD_LIBRARY_PATH"] = os.environ.get("LD_LIBRARY_PATH", "") + ":/usr/local/cuda/lib64:/usr/local/openmm/lib"
 
 import simtk.openmm as openmm
 import simtk.unit as units
@@ -223,8 +224,7 @@ class Simulation():
 
         mass_scale : float, optional
             The scaling factor of the mass of the system.
-            By default, length_scale=1.0 and harmonic bonds and repulsive forces
-            have the scale of 1 nm.
+
 
 
         """
@@ -273,6 +273,8 @@ class Simulation():
 
         errorTol : float, optional
             Error tolerance parameter for variableLangevin integrator
+            Values of 0.03-0.1 are reasonable for "nice" simulation
+            Simulations with strong forces may need 0.01 or less
 
         """
 
@@ -289,7 +291,7 @@ class Simulation():
         self.kT = self.kB * self.temperature  # thermal energy
         self.mass = 100.0 * units.amu * self.mass_scale
         # All masses are the same,
-        # changing them would be difficult in this formalism
+        # unless individual mass multipliers are specified in self.load()
         self.bondsForException = []
         self.mm = openmm
         self.conlen = 1. * nm * self.length_scale
@@ -297,7 +299,7 @@ class Simulation():
         self.PBC = PBC
 
         if self.PBC == True:  # if periodic boundary conditions
-            if PBCbox is None:
+            if PBCbox is None:  # Automatically setting up PBC box
                 data = self.getData()
                 data -= numpy.min(data, axis=0)
 
@@ -341,12 +343,6 @@ class Simulation():
         self.platform = platformObject
 
         self.forceDict = {}  # Dictionary to store forces
-        try:
-            for _ in xrange(self.N):
-                self.system.addParticle(self.mass)
-            print self.N, "particles loaded"
-        except:
-            pass
 
         self.integrator_type = integrator
         if type(integrator) == str:
@@ -360,7 +356,7 @@ class Simulation():
                 self.integrator = self.mm.BrownianIntegrator(self.temperature,
                     self.collisionRate, self.timestep)
             else:
-                print 'please select from "langevin", "variablelangevin", "brownian"'
+                print 'please select from "langevin", "variablelangevin", "brownian" or provide an integrator object'
         else:
             self.integrator = integrator
 
@@ -378,16 +374,7 @@ class Simulation():
             os.mkdir(folder)
         self.folder = folder
 
-    def exitProgram(self, line):
-        """Prints error line and exits program
-
-        Parameters
-        ----------
-
-        line : str
-            Line to print
-
-        """
+    def _exitProgram(self, line):
         print line
         print "--------------> Bye <---------------"
         exit()
@@ -425,63 +412,29 @@ class Simulation():
         return self.chains
 
     def setLayout(self, mode="chain", chains=None, Nchains=1):
-        """!!! This method is deprecated, please use setChains instead.
-
-
-        sets layout of chains for chains or rings.
-        By default makes one chain. You can change it to one ring (mode=ring).
-        You can either have chains/rings of equal length (mode=, Nchains=).
-        Or you can have chains or rings of different lengthes (mode=, chains=).
-        You can't have a mix of rings and chains
-
-        .. note :: If some monomers are unused in the chains,
-        they become freely floating.
-
-        Parameters
-        ----------
-
-        mode : "chain" or "ring"
-            Does the system consist of rings or chains?
-
-        chains : None or ((0,L1),(L1,L2),(L2,L3)...)
-            Specifies exact chain/ring start/end particle numbers,
-            if chains are of different lengths. Nchains is ignored.
-            E.g. if you have 3 chains of length 5,10,15,
-            chains should be [(0,5),(5,15),(15,30)]
-
-        Nchains : int
-            Number of chains, if they all are of the same lengths.
-            Ignored if chains is specified exactly.
-
-        """
-
-        if not hasattr(self, "N"):
-            raise ValueError("Load the chain first, or provide chain length")
-
-        if mode in ["chain", "ring"]:
-            if not (chains is None):
-                self.setChains(
-                    [(start, end, mode == 'ring') for start, end in chains])
-                Nchains = len(self.chains)
-            elif Nchains:
-                chains = []
-                for i in xrange(Nchains):
-                    chains.append(
-                        ((self.N * i) / Nchains,
-                         (self.N * (i + 1)) / Nchains,
-                         mode == 'ring'))
-                self.setChains(chains)
-
-        layout = {"chains": chains, "Nchains": Nchains}
-        self.metadata["layout"] = repr(layout)
+        """Deprecated method. Use setChains instead"""
+        if (mode != "chain") or (chains != None) or (Nchains != 1):
+            raise NotImplementedError("setLayout is deprecated. Use setChains")
 
     def getLayout(self):
         "returns configuration of chains"
         return self.getChains()
 
+    def _loadParticles(self):
+        if not hasattr(self, "system"):
+            return
+        if not self.loaded:
+            for mass in self.masses:
+                self.system.addParticle(self.mass * mass)
+            if self.verbose == True:
+                print "%d particles loaded" % self.N
+            self.loaded = True
+
+
     def load(self, filename,  # Input filename, or input data array
              center=False,  # Shift center of mass to zero?
-             h5dictKey=None
+             h5dictKey=None,
+             masses=None,
              ):
         """loads data from file.
         Accepts text files, joblib files or pure data as Nx3 or 3xN array
@@ -499,6 +452,9 @@ class Simulation():
 
         h5dictKey : int or str, optional
             Indicates that you need to load from an h5dict
+        masses : array
+            Masses of each atom, measured in self.mass (default: 100 AMU,
+            but could be modified by self.mass_scale)
         """
         if h5dictKey is not None:
             from mirnylib.h5dict import h5dict
@@ -536,9 +492,9 @@ class Simulation():
         if len(data) == 3:
             data = numpy.transpose(data)
         if len(data[0]) != 3:
-            self.exitProgram("strange data file")
+            self._exitProgram("strange data file")
         if numpy.isnan(data).any():
-            self.exitProgram("\n!!!!!!!!!!file contains NANS!!!!!!!!!\n")
+            self._exitProgram("\n!!!!!!!!!!file contains NANS!!!!!!!!!\n")
 
         if center is True:
             av = numpy.mean(data, 0)
@@ -555,14 +511,13 @@ class Simulation():
             print "center of mass is", numpy.mean(self.data, 0)
             print "Radius of gyration is,", self.RG()
 
-        try:
-            for i in xrange(self.N):
-                self.system.addParticle(self.mass)
-            if self.verbose == True:
-                print "%d particles loaded" % self.N
-            self.loaded = True
-        except:
-            pass
+        if masses == None:
+            self.masses = [1. for _ in xrange(self.N)]
+        else:
+            self.masses = masses
+
+        if not hasattr(self, "chains"):
+            self.setChains()
 
     def save(self, filename=None, mode="auto"):
         """Saves conformation plus some metadata.
@@ -609,6 +564,7 @@ class Simulation():
                 mode = "h5dict"
             else:
                 mode = "joblib"
+
         if mode == "h5dict":
             if not hasattr(self, "storage"):
                 raise StandardError("Cannot save to h5dict!"\
@@ -788,10 +744,10 @@ class Simulation():
         elif filename is not None:
             self.domains = cPickle.load(open(domains))
         else:
-            self.exit("You have to specify at least some domains!")
+            self.exit("You have to specify domain vector or filename!")
 
         if len(self.domains) != self.N:
-            self.exitProgram("Wrong domain lengths")
+            self._exitProgram("Wrong domain lengths")
 
         cPickle.dump(self.domains, open(os.path.join(self.folder,
             "domains.dat"), 'wb'))
@@ -807,8 +763,7 @@ class Simulation():
     def _initGrosbergBondForce(self):
         "inits Grosberg FENE bond force"
         if "GrosbergBondForce" not in self.forceDict.keys():
-            force = (
-                "- 0.5 * GROSk * GROSr0 * GROSr0 * log(1-(r/GROSr0)* (r / GROSr0))"
+            force = ("- 0.5 * GROSk * GROSr0 * GROSr0 * log(1-(r/GROSr0)* (r / GROSr0))"
                 " + (4 * GROSe * ((GROSs/r)^12 - (GROSs/r)^6) + GROSe) * step(GROScut - r)")
             bondforceGr = self.mm.CustomBondForce(force)
             bondforceGr.addGlobalParameter("GROSk", 30 *
@@ -838,8 +793,7 @@ class Simulation():
     def _initAbsDistanceLimitation(self):
         "inits abs(x) FENE bond force"
         if "AbsLimitation" not in self.forceDict.keys():
-            force = (
-                "(1. / ABSwiggle) * ABSunivK * step(r - ABSr0 * ABSconlen) "
+            force = ("(1. / ABSwiggle) * ABSunivK * step(r - ABSr0 * ABSconlen) "
                 "* (sqrt((r-ABSr0 * ABSconlen)"
                 "*(r - ABSr0 * ABSconlen) + ABSa * ABSa) - ABSa)")
             bondforceAbsLim = self.mm.CustomBondForce(force)
@@ -902,10 +856,8 @@ class Simulation():
 
         if bondType.lower() == "harmonic":
             self._initHarmonicBondForce()
-            kbond = (2 * self.kT / (bondSize * self.conlen)
-                ** 2) / (units.kilojoule_per_mole / nm ** 2)
-            self.forceDict["HarmonicBondForce"].addBond(
-                int(i), int(j), float(distance), float(kbond))
+            kbond = (2 * self.kT / (bondSize * self.conlen) ** 2) / (units.kilojoule_per_mole / nm ** 2)
+            self.forceDict["HarmonicBondForce"].addBond(int(i), int(j), float(distance), float(kbond))
 
         elif bondType.lower() == "grosberg":
             self._initGrosbergBondForce()
@@ -920,7 +872,7 @@ class Simulation():
                 j), [float(bondWiggleDistance), float(distance)])
 
         else:
-            self.exitProgram("Bond type not known")
+            self._exitProgram("Bond type not known")
         if verbose == True:
             print "%s bond added between %d,%d, wiggle %lf dist %lf" % (
                 bondType, i, j, float(bondWiggleDistance), float(distance))
@@ -1051,6 +1003,11 @@ class Simulation():
         self.metadata["GrosbergAngleForce"] = repr({"stiffness": k})
 
     def addMinimizingRepulsiveForce(self):
+        """
+        Adds a special force which could be use for very efficient resolution of crossings
+        Use this force if your monomers are all "on top of each other"
+        E.g. if you start your simulations with fractional brownyan motion with h < 0.4
+        """
         radius = self.conlen * 1.3
 
         nbCutOffDist = radius * 1.
@@ -1326,7 +1283,7 @@ class Simulation():
                   "epsilonAttr": epsilonAttr, "blindFraction": blindFraction})
 
         if blindFraction > 0.99:
-            self.exitProgram("why do you need this force without particles???"\
+            self._exitProgram("why do you need this force without particles???"\
                              " set blindFraction between 0 and 1")
         if (sigmaRep is None) and (sigmaAttr is None):
             sigmaAttr = sigmaRep = self.conlen
@@ -1659,12 +1616,14 @@ class Simulation():
         self.forceDict["PullForce"] = pullForce
 
     def _applyForces(self):
+        """Adds all particles to the system.
+        Then applies all the forces in the forcedict.
+        Forces should not be modified after that, unless you do it carefully
+        (see openmm reference)."""
 
         if self.forcesApplied == True:
             return
-        """Applies all the forces in the forcedict.
-        Forces should not be modified after that, unless you do it carefully
-        (see openmm reference)."""
+        self._loadParticles()
 
         exc = self.bondsForException
         print "Number of exceptions:", len(exc)
@@ -1765,6 +1724,7 @@ class Simulation():
     def localEnergyMinimization(self, tolerance=0.3, maxIterations=0):
         "A wrapper to the build-in OpenMM Local Energy Minimization"
         print "Performing local energy minimization"
+
         self._applyForces()
         oldName = self.name
         self.name = "minim"
@@ -1940,7 +1900,7 @@ class Simulation():
             if attempt in [3, 4]:
                 self.localEnergyMinimization()
             if attempt == 5:
-                self.exitProgram("exceeded number of attempts")
+                self._exitProgram("exceeded number of attempts")
         return {"Ep":eP, "Ek":eK}
 
     def printStats(self):

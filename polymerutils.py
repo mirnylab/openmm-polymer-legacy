@@ -90,6 +90,9 @@ def load(filename, h5dictKey=None):
 
 
 def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
+
+    data = np.asarray(data, dtype=np.float32)
+
     h5dictKey = str(h5dictKey)
     mode = mode.lower()
 
@@ -781,40 +784,29 @@ def findSimplifiedPolymer(data):
     int t=0,s=0,k=0;
     int turn=0;
     bool breakflag;
-    double maxdist=0;
+
     int a;
     position=vector<point>(N);
     newposition=vector<point>(N);
 
     for (i=0;i<N;i++)
     {
-    position[i].x = datax[i] +  0.00001*(rand()%1000);
-    position[i].y = datay[i] +0.00001*(rand()%1000);
-    position[i].z  = dataz[i] +  0.00001*(rand()%1000);
+    position[i].x = datax[i] +  0.000000000001*(rand()%1000);
+    position[i].y = datay[i] + 0.00000000000001*(rand()%1000);
+    position[i].z  = dataz[i] +  0.0000000000001*(rand()%1000);
     }
     todelete = vector <int> (N);
     for (i=0;i<N;i++) todelete[i] == -2;
-    while (true)
+    for (int xxx = 0; xxx < 1000; xxx++)
         {
-        maxdist = 0;
-        for (i=0;i<N-1;i++)
-        {
-        if (dist(i,i+1) > maxdist) {maxdist = dist(i,i+1);}
-        }
-        //printf ("maxdist = %lf\n",maxdist);
         turn++;
         M=0;
         for (i=0;i<N;i++) todelete[i] = -2;
         for (int j=1;j<N-1;j++)  //going over all elements trying to delete
             {
-
             breakflag = false; //by default we delete thing
             for (k=0;k<N;k++)  //going over all triangles to check
                 {
-                double dd = dist(j,k);
-                if (dd  < 3 * maxdist)
-                {
-
                 if (k < j-2 || k > j+1)
                     {
                     if (k < N-1) k1 = k+1;
@@ -828,8 +820,6 @@ def findSimplifiedPolymer(data):
                         break;
                         }
                     }
-                }
-                else k+= abs((int)((float)dd/(float)maxdist )- 3);
                 }
             if (breakflag ==false)
             {
@@ -1016,7 +1006,7 @@ def _mutualSimplify(data1, data2):
     int t=0,s=0,k=0, k1;
     int turn=0;
     bool breakflag;
-    double maxdist=0;
+
     int a;
     position1=vector<point>(N1);
     newposition1=vector<point>(N1);
@@ -1047,16 +1037,6 @@ def _mutualSimplify(data1, data2):
 
     for (int ttt = 0; ttt < 1; ttt++)
         {
-        maxdist = 0;
-        for (i=0;i<N1-1;i++)
-        {
-        if (dist1(i,i+1) > maxdist) {maxdist = dist1(i,i+1);}
-        }
-        for (i=0;i<N2-1;i++)
-        {
-        if (dist2(i,i+1) > maxdist) {maxdist = dist2(i,i+1);}
-        }
-        //printf ("maxdist = %lf\n",maxdist);
         turn++;
         M=0;
         for (i=0;i<N1;i++) todelete1[i] = -2;
@@ -1323,7 +1303,7 @@ def _testMutualSimplify():
         b = create_random_walk(1, 1000)
 
         a = np.dot(a, mat)
-        b - np.dot(b, mat)
+        b = np.dot(b, mat)
         a = a + np.random.random(a.shape) * 0.0001
         b = b + np.random.random(b.shape) * 0.0001
 
@@ -1338,9 +1318,6 @@ def _testMutualSimplify():
 
 
     print 'Test finished successfully'
-
-
-# _testMutualSimplify()
 
 
 

@@ -649,7 +649,7 @@ def makeMoviePymol(
         zoom mov
         viewport {1}, {2}
         set ray_trace_frames=1
-        mpng mov
+
 
         mview store
         mset -{3}

@@ -618,6 +618,7 @@ def makeMoviePymol(
 
     for i, dataPath in enumerate(fileList):
         d = polymerutils.load(dataPath)
+        d[:,0], d[:,2] = d[:,2].copy(), d[:,0].copy()
         d *= rescalingFactor
         d -= np.mean(d, axis=0)[None, :]
         pdbFilename = '{0:0{width}}.pdb'.format(i, width=numDigits)
@@ -639,6 +640,9 @@ def makeMoviePymol(
 
     if pymolScript == None:
         script += textwrap.dedent("""
+
+        rotate [1,1,1], 90, mov
+        turn [1,1,1], 45
         smooth mov
         bg white
         set ray_opaque_background, off

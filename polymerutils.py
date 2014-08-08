@@ -630,7 +630,9 @@ def getCloudGeometry(d, frac=0.05, numSegments=1, widthPercentile=50, delta=0):
 
     """
 
-    import statsmodels as sm
+    import statsmodels
+    import statsmodels.nonparametric
+    import statsmodels.nonparametric.smoothers_lowess
     from mirnylib import numutils
 
     dists = []
@@ -642,9 +644,9 @@ def getCloudGeometry(d, frac=0.05, numSegments=1, widthPercentile=50, delta=0):
         xs = np.dot(segmd, e1)
         ys = np.vstack([np.dot(segmd, e2), np.dot(segmd, e3)])
         ys_pred = np.vstack([
-            sm.nonparametric.lowess(
+            statsmodels.nonparametric.smoothers_lowess.lowess(
                         ys[0], xs, frac=frac, return_sorted=False, delta=10),
-            sm.nonparametric.lowess(
+            statsmodels.nonparametric.smoothers_lowess.lowess(
                         ys[1], xs, frac=frac, return_sorted=False,
                          delta=10)])
         order = np.argsort(xs)

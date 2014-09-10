@@ -265,8 +265,9 @@ class Simulation():
             Machines with 1 GPU automatically select right GPU.
             Machines with 2 GPUs select GPU that is less used.
 
-        integrator : "langevin", "variableLangevin", "brownian", optional
-            Integrator to use (see Openmm class reference)
+        integrator : "langevin", "variableLangevin", "verlet", "variableVerlet",
+                     "brownian", optional Integrator to use
+                     (see Openmm class reference)
 
         verbose : bool, optional
             Shout out loud about every change.
@@ -352,11 +353,18 @@ class Simulation():
             elif integrator.lower() == "variablelangevin":
                 self.integrator = self.mm.VariableLangevinIntegrator(self.temperature,
                     self.collisionRate, errorTol)
+            elif integrator.lower() == "verlet":
+                self.integrator = self.mm.VariableVerletIntegrator(self.timestep)
+            elif integrator.lower() == "variableverlet":
+                self.integrator = self.mm.VariableVerletIntegrator(errorTol)
+
             elif integrator.lower() == 'brownian':
                 self.integrator = self.mm.BrownianIntegrator(self.temperature,
                     self.collisionRate, self.timestep)
             else:
-                print 'please select from "langevin", "variablelangevin", "brownian" or provide an integrator object'
+                print ('please select from "langevin", "variablelangevin", '
+                       '"verlet", "variableVerlet", '
+                       '"brownian" or provide an integrator object')
         else:
             self.integrator = integrator
 
@@ -1479,6 +1487,12 @@ class Simulation():
         spherForce.addGlobalParameter("SPHt", (1. / k) * nm / 10.)
         spherForce.addGlobalParameter("SPHtt", 0.01 * nm)
         return r
+
+    def addAndersenThermostat(self):
+        self.metadata["AndersenThermostat"] = repr({})
+        andersenThermo = self.mm.AndersenThermostat(
+            self.temperature, self.collisionRate)
+        self.forceDict["AndersenThermostat"] = andersenThermo
 
     def excludeSphere(self, r=5, position=(0, 0, 0)):
         """Excludes particles from a sphere of radius r at certain position.

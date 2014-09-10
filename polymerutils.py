@@ -170,6 +170,13 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
     else:
         raise ValueError("Unknown mode : %s, use h5dict, joblib, txt or pdb" % mode)
 
+def rotation_matrix(rotate):
+    """Calculates rotation matrix based on three rotation angles"""
+    tx, ty, tz = rotate
+    Rx = np.array([[1, 0, 0], [0, np.cos(tx), -np.sin(tx)], [0, np.sin(tx), np.cos(tx)]])
+    Ry = np.array([[np.cos(ty), 0, -np.sin(ty)], [0, 1, 0], [np.sin(ty), 0, np.cos(ty)]])
+    Rz = np.array([[np.cos(tz), -np.sin(tz), 0], [np.sin(tz), np.cos(tz), 0], [0, 0, 1]])
+    return np.dot(Rx, np.dot(Ry, Rz))
 
 def msd(data1, data2, rotate=True, N=999999, fullReturn=False):
     """
@@ -195,18 +202,9 @@ def msd(data1, data2, rotate=True, N=999999, fullReturn=False):
     if fullReturn==False: dictionary of results
         See the end of the code for reference
     """
-    from numpy import sin, cos
     import scipy.optimize
 
     warnings.warn("Please use polymerCython.fastMSD; this function will be deprecated")
-
-    def rotation_matrix(rotate):
-        """Calculates rotation matrix based on three rotation angles"""
-        tx, ty, tz = rotate
-        Rx = np.array([[1, 0, 0], [0, cos(tx), -sin(tx)], [0, sin(tx), cos(tx)]])
-        Ry = np.array([[cos(ty), 0, -sin(ty)], [0, 1, 0], [sin(ty), 0, cos(ty)]])
-        Rz = np.array([[cos(tz), -sin(tz), 0], [sin(tz), cos(tz), 0], [0, 0, 1]])
-        return np.dot(Rx, np.dot(Ry, Rz))
 
     def distN(a, b, N=N):
 
@@ -630,7 +628,9 @@ def getCloudGeometry(d, frac=0.05, numSegments=1, widthPercentile=50, delta=0):
 
     """
 
-    import statsmodels as sm
+    import statsmodels
+    import statsmodels.nonparametric
+    import statsmodels.nonparametric.smoothers_lowess
     from mirnylib import numutils
 
     dists = []
@@ -642,9 +642,9 @@ def getCloudGeometry(d, frac=0.05, numSegments=1, widthPercentile=50, delta=0):
         xs = np.dot(segmd, e1)
         ys = np.vstack([np.dot(segmd, e2), np.dot(segmd, e3)])
         ys_pred = np.vstack([
-            sm.nonparametric.lowess(
+            statsmodels.nonparametric.smoothers_lowess.lowess(
                         ys[0], xs, frac=frac, return_sorted=False, delta=10),
-            sm.nonparametric.lowess(
+            statsmodels.nonparametric.smoothers_lowess.lowess(
                         ys[1], xs, frac=frac, return_sorted=False,
                          delta=10)])
         order = np.argsort(xs)
@@ -660,6 +660,7 @@ def getCloudGeometry(d, frac=0.05, numSegments=1, widthPercentile=50, delta=0):
     width = np.percentile(dists, widthPercentile)
 
     return length, width
+
 
 
 def _getLinkingNumber(data1, data2, randomOffset=True):

@@ -1,0 +1,13 @@
+These files are files to do fast neighbors list calculation with OpenMM. 
+
+They were compiled against OpenMM 6.1 and OpenMM 6.0 
+
+If something is not working, please do the following. 
+
+
+1. Download OpenMM source code 
+2. Build it and make sure it builds successfully 
+3. replace the file OpenMMSourceCode/platforms/cpu/tests/TestCpuNeighborList.cpp with the file getCpuNeighborList
+4. re-run make for OpenMM (DO not make test)
+5. copy file TestCpuNeighborList from your build folder to getCpuNeighborList6.1 or getCpuNeighborList6.0 (look at the beginning of contactmaps.py file and try to figure out which is being used; usually if your OpenMM version is >= 6.1, we will use 6.1; if it is 6.0 or 6.0.x, we will use 6.0; if it is less than 6.0, we will not use anything as syntax changed there somewhere. 
+

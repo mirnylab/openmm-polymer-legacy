@@ -1,4 +1,4 @@
-#(c) 2013 Massachusetts Institute of Technology. All Rights Reserved
+# (c) 2013 Massachusetts Institute of Technology. All Rights Reserved
 # Code written by: Maksim Imakaev (imakaev@mit.edu)
 
 import mirnylib.systemutils
@@ -81,7 +81,7 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False,
     if integrate == True:
         connections = np.cumsum(connections) / connections.sum()
 
-    a = [sqrt(i[0] * (i[1]-1)) for i in bins]
+    a = [sqrt(i[0] * (i[1] - 1)) for i in bins]
     if verbose:
         print list(connections)
     return (a, connections)
@@ -161,7 +161,7 @@ def give_radius_scaling(data, bins=None, ring=False):
 
 
 def give_radius_scaling_eig(data, bins=None):
-    #gives volume^^0.33 as  defined through  eigenvectors
+    # gives volume^^0.33 as  defined through  eigenvectors
     if bins is None:
         bins = [2 * i for i in logbins(1, 0.45 * len(data[0]), 1.3, 40)]
     x, y, z = data[0], data[1], data[2]
@@ -251,11 +251,11 @@ def subchainDensityFunction(filenames, bins, normalize="Rg", maxLength=3, Nbins=
                 else:
                     raise ValueError("Provide correct centerAt: com or mid")
                 shifted = subchain - com[None, :]
-                #print shifted
+                # print shifted
                 dists = np.sqrt(np.sum(shifted ** 2, axis=1))
                 sphereCounts += np.histogram(dists, lengthbins)[0]
             sphereCounts /= (volumes * count)
-            #curresults.append(np.array([lengthBinMids/rg,sphereCounts]))
+            # curresults.append(np.array([lengthBinMids/rg,sphereCounts]))
             if normalize == "rg":
                 curresults.append(np.array([lengthBinMids / rg, sphereCounts]))
             elif normalize == "none":
@@ -277,7 +277,7 @@ def subchainDensityFunction(filenames, bins, normalize="Rg", maxLength=3, Nbins=
 def give_slices(base, tosave, slices, sliceParams,
                 multipliers, mode="chain", loadFunction=load,
                 integrate=False, normalize=False, exceptionList=[],
-                nproc=4, cutoff=1.7, binstep=1.15, verbose=False):
+                nproc=4, cutoff=1.7, binstep=1.15, integerSlices=True, verbose=False):
     np.seterr(invalid='raise')
 
     plotsBySlice = []
@@ -296,8 +296,11 @@ def give_slices(base, tosave, slices, sliceParams,
                     tm.append((i, a))
             elif type(b) == list:
                 tm = [(i, a) for i in b]
-            tm2 = sorted(list(set([(i[0], int(
-                float(i[1]) * m)) for i in tm for m in mult])))
+            if integerSlices:
+                tm2 = sorted(list(set([(i[0], int(
+                    float(i[1]) * m)) for i in tm for m in mult])))
+            else:
+                tm2 = sorted(tm)
             print tm2
             return tm2
 
@@ -311,12 +314,12 @@ def give_slices(base, tosave, slices, sliceParams,
             print tm2
             return tm2
 
-        #sluces actually are defined
+        # sluces actually are defined
         runs = slice2D(cur_slice, sliceParams, multipliers)
-        #runs = slice3D(cur_slice, (1,14),(1,10),multipliers)
+        # runs = slice3D(cur_slice, (1,14),(1,10),multipliers)
 
         for i in runs:
-            #filename is replaced in slices
+            # filename is replaced in slices
             try:
                 files.append(base.replace("DATA1", str(i[0])).replace("DATA2",
                                                                       str(i[1])).replace("DATA3", str(i[2])))
@@ -327,7 +330,7 @@ def give_slices(base, tosave, slices, sliceParams,
         datas = []
 
         def newload(i):
-            #loads a file
+            # loads a file
             try:
                 data = loadFunction(i, False)
                 if len(data) != 3:
@@ -340,7 +343,7 @@ def give_slices(base, tosave, slices, sliceParams,
                 print "file not found", i
                 return None
 
-        #use this for determining the file size
+        # use this for determining the file size
         datas = filter(lambda x: x is not None, fmap(newload, files[::
                                             len(files) / 20 + 1], n=3))
         datlen = len(datas[0][0])

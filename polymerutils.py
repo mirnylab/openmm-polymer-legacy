@@ -784,7 +784,7 @@ def findSimplifiedPolymer(data):
     int t=0,s=0,k=0;
     int turn=0;
     bool breakflag;
-
+    float maxdist;
     int a;
     position=vector<point>(N);
     newposition=vector<point>(N);
@@ -799,14 +799,24 @@ def findSimplifiedPolymer(data):
     for (i=0;i<N;i++) todelete[i] == -2;
     for (int xxx = 0; xxx < 1000; xxx++)
         {
+        maxdist = 0;
+        for (i=0;i<N-1;i++)
+        {
+        if (dist(i,i+1) > maxdist) {maxdist = dist(i,i+1);}
+        }
         turn++;
         M=0;
         for (i=0;i<N;i++) todelete[i] = -2;
         for (int j=1;j<N-1;j++)  //going over all elements trying to delete
             {
             breakflag = false; //by default we delete thing
+
             for (k=0;k<N;k++)  //going over all triangles to check
                 {
+                double dd = dist(j,k);
+                if (dd  < 3 * maxdist)
+                {
+
                 if (k < j-2 || k > j+1)
                     {
                     if (k < N-1) k1 = k+1;
@@ -820,6 +830,11 @@ def findSimplifiedPolymer(data):
                         break;
                         }
                     }
+		}
+		else
+		{
+			k+= abs((int)((float)dd/(float)maxdist )- 3);
+		}
                 }
             if (breakflag ==false)
             {

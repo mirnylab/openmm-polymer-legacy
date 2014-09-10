@@ -1,6 +1,7 @@
-#(c) 2013 Massachusetts Institute of Technology. All Rights Reserved
+# (c) 2013 Massachusetts Institute of Technology. All Rights Reserved
 # Code written by: Maksim Imakaev (imakaev@mit.edu)
 import subprocess
+
 
 
 """
@@ -36,14 +37,28 @@ from polymerutils import load, save
 import warnings
 import polymerutils
 
-try: 
-    from polymerCython import fastTxtSave
+try:
+    from polymerCython import fastTxtSave  # @UnresolvedImport
 except:
     warnings.warn("Please build polymerCython package")
 
-
+# a set of checks for OpenMM contact list, and selector of OpenMM contact list finder
 try:
     import simtk.openmm
+    ver = simtk.openmm.__version__
+    nums = tuple([int(i) for i in ver.split(".")])
+    if nums < (6, 0):
+        print "OpenMM CPU contactlist would only work with OpenMM >= 6.1"
+        print 'Switching to default contact list finder'
+        CPU = False
+    if nums > (6, 1):
+        print"You might need to recompile OpenMM neighbors list"
+        print "please do this if something fails"
+    if ((nums < (6, 1)) and (nums >= (6, 0))):
+        CPUfile = "getCpuNeighborList6.0"
+    else:
+        CPUfile = "getCpuNeighborList6.1"
+    assert os.path.exists(CPUfile)
     simtk.openmm.Platform_getPlatformByName("CPU")
     CPU = True
 except:
@@ -191,8 +206,8 @@ def giveContactsOpenMM(data, cutoff=1.7):
 
 
     folderName = os.path.split(__file__)[0]
-    binaryName = os.path.join(folderName, "getCpuNeighborList")
-    
+    binaryName = os.path.join(folderName, "getCpuNeighborList6.1")
+
     data = numpy.asarray(data)
     if len(data.shape) != 2:
         print "bad data"
@@ -202,12 +217,13 @@ def giveContactsOpenMM(data, cutoff=1.7):
         raise ValueError("Wrong size of data: %s,%s" % data.shape)
     if data.shape[0] == 3:
         data = data.T
-    
+
     data = np.asarray(data, order="C", dtype=np.float32)
-        
-    newProcess = subprocess.Popen([binaryName, str(cutoff), str(len(data))], stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize= -1)
-    
-    try: 
+
+
+    newProcess = subprocess.Popen([binaryName, str(cutoff), str(len(data))], stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=-1)
+
+    try:
         output, err = newProcess.communicate(data.tostring(order="C"))
     except:
         print "Process failed!"
@@ -217,7 +233,7 @@ def giveContactsOpenMM(data, cutoff=1.7):
     if returncode != 0:
         print "Bad return code"
         return None
-    
+
     array = np.fromstring(output, dtype=np.int32)
     array = array.reshape((-1, 2))
     print "finished!"
@@ -342,10 +358,10 @@ def giveContacts(data, cutoff=1.7, maxContacts=300, method="auto", tryOpenMM=Tru
 
 
     if (CPU == True) and (tryOpenMM == True) and (len(data) > 2000):
-        
+
         conts = giveContactsOpenMM(data, cutoff)
         if conts == None:
-            raise RuntimeError("CPU not supported")
+            warnings.warn(RuntimeWarning("OpenMM did not work. Please use OpenMM 6.1 or recompile contact searcher. "))
         else:
             return conts
 
@@ -465,7 +481,7 @@ def rescalePoints(points, bins):
 
 
 def rescaledMap(data, bins, cutoff=1.7):
-    #print data.sum(), bins.sum(), cutoff
+    # print data.sum(), bins.sum(), cutoff
     """calculates a rescaled contact map of a structure
     Parameters
     ----------
@@ -522,7 +538,7 @@ def pureMap(data, cutoff=1.7, contactMap=None):
 observedOverExpected = deprecate(mirnylib.numutils.observedOverExpected)
 
 
-#print observedOverExpected(numpy.arange(100).reshape((10,10)))
+# print observedOverExpected(numpy.arange(100).reshape((10,10)))
 
 def cool_trunk(data):
     "somehow trunkates the globule so that the ends are on the surface"
@@ -549,7 +565,7 @@ def cool_trunk(data):
         exitflag = 0
         pace = 0.25 / dist(i)
         for j in numpy.arange(1, 10, pace):
-            #print j
+            # print j
             escapeflag = 1
             for k in xrange(N):
                 if k == i:
@@ -579,7 +595,7 @@ def cool_trunk(data):
         exitflag = 0
         pace = 0.25 / dist(i)
         for j in numpy.arange(1, 10, pace):
-            #print j
+            # print j
             escapeflag = 1
             for k in xrange(N - 1, 0, -1):
                 if k == i:
@@ -908,4 +924,4 @@ def _test():
 
 
 
-#_test()
+# _test()

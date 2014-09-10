@@ -73,7 +73,7 @@ def expandPolymerRing(data, mode="auto", steps=20):
     from time import sleep
     sim = Simulation(
         timestep=70, thermostat=0.002, velocityReinitialize=True)
-    sim.setup(platform="cuda")
+    sim.setup(platform="cuda",integrator = "variableLangevin", errorTol = 0.01)
     sim.load(data)
     sim.randomizeData()
     if mode == "auto":
@@ -83,7 +83,7 @@ def expandPolymerRing(data, mode="auto", steps=20):
             mode = "chain"
             sim.tetherParticles([0, sim.N - 1], 5)
             # sim.addGravity()
-    sim.setLayout(mode=mode)
+    sim.setChains()
     sim.addHarmonicPolymerBonds(wiggleDist=0.06)
     sim.addGrosbergRepulsiveForce(trunc=60)
     sim.addGrosbergStiffness(k=3)
@@ -159,14 +159,8 @@ def analyzeKnot(data, useOpenmm=False, simplify=True, evalAt=-1.1, lock=None, of
                     steps = 15
                 elif ll < 550 + offset:
                     steps = 25
-                elif ll < 600 + offset:
-                    steps = 35
-                elif ll < 800 + offset:
-                    steps = 60
-                elif ll < 1200 + offset:
-                    steps = 100
                 else:
-                    steps = 150
+                    steps = 30
                 if lock != None:
                     lock.acquire()
                     data = expandPolymerRing(data, steps=int((steps - 1) * stepMult) + 1)

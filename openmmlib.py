@@ -847,6 +847,9 @@ class Simulation():
 
         """
 
+        if not hasattr(self, "bondLengths"):
+            self.bondLengths = []
+    
         if verbose is None:
             verbose = self.verbose
         if (i >= self.N) or (j >= self.N):
@@ -866,7 +869,7 @@ class Simulation():
             self._initHarmonicBondForce()
             kbond = (2 * self.kT / (bondSize * self.conlen) ** 2) / (units.kilojoule_per_mole / nm ** 2)
             self.forceDict["HarmonicBondForce"].addBond(int(i), int(j), float(distance), float(kbond))
-
+            self.bondLengths.append([int(i), int(j), float(distance), float(bondSize)])
         elif bondType.lower() == "grosberg":
             self._initGrosbergBondForce()
             self.forceDict["GrosbergBondForce"].addBond(int(i), int(j), [])
@@ -1826,7 +1829,7 @@ class Simulation():
         # self.reinitialize()
         print "Finished energy minimization"
 
-    def doBlock(self, steps=None, increment=True, num=None, reinitialize=True):
+    def doBlock(self, steps=None, increment=True, num=None, reinitialize=True,maxIter=0, checkFunctions = []):
         """performs one block of simulations, doing steps timesteps,
         or steps_per_block if not specified.
 
@@ -1881,9 +1884,11 @@ class Simulation():
             b = time.time()
             coords = self.state.getPositions(asNumpy=True)
             newcoords = coords / nm
+
             # calculate energies in KT/particle
             eK = (self.state.getKineticEnergy() / self.N / self.kT)
             eP = self.state.getPotentialEnergy() / self.N / self.kT
+           
 
             if self.velocityReinitialize:
                 if eK > 2.4:
@@ -1891,8 +1896,15 @@ class Simulation():
                     self.initVelocities()
             print "pos[1]=[%.1lf %.1lf %.1lf]" % tuple(newcoords[0]),
 
+
+            
+            checkFail = False
+            for checkFunction in checkFunctions:
+                if not checkFunction(newcoords):
+                    checkFail = True
+
             if ((numpy.isnan(newcoords).any()) or (eK > self.eKcritical) or
-                (numpy.isnan(eK)) or (numpy.isnan(eP))):
+                (numpy.isnan(eK)) or (numpy.isnan(eP))) or checkFail:
 
                 self.context.setPositions(self.data)
                 self.initVelocities()
@@ -1912,10 +1924,37 @@ class Simulation():
                 break
 
             if attempt in [3, 4]:
-                self.localEnergyMinimization()
+                self.localEnergyMinimization(maxIterations=maxIter)
             if attempt == 5:
                 self._exitProgram("exceeded number of attempts")
+
         return {"Ep":eP, "Ek":eK}
+
+    def checkConnectivity(self, newcoords, maxBondSizeMultipler=10):
+        ''' checks connectivity of all harmonic bonds
+            can be passed to doBlock as a checkFunction, in which case it will also trigger re-initialization
+        '''        
+        if newcoords == None:
+            newcoords = self.getData()
+
+        #self.bondLengths.append([int(i), int(j), float(distance), float(bondSize)])
+        bondArray = numpy.array(self.bondLengths)
+        print (newcoords[  numpy.array(bondArray[:,0],dtype=int) ]-newcoords[ numpy.array(bondArray[:,1], dtype=int ) ]) ** 2
+        bondDists = numpy.sqrt(numpy.sum(  (newcoords[  numpy.array(bondArray[:,0],dtype=int) ]-newcoords[ numpy.array(bondArray[:,1], dtype=int ) ]) ** 2,axis = 1))
+        bondDistsSorted = numpy.sort(bondDists)
+        if ( bondDists > (bondArray[:,2]+ maxBondSizeMultipler*bondArray[:,3]) ).any():
+            isConnected = False
+            print "connectivity check failed!!"
+            print "median bond size is ", numpy.median(bondDists)
+            print "longest 10 bonds are", bondDistsSorted[-10:]            
+
+        else:
+            isConnected = True
+            #print "median bond size is ", numpy.median(bondDists)
+            #print "longest 10 bonds are", bondDistsSorted[-10:]   
+  
+        return isConnected
+
 
     def printStats(self):
         """Prints detailed statistics of a system.

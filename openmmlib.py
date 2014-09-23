@@ -1943,7 +1943,6 @@ class Simulation():
         
         #self.bondLengths is a list of lists (see above) [..., [int(i), int(j), float(distance), float(bondSize)], ...]
         bondArray = numpy.array(self.bondLengths)
-        print (newcoords[  numpy.array(bondArray[:,0],dtype=int) ]-newcoords[ numpy.array(bondArray[:,1], dtype=int ) ]) ** 2
         bondDists = numpy.sqrt(numpy.sum(  (newcoords[  numpy.array(bondArray[:,0],dtype=int) ]-newcoords[ numpy.array(bondArray[:,1], dtype=int ) ]) ** 2,axis = 1))
         bondDistsSorted = numpy.sort(bondDists)
         if ( bondDists > (bondArray[:,2]+ maxBondSizeMultipler*bondArray[:,3]) ).any():

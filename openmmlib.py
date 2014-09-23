@@ -877,6 +877,7 @@ class Simulation():
             self._initAbsBondForce()
             self.forceDict["AbsBondForce"].addBond(int(i), int(
                 j), [float(bondWiggleDistance), float(distance)])
+            self.bondLengths.append([int(i), int(j), float(distance), float(bondSize)])
         elif bondType.lower() == "abslim":
             self._initAbsDistanceLimitation()
             self.forceDict["AbsLimitation"].addBond(int(i), int(
@@ -1927,32 +1928,37 @@ class Simulation():
                 self.localEnergyMinimization(maxIterations=maxIter)
             if attempt == 5:
                 self._exitProgram("exceeded number of attempts")
-
+        
         return {"Ep":eP, "Ek":eK}
 
-    def checkConnectivity(self, newcoords, maxBondSizeMultipler=10):
-        ''' checks connectivity of all harmonic bonds
+    def checkConnectivity(self, newcoords=None, maxBondSizeMultipler=10):
+        ''' checks connectivity of all harmonic (& abslim) bonds
             can be passed to doBlock as a checkFunction, in which case it will also trigger re-initialization
+            to modify the maximum bond size multipler, pass this function to doBlock as, e.g. doBlock( 100,checkFunctions = [lambda x:a.checkConnectivity(x,6)])
         '''        
         if newcoords == None:
             newcoords = self.getData()
-
-        #self.bondLengths.append([int(i), int(j), float(distance), float(bondSize)])
+            printPositiveResult = True
+        else: printPositiveResult = False
+        
+        #self.bondLengths is a list of lists (see above) [..., [int(i), int(j), float(distance), float(bondSize)], ...]
         bondArray = numpy.array(self.bondLengths)
         print (newcoords[  numpy.array(bondArray[:,0],dtype=int) ]-newcoords[ numpy.array(bondArray[:,1], dtype=int ) ]) ** 2
         bondDists = numpy.sqrt(numpy.sum(  (newcoords[  numpy.array(bondArray[:,0],dtype=int) ]-newcoords[ numpy.array(bondArray[:,1], dtype=int ) ]) ** 2,axis = 1))
         bondDistsSorted = numpy.sort(bondDists)
         if ( bondDists > (bondArray[:,2]+ maxBondSizeMultipler*bondArray[:,3]) ).any():
             isConnected = False
-            print "connectivity check failed!!"
+            print "!! connectivity check failed !!"
             print "median bond size is ", numpy.median(bondDists)
             print "longest 10 bonds are", bondDistsSorted[-10:]            
 
         else:
             isConnected = True
-            #print "median bond size is ", numpy.median(bondDists)
-            #print "longest 10 bonds are", bondDistsSorted[-10:]   
-  
+            if printPositiveResult:
+                print "connectivity check passed."
+                print "median bond size is ", numpy.median(bondDists)
+                print "longest 10 bonds are", bondDistsSorted[-10:]   
+      
         return isConnected
 
 

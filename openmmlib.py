@@ -1935,7 +1935,11 @@ class Simulation():
         ''' checks connectivity of all harmonic (& abslim) bonds
             can be passed to doBlock as a checkFunction, in which case it will also trigger re-initialization
             to modify the maximum bond size multipler, pass this function to doBlock as, e.g. doBlock( 100,checkFunctions = [lambda x:a.checkConnectivity(x,6)])
-        '''        
+        '''   
+        
+        if not hasattr(self, "bondLengths"):
+            raise ValueError('must use either harmonic or abs bonds to use checkConnectivty' )
+     
         if newcoords == None:
             newcoords = self.getData()
             printPositiveResult = True

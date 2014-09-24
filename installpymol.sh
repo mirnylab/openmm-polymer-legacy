@@ -14,7 +14,7 @@ pymolscriptrepo=Pymol-script-repo
 sudo apt-get install subversion build-essential python-dev python-pmw libglew-dev freeglut3-dev libpng-dev libfreetype6-dev
 
 ###### Checkout pymol svn
-svn co https://pymol.svn.sourceforge.net/svnroot/pymol/trunk/pymol $pymoldir/$svnpymol
+svn co https://svn.code.sf.net/p/pymol/code/trunk/pymol $pymoldir/$svnpymol
 ###### Build and install pymol
 cd $pymoldir/$svnpymol
 python setup.py build install --home=$pymoldir --install-lib=$modules

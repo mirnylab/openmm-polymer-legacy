@@ -849,7 +849,7 @@ class Simulation():
 
         if not hasattr(self, "bondLengths"):
             self.bondLengths = []
-    
+
         if verbose is None:
             verbose = self.verbose
         if (i >= self.N) or (j >= self.N):
@@ -1141,7 +1141,7 @@ class Simulation():
             E'(`repulsionRadius`) = 0
         attractionEnergy: float
             the depth of the attractive part of the potential.
-            E(`repulsionRadius`/2 + `attractionRadius`/2) = `attractionEnergy`
+            E(`repulsionRadius` + `attractionRadius`/2) = `attractionEnergy`
         attractionEnergy: float
             the maximal range of the attractive part of the potential.
 
@@ -1183,76 +1183,114 @@ class Simulation():
 
         repulforceGr.setCutoffDistance(nbCutOffDist)
 
-    def addSmoothSquareWellTailedForce(self,
-        repulsionEnergy=3.0, repulsionRadius=1.,
-        attractionEnergy=0.5, attractionRadius=2.0,
-        tailEnergy=0.1, tailRadius=3.0,
-        ):
+    def addSelectiveSSWForce(self,
+        stickyParticlesIdxs,
+        extraHardParticlesIdxs,
+        repulsionEnergy=3.0,
+        repulsionRadius=1.,
+        attractionEnergy=3.0,
+        attractionRadius=1.5,
+        selectiveRepulsionEnergy=20.0,
+        selectiveAttractionEnergy=1.0):
         """
-        This is almost the same potential as in `addSmoothSquareWellTailedForce`.
-        The only difference is that the attractive part of the potential
-        flattens out to the value of `tailEnergy` at r=`attractionRadius` and
-        then goes quadratically to zero at `tailRadius`.
-        Please, refer to the documentation for `addSmoothSquareWellForce`
-        for the details of the repulsive and attractive parts of the potential.
+        This is a simple and fast polynomial force that looks like a smoothed
+        version of the square-well potential. The energy equals `repulsionEnergy`
+        around r=0, stays flat until 0.6-0.7, then drops to zero together
+        with its first derivative at r=1.0. After that it drop down to
+        `attractionEnergy` and gets back to zero at r=`attractionRadius`.
+
+        The energy function is based on polynomials of 12th power. Both the
+        function and its first derivative is continuous everywhere within its
+        domain and they both get to zero at the boundary.
+
+        This is a tunable version of SSW:
+        a) You can specify the set of "sticky" particles. The sticky particles
+        are attracted only to other sticky particles.
+        b) You can select a subset of particles and make them "extra hard".
+        The standard usage is to make the sticky particles and their neighbours
+        "extra hard" and thus prevent the system from collapsing.
 
         Parameters
         ----------
 
-        kwargs:
-            same as in `addSmoothSquareWellForce`.
-        tailEnergy:
-            the depth of the tail part of the potential.
-        tailRadius:
-            the maximal range of the tail part of the potential.
+        stickyParticlesIdxs: list of int
+            the list of indices of the "sticky" particles. The sticky particles
+            are attracted to each other with extra `selectiveAttractionEnergy`
+        extraHardParticlesIdxs : list of int
+            the list of indices of the "extra hard" particles. The extra hard
+            particles repel all other particles with extra
+            `selectiveRepulsionEnergy`
+        repulsionEnergy: float
+            the heigth of the repulsive part of the potential.
+            E(0) = `repulsionEnergy`
+        repulsionRadius: float
+            the radius of the repulsive part of the potential.
+            E(`repulsionRadius`) = 0,
+            E'(`repulsionRadius`) = 0
+        attractionEnergy: float
+            the depth of the attractive part of the potential.
+            E(`repulsionRadius` + `attractionRadius`/2) = `attractionEnergy`
+        attractionRadius: float
+            the maximal range of the attractive part of the potential.
+        selectiveRepulsionEnergy: float
+            the extra repulsion energy applied to the "extra hard" particles
+        selectiveAttractionEnergy: float
+            the extra attraction energy applied to the "sticky" particles
         """
 
-        self.metadata["PolynomialAttractiveForce"] = repr({"trunc": repulsionEnergy})
         energy = (
-            "step(REPsigma - r) * Erep "
-            "+ step(r - REPsigma) * step(REPsigma + ATTRdelta - r) * Eattr_inner"
-            "+ step(r - REPsigma - ATTRdelta) * step(REPsigma + 2.0 * ATTRdelta - r) * Eattr_outer"
-            "+ step(r - REPsigma - ATTRdelta) * Etail;"
+            "step(REPsigma - r) * Erep + step(r - REPsigma) * Eattr;"
             ""
-            "Erep = rsc12 * (rsc2 - 1.0) * REPe / emin12 + REPe;"
+            "Erep = rsc12 * (rsc2 - 1.0) * REPeTot / emin12 + REPeTot;" #+ ESlide;"
+            "REPeTot = REPe + (ExtraHard1 + ExtraHard2) * REPeAdd;"
             "rsc12 = rsc4 * rsc4 * rsc4;"
             "rsc4 = rsc2 * rsc2;"
             "rsc2 = rsc * rsc;"
             "rsc = r / REPsigma * rmin12;"
             ""
-            "Eattr_inner = - poly * ATTRe;"
-            "Eattr_outer = - poly * (ATTRe - TAILe) - TAILe;"
-            "poly = rshft12 * (rshft2 - 1.0) / emin12 + 1.0;"
+            "Eattr = - rshft12 * (rshft2 - 1.0) * ATTReTot / emin12 - ATTReTot;"
+            "ATTReTot = ATTRe + min(Sticky1, Sticky2) * ATTReAdd;"
             "rshft12 = rshft4 * rshft4 * rshft4;"
             "rshft4 = rshft2 * rshft2;"
             "rshft2 = rshft * rshft;"
             "rshft = (r - REPsigma - ATTRdelta) / ATTRdelta * rmin12;"
             ""
-            "Etail = - TAILe * rtail * rtail * (rtail - 1.0) * (rtail - 1.0) * 16.0;"
-            "rtail = (r - REPsigma - 2 * ATTRdelta) / TAILr / 2.0 + 0.5;"
             )
-        self.forceDict["Nonbonded"] = self.mm.CustomNonbondedForce(
-            energy)
-        repulforceGr = self.forceDict["Nonbonded"]
+
+        if selectiveRepulsionEnergy == float('inf'):
+            energy += (
+            "REPeAdd = 4 * ((REPsigma / (2.0^(1.0/6.0)) / r)^12 - (REPsigma / (2.0^(1.0/6.0)) / r)^6) + 1;"
+            )
+
+        repulforceGr = self.mm.CustomNonbondedForce(energy)
+
+        repulforceGr.setCutoffDistance(attractionRadius * self.conlen)
+
+        self.metadata["PolynomialAttractiveForce"] = {"trunc": repulsionEnergy}
 
         repulforceGr.addGlobalParameter('REPe', repulsionEnergy * self.kT)
+        if selectiveRepulsionEnergy != float('inf'):
+            repulforceGr.addGlobalParameter('REPeAdd', selectiveRepulsionEnergy * self.kT)
         repulforceGr.addGlobalParameter('REPsigma', repulsionRadius * self.conlen)
 
         repulforceGr.addGlobalParameter('ATTRe', attractionEnergy * self.kT)
+        repulforceGr.addGlobalParameter('ATTReAdd', selectiveAttractionEnergy * self.kT)
         repulforceGr.addGlobalParameter('ATTRdelta',
             self.conlen * (attractionRadius - repulsionRadius) / 2.0)
 
-        repulforceGr.addGlobalParameter('TAILe', tailEnergy * self.kT)
-        repulforceGr.addGlobalParameter('TAILr', (tailRadius - attractionRadius) * self.kT)
-
-        # Coefficients for the minimum of x^12*(x*x-1)
+        # Coefficients for x^12*(x*x-1)
         repulforceGr.addGlobalParameter('emin12', 46656.0 / 823543.0)
         repulforceGr.addGlobalParameter('rmin12', np.sqrt(6.0 / 7.0))
 
-        for _ in range(self.N):
-            repulforceGr.addParticle(())
+        repulforceGr.addPerParticleParameter("Sticky")
+        repulforceGr.addPerParticleParameter("ExtraHard")
 
-        repulforceGr.setCutoffDistance(self.conlen * tailRadius)
+        for i in range(self.N):
+            repulforceGr.addParticle(
+                (float(stickyParticlesIdxs.count(i)),
+                 float(i in extraHardParticlesIdxs)))
+
+        self.forceDict["Nonbonded"] = repulforceGr
 
     def addLennardJonesForce(
         self, cutoff=2.5, domains=False, epsilonRep=0.24, epsilonAttr=0.27,
@@ -1889,7 +1927,7 @@ class Simulation():
             # calculate energies in KT/particle
             eK = (self.state.getKineticEnergy() / self.N / self.kT)
             eP = self.state.getPotentialEnergy() / self.N / self.kT
-           
+
 
             if self.velocityReinitialize:
                 if eK > 2.4:
@@ -1898,7 +1936,7 @@ class Simulation():
             print "pos[1]=[%.1lf %.1lf %.1lf]" % tuple(newcoords[0]),
 
 
-            
+
             checkFail = False
             for checkFunction in checkFunctions:
                 if not checkFunction(newcoords):
@@ -1928,23 +1966,23 @@ class Simulation():
                 self.localEnergyMinimization(maxIterations=maxIter)
             if attempt == 5:
                 self._exitProgram("exceeded number of attempts")
-        
+
         return {"Ep":eP, "Ek":eK}
 
     def checkConnectivity(self, newcoords=None, maxBondSizeMultipler=10):
         ''' checks connectivity of all harmonic (& abslim) bonds
             can be passed to doBlock as a checkFunction, in which case it will also trigger re-initialization
             to modify the maximum bond size multipler, pass this function to doBlock as, e.g. doBlock( 100,checkFunctions = [lambda x:a.checkConnectivity(x,6)])
-        '''   
-        
+        '''
+
         if not hasattr(self, "bondLengths"):
             raise ValueError('must use either harmonic or abs bonds to use checkConnectivty' )
-     
+
         if newcoords == None:
             newcoords = self.getData()
             printPositiveResult = True
         else: printPositiveResult = False
-        
+
         #self.bondLengths is a list of lists (see above) [..., [int(i), int(j), float(distance), float(bondSize)], ...]
         bondArray = numpy.array(self.bondLengths)
         bondDists = numpy.sqrt(numpy.sum(  (newcoords[  numpy.array(bondArray[:,0],dtype=int) ]-newcoords[ numpy.array(bondArray[:,1], dtype=int ) ]) ** 2,axis = 1))
@@ -1953,15 +1991,15 @@ class Simulation():
             isConnected = False
             print "!! connectivity check failed !!"
             print "median bond size is ", numpy.median(bondDists)
-            print "longest 10 bonds are", bondDistsSorted[-10:]            
+            print "longest 10 bonds are", bondDistsSorted[-10:]
 
         else:
             isConnected = True
             if printPositiveResult:
                 print "connectivity check passed."
                 print "median bond size is ", numpy.median(bondDists)
-                print "longest 10 bonds are", bondDistsSorted[-10:]   
-      
+                print "longest 10 bonds are", bondDistsSorted[-10:]
+
         return isConnected
 
 

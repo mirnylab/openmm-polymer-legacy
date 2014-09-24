@@ -1141,7 +1141,7 @@ class Simulation():
             E'(`repulsionRadius`) = 0
         attractionEnergy: float
             the depth of the attractive part of the potential.
-            E(`repulsionRadius` + `attractionRadius`/2) = `attractionEnergy`
+            E(`repulsionRadius`/2 + `attractionRadius`/2) = `attractionEnergy`
         attractionEnergy: float
             the maximal range of the attractive part of the potential.
 
@@ -1229,7 +1229,7 @@ class Simulation():
             E'(`repulsionRadius`) = 0
         attractionEnergy: float
             the depth of the attractive part of the potential.
-            E(`repulsionRadius` + `attractionRadius`/2) = `attractionEnergy`
+            E(`repulsionRadius`/2 + `attractionRadius`/2) = `attractionEnergy`
         attractionRadius: float
             the maximal range of the attractive part of the potential.
         selectiveRepulsionEnergy: float

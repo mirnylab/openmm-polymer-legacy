@@ -833,8 +833,8 @@ class Simulation():
 
         i,j : int
             Particle numbers
-        bondWiggleDistance : float
 
+        bondWiggleDistance : float
             Average displacement from the equilibrium bond distance
 
         bondType : "Harmonic" or "Grosberg"
@@ -889,26 +889,42 @@ class Simulation():
             print "%s bond added between %d,%d, wiggle %lf dist %lf" % (
                 bondType, i, j, float(bondWiggleDistance), float(distance))
 
-    def addHarmonicPolymerBonds(self, wiggleDist=0.05):
+    def addHarmonicPolymerBonds(self,
+                                wiggleDist=0.05,
+                                bondLength=1.0,
+                                exceptBonds=True):
         """Adds harmonic bonds connecting polymer chains
-        wiggleDist controls the distance at which
-        energy of the bond equals kT
+
+        Parameters
+        ----------
+
+        wiggleDist : float
+            Average displacement from the equilibrium bond distance
+        bondLength : float
+            The length of the bond
+        exceptBonds : bool
+            If True then do not calculate non-bonded forces between the
+            particles connected by a bond. True by default.
         """
 
         for start, end, isRing in self.chains:
             for j in xrange(start, end - 1):
-                self.addBond(j, j + 1, wiggleDist, distance=1,
+                self.addBond(j, j + 1, wiggleDist,
+                    distance=bondLength,
                     bondType="Harmonic", verbose=False)
-                self.bondsForException.append((j, j + 1))
+                if exceptBonds:
+                    self.bondsForException.append((j, j + 1))
 
             if isRing:
                 self.addBond(start, end - 1, wiggleDist,
-                    distance=1, bondType="Harmonic")
-                self.bondsForException.append((start, end - 1))
+                    distance=bondLength, bondType="Harmonic")
+                if exceptBonds:
+                    self.bondsForException.append((start, end - 1))
                 if self.verbose == True:
                     print "ring bond added", start, end - 1
 
-        self.metadata["HarmonicPolymerBonds"] = repr({"wiggleDist": wiggleDist})
+        self.metadata["HarmonicPolymerBonds"] = repr(
+            {"wiggleDist": wiggleDist, 'bondLength':bondLength})
 
     def addGrosbergPolymerBonds(self, k=30):
         """Adds FENE bonds according to Halverson-Grosberg paper.

@@ -1975,7 +1975,17 @@ class Simulation():
                 print "t=%2.1lfps" % (self.state.getTime() / ps),
                 print "kin=%.2lf pot=%.2lf" % (eK,
                     eP), "Rg=%.3lf" % self.RG(),
-                print "SPS=%.0lf" % (steps / (float(b - a)))
+                print "SPS=%.0lf" % (steps / (float(b - a))),
+
+                if (self.integrator_type.lower() == 'variablelangevin'
+                    or self.integrator_type.lower() == 'variableverlet'):
+                    dt = self.integrator.getStepSize()
+                    print 'dt=%.4lfps' % (dt / ps),
+                    mass = self.system.getParticleMass(0)
+                    dx = (units.sqrt(3.0 * self.kT / mass) * dt)
+                    print 'dx=%.2lfpm' % (dx / nm * 1000.0),
+
+                print ""
                 break
 
             if attempt in [3, 4]:

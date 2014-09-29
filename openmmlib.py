@@ -367,6 +367,7 @@ class Simulation():
                        '"brownian" or provide an integrator object')
         else:
             self.integrator = integrator
+            self.integrator_type = "UserDefined"
 
     def saveFolder(self, folder):
         """
@@ -1257,7 +1258,7 @@ class Simulation():
         energy = (
             "step(REPsigma - r) * Erep + step(r - REPsigma) * Eattr;"
             ""
-            "Erep = rsc12 * (rsc2 - 1.0) * REPeTot / emin12 + REPeTot;" #+ ESlide;"
+            "Erep = rsc12 * (rsc2 - 1.0) * REPeTot / emin12 + REPeTot;"  # + ESlide;"
             "REPeTot = REPe + (ExtraHard1 + ExtraHard2) * REPeAdd;"
             "rsc12 = rsc4 * rsc4 * rsc4;"
             "rsc4 = rsc2 * rsc2;"
@@ -1884,7 +1885,7 @@ class Simulation():
         # self.reinitialize()
         print "Finished energy minimization"
 
-    def doBlock(self, steps=None, increment=True, num=None, reinitialize=True,maxIter=0, checkFunctions = []):
+    def doBlock(self, steps=None, increment=True, num=None, reinitialize=True, maxIter=0, checkFunctions=[]):
         """performs one block of simulations, doing steps timesteps,
         or steps_per_block if not specified.
 
@@ -2002,18 +2003,18 @@ class Simulation():
         '''
 
         if not hasattr(self, "bondLengths"):
-            raise ValueError('must use either harmonic or abs bonds to use checkConnectivty' )
+            raise ValueError('must use either harmonic or abs bonds to use checkConnectivty')
 
         if newcoords == None:
             newcoords = self.getData()
             printPositiveResult = True
         else: printPositiveResult = False
 
-        #self.bondLengths is a list of lists (see above) [..., [int(i), int(j), float(distance), float(bondSize)], ...]
+        # self.bondLengths is a list of lists (see above) [..., [int(i), int(j), float(distance), float(bondSize)], ...]
         bondArray = numpy.array(self.bondLengths)
-        bondDists = numpy.sqrt(numpy.sum(  (newcoords[  numpy.array(bondArray[:,0],dtype=int) ]-newcoords[ numpy.array(bondArray[:,1], dtype=int ) ]) ** 2,axis = 1))
+        bondDists = numpy.sqrt(numpy.sum((newcoords[  numpy.array(bondArray[:, 0], dtype=int) ] - newcoords[ numpy.array(bondArray[:, 1], dtype=int) ]) ** 2, axis=1))
         bondDistsSorted = numpy.sort(bondDists)
-        if ( bondDists > (bondArray[:,2]+ maxBondSizeMultipler*bondArray[:,3]) ).any():
+        if (bondDists > (bondArray[:, 2] + maxBondSizeMultipler * bondArray[:, 3])).any():
             isConnected = False
             print "!! connectivity check failed !!"
             print "median bond size is ", numpy.median(bondDists)

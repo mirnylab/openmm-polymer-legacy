@@ -17,6 +17,7 @@ ctypedef fused my_type:
 
     
 @cython.boundscheck(False)
+@cython.nonecheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
 def fastTxtSave(np.ndarray data,filename):

@@ -58,10 +58,15 @@ try:
         CPUfile = "getCpuNeighborList6.0"
     else:
         CPUfile = "getCpuNeighborList6.1"
-    assert os.path.exists(CPUfile)
+    folderName = os.path.split(__file__)[0]
+    CPUfile = os.path.join(folderName, CPUfile)
+
+    if not os.path.exists(CPUfile):
+        raise ValueError("OPenMM contactmap file missing! This bug should be reported.")
     simtk.openmm.Platform_getPlatformByName("CPU")
     CPU = True
-except:
+except ImportError:
+    print "Not using OpenMM contact map finder"
     CPU = False
 
 
@@ -205,8 +210,7 @@ def giveContactsOpenMM(data, cutoff=1.7):
     print "Using OpenMM contacts..."
 
 
-    folderName = os.path.split(__file__)[0]
-    binaryName = os.path.join(folderName, "getCpuNeighborList6.1")
+
 
     data = numpy.asarray(data)
     if len(data.shape) != 2:
@@ -221,7 +225,7 @@ def giveContactsOpenMM(data, cutoff=1.7):
     data = np.asarray(data, order="C", dtype=np.float32)
 
 
-    newProcess = subprocess.Popen([binaryName, str(cutoff), str(len(data))], stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=-1)
+    newProcess = subprocess.Popen([CPUfile, str(cutoff), str(len(data))], stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=-1)
 
     try:
         output, err = newProcess.communicate(data.tostring(order="C"))

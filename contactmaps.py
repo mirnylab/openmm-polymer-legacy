@@ -1,9 +1,5 @@
 # (c) 2013 Massachusetts Institute of Technology. All Rights Reserved
 # Code written by: Maksim Imakaev (imakaev@mit.edu)
-import subprocess
-
-
-
 """
 This file contains a bunch of method to work on contact maps of a Hi-C data.
 It uses a lot of methods from mirnylib repository.
@@ -20,13 +16,14 @@ To be filled in later
 Find average contact maps
 -------------------------
 
-bla
-
 """
 
+
+import subprocess
 import numpy
 from mirnylib.h5dict import h5dict
 import os
+import traceback
 np = numpy
 from scipy import weave
 from math import sqrt
@@ -37,14 +34,19 @@ from polymerutils import load, save
 import warnings
 import polymerutils
 
-try:
-    from polymerCython import fastTxtSave  # @UnresolvedImport
-except:
-    warnings.warn("Please build polymerCython package")
 
-# a set of checks for OpenMM contact list, and selector of OpenMM contact list finder
+
+
 try:
     import simtk.openmm
+    openmm = True
+except:
+    openmm = False
+    CPU = False
+
+if openmm == True:
+    CPU = True
+
     ver = simtk.openmm.__version__
     nums = tuple([int(i) for i in ver.split(".")])
     if nums < (6, 0):
@@ -60,14 +62,18 @@ try:
         CPUfile = "getCpuNeighborList6.1"
     folderName = os.path.split(__file__)[0]
     CPUfile = os.path.join(folderName, CPUfile)
-
     if not os.path.exists(CPUfile):
         raise ValueError("OPenMM contactmap file missing! This bug should be reported.")
+
+try:
     simtk.openmm.Platform_getPlatformByName("CPU")
-    CPU = True
-except ImportError:
+except:
     print "Not using OpenMM contact map finder"
     CPU = False
+
+
+
+# a set of checks for OpenMM contact list, and selector of OpenMM contact list finder
 
 
 
@@ -207,11 +213,8 @@ def giveContactsOpenMM(data, cutoff=1.7):
     A wrapper to an ultra-fast openmm filter by VJ Pande
     If you use it, you may want to cite OpenMM
     """
-    print "Using OpenMM contacts..."
-
-
-
-
+    assert CPU == True
+    assert os.path.exists(CPUfile)
     data = numpy.asarray(data)
     if len(data.shape) != 2:
         print "bad data"
@@ -240,9 +243,21 @@ def giveContactsOpenMM(data, cutoff=1.7):
 
     array = np.fromstring(output, dtype=np.int32)
     array = array.reshape((-1, 2))
-    print "finished!"
 
     return array
+
+
+testData = np.random.random((10, 3))
+try:
+    giveContactsOpenMM(testData)
+except:
+    CPU = False
+    print '---Failed to execute OpenMM contact finder-----'
+    print "Error code below"
+    traceback.print_exc(file=sys.stdout)
+    print "---Continuing withont OpenMM contact finder---"
+    print "You may try to recompile OpenMM contact finder to make it work"
+
 
 
 

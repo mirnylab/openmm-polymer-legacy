@@ -815,7 +815,7 @@ def findSimplifiedPolymer(data):
             for (k=0;k<N;k++)  //going over all triangles to check
                 {
                 double dd = dist(j,k);
-                if (dd  < 3 * maxdist)
+                if (dd  <  2 * maxdist)
                 {
 
                 if (k < j-2 || k > j+1)
@@ -831,10 +831,10 @@ def findSimplifiedPolymer(data):
                         break;
                         }
                     }
-		}
+		        }
 		else
 		{
-			k+= abs((int)((float)dd/(float)maxdist )- 3);
+			k+= max(((int)((float)dd/(float)maxdist )- 3), 0);
 		}
                 }
             if (breakflag ==false)

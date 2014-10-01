@@ -73,7 +73,7 @@ def expandPolymerRing(data, mode="auto", steps=20):
     from time import sleep
     sim = Simulation(
         timestep=70, thermostat=0.002, velocityReinitialize=True)
-    sim.setup(platform="cuda",integrator = "variableLangevin", errorTol = 0.01)
+    sim.setup(platform="cuda", integrator="variableLangevin", errorTol=0.01)
     sim.load(data)
     sim.randomizeData()
     if mode == "auto":
@@ -209,10 +209,10 @@ def _testAnalyzeKnot():
 def _testSimplify():
     np = numpy
 
-    for _ in xrange(200):
-        s = 20
-        # a = np.cumsum(np.random.randn(s, 3), axis=0) + np.random.randn(s, 3) * 2
-        a = np.random.randn(s, 3) * 2
+    for _ in xrange(2000):
+        s = 100
+        a = np.cumsum(np.random.randn(s, 3), axis=0) + np.random.randn(s, 3) * 4
+        # a = np.random.randn(s, 3) * 2
 
         ka = analyzeKnot(a, simplify=False)
         kb = analyzeKnot(a, simplify=True)
@@ -220,6 +220,5 @@ def _testSimplify():
         print ka, kb
         assert np.abs(ka / kb - 1) < 0.0001
         print
-
 
 # _testSimplify()

@@ -1981,7 +1981,7 @@ class Simulation():
                 if (self.integrator_type.lower() == 'variablelangevin'
                     or self.integrator_type.lower() == 'variableverlet'):
                     dt = self.integrator.getStepSize()
-                    print 'dt=%.4lfps' % (dt / ps),
+                    print 'dt=%.1lffs' % (dt / fs),
                     mass = self.system.getParticleMass(0)
                     dx = (units.sqrt(3.0 * self.kT / mass) * dt)
                     print 'dx=%.2lfpm' % (dx / nm * 1000.0),

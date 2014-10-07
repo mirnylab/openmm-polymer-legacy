@@ -1,0 +1,36 @@
+
+<!DOCTYPE html
+	PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+<title>Knots in the proteins - prediction server</title>
+<link rev="made" href="mailto:grigory%20%2Fat%5C%20%20mit%20%5Bdot%5D%20edu" />
+</head>
+<body bgcolor="white" text="black">
+<center><img align="absmiddle" src="/knots/knot_full_small.jpg" /><font size=50>Protein Knots</font><img align="absmiddle" src="/knots/knot_small.jpg" /></center>The knot server allows the user to check pdb entries or uploaded structures for
+knots and to visualize them. The size of a knot is determined by deleting amino
+acids from both ends. This procedure is, however, not perfect and the resulting
+size should only be treated as a guideline.<p>
+
+<br><p>
+<form method="post" action="/cgi-bin/knots/knotsubmit.pl" enctype="multipart/form-data">
+
+Please enter pdb id (e.g. 1v2x): <br /><input type="text" name="pdbid"  /><p />
+Or upload file (pdb or mmCIF):<br />
+<input type="file" name="uploaded_file" value="starting value" size="50" maxlength="80" />
+<br /><label><input type="radio" name="straight" value="on" checked="checked" />Connect gaps in the structure by straight line</label><br /><label><input type="radio" name="straight" value="off" />Treat each unconnected fragment separately</label><br /><p /><input type="submit" name="submit" value="Submit" /><p />
+<div><input type="hidden" name=".cgifields" value="straight"  /></div></form>
+<a href='/cgi-bin/knots/knotsubmit.pl?showlist=1&'>List of known knots</a><br><a id=def href=/cgi-bin/knots/knotsubmit.pl?knot_definition=1&#def>How we define knots</a><h4>References</h4>
+<ul>
+<li><a href='http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?db=pubmed&cmd=Retrieve&dopt=AbstractPlus&list_uids=17517776&query_hl=1&itool=pubmed_docsum'>Kolesov G, Virnau P, Kardar M, Mirny LA. Protein knot server: detection of knots in protein structures. Nucleic Acids Res. 2007 May 21</a> <a href='http://nar.oxfordjournals.org/cgi/reprint/gkm312?ijkey=GFbISFYeK059SYi&keytype=ref'>[PDF]</a><br>
+<li><a href='http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?db=pubmed&cmd=Retrieve&dopt=AbstractPlus&list_uids=16978047&query_hl=4&itool=pubmed_Brief'>Virnau P, Mirny LA and Kardar M. Intricate knots in proteins: function and evolution. PLoS Comput Biol. 2006 Sep 15;2(9):e122. Epub 2006 Jul 28.</a><br>
+<li><a href='http://www.mit.edu/~leonid/index.html'>Mirny lab webpage</a>
+</ul>
+<p>
+Questions about particular knots? Contact <a href="mailto:virnau [at] uni-mainz [dot] de">Peter Virnau</a>.
+<hr>
+Contact <a href="mailto:grigory /at\  mit [dot] edu">webmaster</a>
+
+</body>
+</html>

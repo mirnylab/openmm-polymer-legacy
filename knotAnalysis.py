@@ -2,6 +2,8 @@
 # Code written by: Maksim Imakaev (imakaev@mit.edu)
 
 import numpy
+from mirnylib.plotting import showPolymerRasmol
+np = numpy
 from scipy import weave
 import os
 import os.path
@@ -37,9 +39,10 @@ def getKnotNumber(data, evalAt=-1.1):
         data = data.T
 
     with  NamedTemporaryFile() as newfile:
-        newfile.write("t=0\n\n%d\n" % len(data))
+        newfile.write("t=0\n\n%d\n" % (len(data)))
         for j, i in enumerate(data):
-            newfile.write("%d %lf %lf %lf\n" % tuple([j + 1] + list(i)))
+            curStr = "%d %.25lf %.25lf %.25lf\n" % tuple([j] + list(i))
+            newfile.write(curStr)
 
         name = newfile.name
         newfile.flush()
@@ -140,9 +143,11 @@ def analyzeKnot(data, useOpenmm=False, simplify=True, evalAt=-1.1, lock=None, of
 
     """
 
-    data = numpy.asarray(data)
+    data = numpy.asarray(data, dtype=np.longdouble)
     if len(data) == 3:
         data = data.T
+
+    data = data + np.random.random(data.shape) * 0.0000000001
 
     if simplify:
         t = findSimplifiedPolymer(data)
@@ -187,11 +192,32 @@ def analyzeKnot(data, useOpenmm=False, simplify=True, evalAt=-1.1, lock=None, of
 def _testAnalyzeKnot():
     np = numpy
 
+    p31 = [[-0.7, 0, 0], [1, 0, 0], [-1, 1, 0], [0, -1, -1], [0, 1, 0.5], [0, 0.7, -0.7]]
+    p31 = np.array(p31) * 15
+    # showPolymerRasmol(p31, shifts=np.arange(0, 1, 0.01), rescale=False)
+
+
+    for i in xrange(100):
+        mat = np.random.random((3, 3))
+        a1 = analyzeKnot(np.dot(p31, mat), simplify=False)
+        a2 = analyzeKnot(np.dot(p31, mat), simplify=True)
+        if not np.abs(a1 - 9.05463) < 0.1:
+            raise
+        if not np.abs(a2 - 9.05463) < 0.1:
+            raise
+
+
+
+
     for _ in xrange(100):
-        a = polymerutils.grow_rw(1000, 12, method="standard")
+        print "tttttest"
+        a = polymerutils.grow_rw(7000, 25, method="standard")
+        print a.shape
+        print "gggggrow"
         kn = analyzeKnot(a, simplify=False)
         print kn
         assert kn == 1
+
 
 
     for _ in xrange(50):
@@ -211,7 +237,7 @@ def _testSimplify():
 
     for _ in xrange(2000):
         s = 100
-        a = np.cumsum(np.random.randn(s, 3), axis=0) + np.random.randn(s, 3) * 4
+        a = np.cumsum(np.random.randn(s, 3), axis=0) + np.random.randn(s, 3) * 2
         # a = np.random.randn(s, 3) * 2
 
         ka = analyzeKnot(a, simplify=False)

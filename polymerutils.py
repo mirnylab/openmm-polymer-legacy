@@ -771,9 +771,9 @@ def findSimplifiedPolymer(data):
         data = numpy.transpose(data)
     if len(data) != 3:
         raise ValueError("Wrong dimensions of data")
-    datax = numpy.array(data[0], float, order="C")
-    datay = numpy.array(data[1], float, order="C")
-    dataz = numpy.array(data[2], float, order="C")
+    datax = numpy.array(data[0], np.longdouble, order="C")
+    datay = numpy.array(data[1], np.longdouble, order="C")
+    dataz = numpy.array(data[2], np.longdouble, order="C")
     N = len(datax)
     ret = numpy.array([1])
     datax, datay, dataz, N  # eclipse warning removal
@@ -814,7 +814,7 @@ def findSimplifiedPolymer(data):
 
             for (k=0;k<N;k++)  //going over all triangles to check
                 {
-                double dd = dist(j,k);
+                long double dd = dist(j,k);
                 if (dd  <  2 * maxdist)
                 {
 
@@ -890,7 +890,7 @@ def findSimplifiedPolymer(data):
 #include <stdio.h>
 using namespace std;
 struct point{
-    double x,y,z;
+    long double x,y,z;
     point operator + (const point &p) const {
         return (point) {x+p.x, y+p.y, z+p.z};
     }
@@ -903,11 +903,11 @@ struct point{
                         z*p.x - x*p.z,
                         x*p.y - y*p.x};
     }
-    point operator * (const double &d) const {
+    point operator * (const long double &d) const {
         return (point) {d*x, d*y, d*z};
     }
 
-    point operator / (const double &d) const {
+    point operator / (const long double &d) const {
         return (point) {x/d, y/d, z/d};
     }
 };
@@ -917,22 +917,22 @@ vector <point> newposition;
 vector <int> todelete;
 int N;
 int i;
-double dist(int i,int j);
-double dotProduct(point a,point b);
+long double dist(int i,int j);
+long double dotProduct(point a,point b);
 int intersect(point t1,point t2,point t3,point r1,point r2);
 
-inline double sqr(double x){
+inline long double sqr(long double x){
     return x*x;
 }
 inline double dist(int i,int j){
 return sqrt(dotProduct((position[i]-position[j]),(position[i]-position[j])));
 }
 
-inline double dist(point a,point b){
+inline long double dist(point a,point b){
     return sqr(a.x-b.x)+sqr(a.y-b.y)+sqr(a.z-b.z);
 }
 
-inline double dotProduct(point a,point b){
+inline long double dotProduct(point a,point b){
     return a.x*b.x+a.y*b.y+a.z*b.z;
 }
 
@@ -940,7 +940,7 @@ int intersect(point t1,point t2,point t3,point r1,point r2)
 {
 point A,B,C,D,n;
 int r;
-double det,t,u,v,c1,d1,d2,d3;
+long double det,t,u,v,c1,d1,d2,d3;
 B = t2 - t1;
 C = t3 - t1;
 D = r2 - t1;

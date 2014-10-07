@@ -410,7 +410,7 @@ class Simulation():
         if not hasattr(self, "N"):
             raise ValueError("Load the chain first, or provide chain length")
 
-        self.chains = chains
+        self.chains = [i for i in chains] #copy 
         for i in range(len(self.chains)):
             start, end, isRing = self.chains[i]
             end = self.N if (end is None) else end

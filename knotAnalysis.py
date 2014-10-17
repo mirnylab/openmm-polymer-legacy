@@ -3,6 +3,7 @@
 
 import numpy
 from mirnylib.plotting import showPolymerRasmol
+from mirnylib.numutils import isInteger
 np = numpy
 from scipy import weave
 import os
@@ -102,7 +103,7 @@ def expandPolymerRing(data, mode="auto", steps=20):
 
 
 
-def analyzeKnot(data, useOpenmm=False, simplify=True, evalAt=-1.1, lock=None, offset=0, stepMult=1):
+def analyzeKnot(data, useOpenmm=False, simplify=True, evalAt=-1.1, lock=None, offset=0, stepMult=1, returnLog=False):
     """
     Takes a polymer ring or chain, and analyzes knot number
 
@@ -142,12 +143,16 @@ def analyzeKnot(data, useOpenmm=False, simplify=True, evalAt=-1.1, lock=None, of
 
 
     """
-
+    if isInteger(data):
+        data = np.array(data, dtype=float) + np.random.random(data.shape) * 0.25
     data = numpy.asarray(data, dtype=np.longdouble)
     if len(data) == 3:
         data = data.T
 
-    data = data + np.random.random(data.shape) * 0.0000000001
+    data = data + np.random.random(data.shape) * 0.0001
+
+    mat = np.array([[1.3111414, 0.2131, 0.131451], [0.23141, 1.11, 0.13451], [-0.231254, 0.1353415, 1.2315115]])
+    data = np.dot(data, mat)
 
     if simplify:
         t = findSimplifiedPolymer(data)
@@ -177,6 +182,11 @@ def analyzeKnot(data, useOpenmm=False, simplify=True, evalAt=-1.1, lock=None, of
         t = data
 
     print "simplified from {0} to {1} monomers".format(len(data), len(t))
+    if len(t) < 5:
+        if returnLog:
+            return 0
+        else:
+            return 1
 
     try:
         print "OpenMM helped: %d to %d" % (ll, len(t))
@@ -186,7 +196,11 @@ def analyzeKnot(data, useOpenmm=False, simplify=True, evalAt=-1.1, lock=None, of
     word = output[0].split()[1]
     if word == "0_0":
         return 1
-    return float(word)
+    word = float(word)
+    if not returnLog:
+        return np.exp(word)
+    else:
+        return word
 
 
 def _testAnalyzeKnot():
@@ -197,7 +211,7 @@ def _testAnalyzeKnot():
     # showPolymerRasmol(p31, shifts=np.arange(0, 1, 0.01), rescale=False)
 
 
-    for i in xrange(100):
+    for i in xrange(10):
         mat = np.random.random((3, 3))
         a1 = analyzeKnot(np.dot(p31, mat), simplify=False)
         a2 = analyzeKnot(np.dot(p31, mat), simplify=True)
@@ -207,9 +221,7 @@ def _testAnalyzeKnot():
             raise
 
 
-
-
-    for _ in xrange(100):
+    for _ in xrange(2):
         print "tttttest"
         a = polymerutils.grow_rw(7000, 25, method="standard")
         print a.shape
@@ -221,16 +233,15 @@ def _testAnalyzeKnot():
 
 
     for _ in xrange(50):
-        a = np.random.random((40, 3))
-        ka = analyzeKnot(a, simplify=False)
+        a = np.random.random((200, 3))
+        ka = analyzeKnot(a, simplify=False, evalAt=-1.1, returnLog=True)
         mat = np.random.random((3, 3))
-        kb = analyzeKnot(np.dot(a, mat), simplify=False)
+        kb = analyzeKnot(np.dot(a, mat), simplify=False, evalAt=-1.1, returnLog=True)
         print
         print ka, kb
         assert np.abs(ka / kb - 1) < 0.0001
         print
 
-# _testAnalyzeKnot()
 
 def _testSimplify():
     np = numpy
@@ -247,4 +258,6 @@ def _testSimplify():
         assert np.abs(ka / kb - 1) < 0.0001
         print
 
-# _testSimplify()
+if __name__ == "__main__":
+    _testAnalyzeKnot()
+    _testSimplify()

@@ -37,7 +37,7 @@ int check_for_knots(double knotAt)
   MYVEC *mon, *mon_knotB;
   char fname[30];
   double t1,t2; 
-  double polynomial, polynomial1, polynomial2;
+  long double polynomial, polynomial1, polynomial2;
   double bondlength;
   int fixed1, fixed2;
   FILE   *datei;
@@ -50,53 +50,7 @@ int check_for_knots(double knotAt)
   polynomial=test_for_knots (0, 0, knotAt, 1, nrmonA-2, &start, &end);
   // printf("%d\t%.5lf\t",nrmonA,polynomial); 
 
-    printf("%d\t%.5lf\t",nrmonA,polynomial);
-
-
-
-  //if( sqrt((polynomial-1)*(polynomial-1)) > 0.000001){
-
-  /*  if( sqrt((polynomial-9.0546280992)*(polynomial-9.0546280992)) < 0.000001
-      || sqrt((polynomial-25.0909917357)*(polynomial-25.0909917357)) < 0.000001
-      || sqrt((polynomial-25.4574455362)*(polynomial-25.4574455362)) < 0.000001
-      || sqrt((polynomial-49.2548760334)*(polynomial-49.2548760334)) < 0.000001
-    ) { */ 
-         
-      copy_MYVEC_array(posA,(posA+NMONOMAXA+10),0,NMONOMAXA);
-
-      copy_MYVEC_array(posA,knotB,0,NMONOMAXA);
-      nrmon_knotB=nrmonA;
-      closure(0);
- 
-      VCOPY(knotB+nrmon_knotB-2,posA);
-      (posA->monomer_number)=1;
-      j=1;
-      for(i=0;i<nrmonA;i++) {
-        VCOPY((posA+NMONOMAXA+10+i),posA+j);  
-        ((posA+j)->monomer_number)=j+1;
-        j++;
-      }
-      VCOPY(knotB+nrmon_knotB-3,posA+j); // !!! 
-      ((posA+j)->monomer_number)=j+1;
-      nrmonA+=2;
-
-      // for(i=0;i<nrmonA;i++)
-      // VPRINT(posA+i);          
-
-      //polynomial1=test_for_knots (0, 0, -1.1, 1, nrmonA-2, &start, &end);
-      //polynomial2=test_for_knots (1, 0, -1.1, 1, nrmonA-2, &start, &end);
-
-      // printf("%d\t%.5lf\t%.5lf\t%.5lf\n",mcs,polynomial,polynomial1,polynomial2);
-
-      // printf("%d\t%.5lf  \t",mcs,polynomial);
-      /* generate_educated_guess_for_knot_size(polynomial, 1, nrmonA-2, &start, &end);
-      size=determine_knot_size(polynomial,start,end,0); */
-      size=determine_knot_size(polynomial,1,nrmonA-2,0);
-      printf("\n"); 
-
-      nrmonA=NMONOMAXA;
-      copy_MYVEC_array((posA+NMONOMAXA+10),posA,0,NMONOMAXA);
-
+    printf("%d\t%.5Lf\t",nrmonA,polynomial);
   //}
 
   //else {printf("0\t0\t0\t0\n");}

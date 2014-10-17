@@ -35,8 +35,11 @@ def Cload(filename, center=False):
     #include <math.h>
     """
     from scipy import weave
-    weave.inline(code, ['filename', 'N', 'ret'], extra_compile_args=[
+    try:
+        weave.inline(code, ['filename', 'N', 'ret'], extra_compile_args=[
         '-march=native -malign-double'], support_code=support)
+    except:
+        raise IOError("C code failed to open txt file {0}").format(filename)
     if center == True:
         ret -= numpy.mean(ret, axis=1)[:, None]
     return ret.T
@@ -55,7 +58,8 @@ def load(filename, h5dictKey=None):
             N = int(line0)
         except ValueError:
             raise TypeError("Cannot read text file... reading pickle file")
-        data = Cload(filename, center=False)
+        # data = Cload(filename, center=False)
+        data = [map(float, i.split()) for i in open(filename).readlines()[1:]]
 
         if len(data) != N:
             raise ValueError("N does not correspond to the number of lines!")

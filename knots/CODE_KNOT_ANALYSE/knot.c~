@@ -37,7 +37,7 @@ int check_for_knots(double knotAt)
   MYVEC *mon, *mon_knotB;
   char fname[30];
   double t1,t2; 
-  double polynomial, polynomial1, polynomial2;
+  long double polynomial, polynomial1, polynomial2;
   double bondlength;
   int fixed1, fixed2;
   FILE   *datei;
@@ -47,25 +47,14 @@ int check_for_knots(double knotAt)
   knotB           = (MYVEC *) calloc(NMONOMAXA+10, sizeof(MYVEC)); 
   closure_mon     = (MYVEC *) calloc(2, sizeof(MYVEC));
  
-  polynomial=test_for_knots (0, 3, knotAt, 1, nrmonA-2, &start, &end);
+  polynomial=test_for_knots (0, 0, knotAt, 1, nrmonA-2, &start, &end);
   // printf("%d\t%.5lf\t",nrmonA,polynomial); 
 
-  if( sqrt((polynomial-1)*(polynomial-1)) < 0.000001  )
-      printf("%d\t0_0\t",nrmonA);
-  else if( sqrt((polynomial-9.054628099)*(polynomial-9.054628099)) < 0.000001  )
-      printf("%d\t3_1\t",nrmonA);
-  else if (sqrt((polynomial-25.0909917357)*(polynomial-25.0909917357)) < 0.000001 )
-      printf("%d\t4_1\t",nrmonA);
-  else if (sqrt((polynomial-25.4574455362)*(polynomial-25.4574455362)) < 0.000001 )
-      printf("%d\t5_1\t",nrmonA);
-  else if (sqrt((polynomial-49.2548760334)*(polynomial-49.2548760334)) < 0.000001 )
-      printf("%d\t5_2\t",nrmonA);
-  else
-    printf("%d\t%.5lf\t",nrmonA,polynomial);
+    printf("%d\t%.5Lf\t",nrmonA,polynomial);
 
 
 
-  if( sqrt((polynomial-1)*(polynomial-1)) > 0.000001){
+  //if( sqrt((polynomial-1)*(polynomial-1)) > 0.000001){
 
   /*  if( sqrt((polynomial-9.0546280992)*(polynomial-9.0546280992)) < 0.000001
       || sqrt((polynomial-25.0909917357)*(polynomial-25.0909917357)) < 0.000001
@@ -77,7 +66,7 @@ int check_for_knots(double knotAt)
 
       copy_MYVEC_array(posA,knotB,0,NMONOMAXA);
       nrmon_knotB=nrmonA;
-      closure(3);
+      closure(0);
  
       VCOPY(knotB+nrmon_knotB-2,posA);
       (posA->monomer_number)=1;
@@ -102,15 +91,15 @@ int check_for_knots(double knotAt)
       // printf("%d\t%.5lf  \t",mcs,polynomial);
       /* generate_educated_guess_for_knot_size(polynomial, 1, nrmonA-2, &start, &end);
       size=determine_knot_size(polynomial,start,end,0); */
-      size=determine_knot_size(polynomial,1,nrmonA-2,0);
+      //size=determine_knot_size(polynomial,1,nrmonA-2,0);
       printf("\n"); 
 
       nrmonA=NMONOMAXA;
       copy_MYVEC_array((posA+NMONOMAXA+10),posA,0,NMONOMAXA);
 
-  }
+  //}
 
-  else {printf("0\t0\t0\t0\n");}
+  //else {printf("0\t0\t0\t0\n");}
 
   free(knotA);
   free(knotB);

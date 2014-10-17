@@ -88,7 +88,7 @@ double test_for_knots (int mode, int closure_mode, double t, int start, int end,
      *r_end  =((knotB+nrmon_knotB-2)->monomer_number)-1;
   }
 
-  return(alexander_polynomial(t)*alexander_polynomial((1/t)));  
+  return(alexander_polynomial(t) + alexander_polynomial((1/t)));  
 }
 
 

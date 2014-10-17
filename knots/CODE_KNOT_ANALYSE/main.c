@@ -77,6 +77,11 @@ int parse_args(int argc, char **argv){
 
 
 int main(int argc, char **argv) {
+  Py_SetProgramName (argv [0]);
+  Py_Initialize ();
+  initdet();
+
+
   int i=0, seed=-1;
   //char filenamein[100]="/var/www/cgi-bin/knots/tmp/conf_in", filenameout[30];
   
@@ -90,7 +95,7 @@ int main(int argc, char **argv) {
   if(nrmonA!=0){
     check_for_knots(knotAt);
   }
-  else {printf("0\t1\t0\t0\t0\t0\n");}
+  else {printf("0\t0\t0\t0\t0\t0\n");}
 
   /*---------------------------------------------*
    | initialize seed for random number generator |
@@ -112,7 +117,7 @@ int main(int argc, char **argv) {
 
   /* sprintf(filenameout,"conf_out");
   sysout(filenameout,posA,nrmonA,mcs);  */
-
+  Py_Finalize ();
   return(OK);
 }
 

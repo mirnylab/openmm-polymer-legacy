@@ -35,11 +35,11 @@ CC 	   = cc
 #CFLAGS     = $(STDCFLAGS) -g
 #CC         = icc
 #CFLAGS     = $(STDCFLAGS) -O3 -xW -tpp7 -ipo -ipo_obj
-CFLAGS     = $(STDCFLAGS) -Ofast  
+CFLAGS     = $(STDCFLAGS) -Ofast 
 #CFLAGS     = -g
 LDFLAGS    = -lm 
 
-all: mc
+all: python mc 
 
 say	:
 	echo $(SRCs)
@@ -48,10 +48,13 @@ say	:
 ## Here is how to create the objects:
 
 %.o	: %.c $(HDRs)
-	$(CC) $(CFLAGS) -c $<
+	$(CC) $(CFLAGS) -c $< `python-config --includes`
 
-mc	: $(OBJs)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJs) $(LDFLAGS) 
+mc	:$(OBJs)
+	$(CC) $(CFLAGS) -o $(TARGET) $(OBJs) det.o $(LDFLAGS)  `python-config --libs`
+python 	: 
+	cython det.pyx
+	gcc -g -O2 -fpic -c det.c -o det.o `python-config --includes`
 
 clean	:
 	rm -f $(OBJs) $(TARGET)

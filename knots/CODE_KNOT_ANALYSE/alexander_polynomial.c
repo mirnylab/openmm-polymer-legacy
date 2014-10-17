@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "det.h"
 
 extern int     mcs, polA, nrmonA;
 extern MYVEC   *posA;
@@ -180,7 +181,7 @@ double alexander_polynomial (double t)
 
   if(list_ctr<3) {
     free(list);
-    return(1);
+    return(0);
   }
 
   /*---------------------------------------------------*
@@ -300,17 +301,13 @@ double alexander_polynomial (double t)
    |                                                  |
    |    from Numerical Recipies                       |
    *--------------------------------------------------*/
+  //printf("Zeros element %lf \n", alexander_matrix[0][0]); 
+  d = det(alexander_matrix, list_ctr-1);
 
-  ludcmp(alexander_matrix,list_ctr-1,indx,&d); 
-
-  for(i=1;i<=list_ctr-1;i++) {
-     d*=alexander_matrix[i][i];
-  }
- 
   determinant = d;
 
   free_dmatrix(alexander_matrix,1,list_ctr-1,1,list_ctr-1); 
 
   free(list);
-  return(sqrt(determinant*determinant));
+  return determinant;
 }

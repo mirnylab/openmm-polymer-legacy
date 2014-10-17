@@ -7,6 +7,7 @@
  * last modification : 04/19/2004                            *
  *************************************************************/
 
+#include <Python.h>
 
 #define NMONOMAXA 50000
 

@@ -2182,6 +2182,7 @@ class SimulationWithCrosslinks(Simulation):
         if shift == 0:
             shift = 1
         begin = numpy.random.randint(distanceBetweenBonds)
+        consecutiveRandomBondList = []
         while True:
             b1 = begin
             b2 = begin + loopSize + numpy.random.randint(shift)
@@ -2193,9 +2194,11 @@ class SimulationWithCrosslinks(Simulation):
 
             self.addBond(b1, b2, bondWiggle, bondLength,
                          verbose=verbose)
+            consecutiveRandomBondList.append([b1,b2])
             begin = b2 + numpy.random.randint(distanceBetweenBonds)
             if self.verbose == True:
                 print "bond added between %d and %d" % (b1, b2)
+        self.metadata['consecutiveRandomBondList'] = consecutiveRandomBondList
 
     def addDoubleRandomLengthBonds(self, bondlength, bondRange, distance):
         begin = 4

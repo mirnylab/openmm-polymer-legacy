@@ -242,6 +242,8 @@ class Simulation():
         self.length_scale = length_scale
         self.mass_scale = mass_scale
         self.eKcritical = 200  # Max allowed kinetic energy
+        self.nm = nm
+
 
     def setup(self, platform="CUDA", PBC=False, PBCbox=None, GPU="default",
               integrator="langevin", verbose=True, errorTol=None, precision="mixed"):
@@ -410,7 +412,7 @@ class Simulation():
         if not hasattr(self, "N"):
             raise ValueError("Load the chain first, or provide chain length")
 
-        self.chains = [i for i in chains] #copy 
+        self.chains = [i for i in chains]  # copy
         for i in range(len(self.chains)):
             start, end, isRing = self.chains[i]
             end = self.N if (end is None) else end

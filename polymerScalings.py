@@ -72,7 +72,12 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False,
     scontacts = np.sort(contacts)  # sorted contact lengthes
     connections = 1. * np.diff(np.searchsorted(
         scontacts, bins0, side="left"))  # binned contact lengthes
-    possible = np.diff(N * bins0 + 0.5 * bins0 - 0.5 * (bins0 ** 2))
+
+    if ring == True:
+        possible = np.diff(N * bins0)
+    else:
+        possible = np.diff(N * bins0 + 0.5 * bins0 - 0.5 * (bins0 ** 2))
+
     if verbose:
         print "average contacts per monomer:", connections.sum() / N
 
@@ -85,6 +90,38 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False,
     if verbose:
         print list(connections)
     return (a, connections)
+
+
+def giveEndToEndScaling(data, bins=None, ring=False):
+    """
+    Returns end-to-end distance scaling of a given polymer conformation.
+    ..warning:: This method averages end-to-end scaling over bins to make better average
+
+    Parameters
+    ----------
+
+    data: 3xN array
+
+    """
+    if len(data) != 3:
+        data = data.T
+    if len(data) != 3:
+        raise ValueError("Wrong data shape")
+
+    N = len(data[0])
+    if ring == True:
+        data = np.concatenate([data, data], axis=1)
+
+    rads = [0. for i in xrange(len(bins))]
+    for i in xrange(len(bins)):
+        length = bins[i]
+        if ring == True:
+            rads[i] = np.mean(np.sqrt(np.sum((data[:, :N]
+                                           - data[:, length:length + N]) ** 2, 0)))
+        else:
+            rads[i] = np.mean(np.sqrt(np.sum((data[:, :-
+                                            length] - data[:, length:]) ** 2, 0)))
+    return (bins, rads)
 
 
 def give_distance(data, bins=None, ring=False):
@@ -123,11 +160,14 @@ def give_distance(data, bins=None, ring=False):
     return (bins, rads)
 
 
-def give_radius_scaling(data, bins=None, ring=False):
+def giveRgScaling(data, bins=None, ring=False):
     "main working horse for radius of gyration"
     "uses dymanic programming algorithm"
 
-    bins = [int(sqrt(bins[i] * bins[i + 1])) for i in xrange(len(bins) - 1)]
+    if len(data) != 3:
+        data = data.T
+    if len(data) != 3:
+        raise ValueError("Wrong data shape")
 
     data = np.array(data, float)
     coms = np.cumsum(data, 1)  # cumulative sum of locations to calculate COM
@@ -159,6 +199,13 @@ def give_radius_scaling(data, bins=None, ring=False):
         rads[i] = radius_gyration(int(bins[i]))
     return (copy(bins), rads)
 
+
+def give_radius_scaling(data, bins=None, ring=False):
+    "main working horse for radius of gyration"
+    "uses dymanic programming algorithm"
+
+    bins = [int(sqrt(bins[i] * bins[i + 1])) for i in xrange(len(bins) - 1)]
+    return giveRgScaling(data, bins, ring)
 
 def give_radius_scaling_eig(data, bins=None):
     # gives volume^^0.33 as  defined through  eigenvectors

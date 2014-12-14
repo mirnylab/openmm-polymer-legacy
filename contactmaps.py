@@ -53,7 +53,7 @@ if openmm == True:
         print "OpenMM CPU contactlist would only work with OpenMM >= 6.1"
         print 'Switching to default contact list finder'
         CPU = False
-    if nums > (6, 1):
+    if nums > (6, 2):
         print"You might need to recompile OpenMM neighbors list"
         print "please do this if something fails"
     if ((nums < (6, 1)) and (nums >= (6, 0))):
@@ -941,6 +941,5 @@ def _test():
 
 
 
-
-
-# _test()
+if __name__ == "__main__":
+    _test()

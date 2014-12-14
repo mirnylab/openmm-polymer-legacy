@@ -1985,7 +1985,7 @@ class Simulation():
                     dt = self.integrator.getStepSize()
                     print 'dt=%.1lffs' % (dt / fs),
                     mass = self.system.getParticleMass(0)
-                    dx = (units.sqrt(3.0 * self.kT / mass) * dt)
+                    dx = (units.sqrt(2.0 * eK * self.kT / mass) * dt)
                     print 'dx=%.2lfpm' % (dx / nm * 1000.0),
 
                 print ""

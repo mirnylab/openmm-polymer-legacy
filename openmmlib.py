@@ -860,17 +860,22 @@ class Simulation():
             "are beyound the polymer length %d" % (i, j, self.N))
         bondSize = float(bondWiggleDistance)
         if distance is None:
-            distance = self.conlen / nm
+            distance = self.length_scale
         else:
-            distance = self.conlen * distance / nm
+            distance = self.length_scale * distance
         distance = float(distance)
+
+        if not hasattr(self, "kbondScalingFactor"):
+            self.kbondScalingFactor = float((2 * self.kT / (self.conlen) ** 2) / (units.kilojoule_per_mole / nm ** 2))
+        kbondScalingFactor = self.kbondScalingFactor
+
 
         if bondType is None:
             bondType = self.bondType
 
         if bondType.lower() == "harmonic":
             self._initHarmonicBondForce()
-            kbond = (2 * self.kT / (bondSize * self.conlen) ** 2) / (units.kilojoule_per_mole / nm ** 2)
+            kbond = kbondScalingFactor / (bondSize ** 2)
             self.forceDict["HarmonicBondForce"].addBond(int(i), int(j), float(distance), float(kbond))
             self.bondLengths.append([int(i), int(j), float(distance), float(bondSize)])
         elif bondType.lower() == "grosberg":
@@ -909,6 +914,9 @@ class Simulation():
             If True then do not calculate non-bonded forces between the
             particles connected by a bond. True by default.
         """
+        wiggleDimensionless = wiggleDist
+        lengthDImensionless = bondLength
+
 
         for start, end, isRing in self.chains:
             for j in xrange(start, end - 1):
@@ -2196,7 +2204,7 @@ class SimulationWithCrosslinks(Simulation):
 
             self.addBond(b1, b2, bondWiggle, bondLength,
                          verbose=verbose)
-            consecutiveRandomBondList.append([b1,b2])
+            consecutiveRandomBondList.append([b1, b2])
             begin = b2 + numpy.random.randint(distanceBetweenBonds)
             if self.verbose == True:
                 print "bond added between %d and %d" % (b1, b2)

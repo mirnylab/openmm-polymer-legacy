@@ -24,6 +24,8 @@ import numpy
 from mirnylib.h5dict import h5dict
 import os
 import traceback
+from mirnylib.numutils import sumByArray
+import exceptions
 np = numpy
 from scipy import weave
 from math import sqrt
@@ -499,7 +501,7 @@ def rescalePoints(points, bins):
     return a
 
 
-def rescaledMap(data, bins, cutoff=1.7):
+def rescaledMap(data, bins, cutoff=1.7, contactMap=None):
     # print data.sum(), bins.sum(), cutoff
     """calculates a rescaled contact map of a structure
     Parameters
@@ -519,7 +521,30 @@ def rescaledMap(data, bins, cutoff=1.7):
     """
 
     t = giveContacts(data, cutoff)
-    return rescalePoints(t, bins)
+    x = np.searchsorted(bins, t[:, 0]) - 1
+    y = np.searchsorted(bins, t[:, 1]) - 1
+    assert x.min() >= 0
+    assert y.min() >= 0
+    assert x.max() < len(bins) - 1
+    assert y.max() < len(bins) - 1
+    matrixSize = len(bins) - 1
+    index = matrixSize * x + y
+    unique = np.unique(index)
+    inds = sumByArray(index, unique)
+    uniquex = unique / matrixSize
+    uniquey = unique % matrixSize
+
+    if contactMap is None:
+        contactMap = np.zeros((matrixSize, matrixSize), dtype=int)
+    contactMap[uniquex, uniquey] += inds
+
+    return contactMap
+
+
+
+
+
+
 
 
 def pureMap(data, cutoff=1.7, contactMap=None):
@@ -662,7 +687,7 @@ def averageContactMap(*args, **kvargs):
     raise Exception('deprecated function')
 
 
-def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
+def averageBinnedContactMapOld(filenames, chains=None, binSize=None, cutoff=1.7,
                             n=4,  # Num threads
                             loadFunction=load,
                             exceptionsToIgnore=None):
@@ -759,6 +784,121 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
     return fmapred(action, filenames, n=n, exceptionList=exceptionsToIgnore), chromosomeStarts[0:-1]
 
 
+def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
+                            n=4,  # Num threads
+                            loadFunction=load,
+                            exceptionsToIgnore=None):
+    """
+    Returns an average contact map of a set of conformations.
+    Non-existing files are ignored if exceptionsToIgnore is set to IOError.
+    example:\n
+
+    An example:
+
+    .. code-block:: python
+        >>> filenames = ["myfolder/blockd%d.dat" % i for i in xrange(1000)]
+        >>> cmap = averageBinnedContactMap(filenames) + 1  #getting cmap
+        #either showing a log of a map (+1 for zeros)
+        >>> plt.imshow(numpy.log(cmap +1))
+        #or truncating a map
+        >>> vmax = np.percentile(cmap, 99.9)
+        >>> plt.imshow(cmap, vmax=vmax)
+        >>> plt.show()
+
+    Parameters
+    ----------
+    filenames : list of strings
+        Filenames to average map over
+    chains : list of tuples or Nx2 array
+        (start,end+1) of each chain
+    binSize : int
+        size of each bin in monomers
+    cutoff : float, optional
+        Cutoff to calculate contacts
+    n : int, optional
+        Number of threads to use.
+        By default 4 to minimize RAM consumption.
+    exceptionsToIgnore : list of Exceptions
+        List of exceptions to ignore when finding the contact map.
+        Put IOError there if you want it to ignore missing files.
+
+    Returns
+    -------
+    tuple of two values:
+    (i) MxM numpy array with the conntact map binned to binSize resolution.
+    (ii) chromosomeStarts a list of start sites for binned map.
+
+    """
+    n = min(n, len(filenames))
+    subvalues = [filenames[i::n] for i in xrange(n)]
+
+    getResolution = 0
+    fileInd = 0
+    while getResolution == 0:
+        try:
+            data = loadFunction(filenames[fileInd])  # load filename
+            getResolution = 1
+        except:
+            fileInd = fileInd + 1
+        if fileInd >= len(filenames):
+            print "no valid files found in filenames"
+            raise ValueError("no valid files found in filenames")
+
+    if chains is None:
+        chains = [[0, len(data)]]
+    if binSize is None:
+        binSize = int(numpy.floor(len(data) / 500))
+
+    bins = []
+    chains = numpy.asarray(chains)
+    chainBinNums = (
+        numpy.ceil((chains[:, 1] - chains[:, 0]) / (0.0 + binSize)))
+    for i in xrange(len(chainBinNums)):
+        bins.append(binSize * (numpy.arange(int(chainBinNums[i])))
+                    + chains[i, 0])
+    bins.append(numpy.array([chains[-1, 1] + 1]))
+    bins = numpy.concatenate(bins)
+    bins = bins - .5
+    Nbase = len(bins) - 1
+
+    if Nbase > 10000:
+        warnings.warn(UserWarning('very large contact map'
+                                  ' may be difficult to visualize'))
+
+    chromosomeStarts = numpy.cumsum(chainBinNums)
+    chromosomeStarts = numpy.hstack((0, chromosomeStarts))
+
+    def myaction(values):  # our worker receives some filenames
+        mysum = None  # future contact map.
+        for i in values:
+            try:
+                data = loadFunction(i)
+                print i
+            except tuple(exceptionsToIgnore):
+                print "file not found", i
+                continue
+
+            if data.shape[0] == 3:
+                data = data.T
+            if mysum is None:  # if it's the first filename,
+
+
+                mysum = rescaledMap(data, bins, cutoff)  # create a map
+
+            else:  # if not
+                rescaledMap(data, bins, cutoff, mysum)
+                    # use existing map and fill in contacts
+
+        return mysum
+    blocks = fmap(myaction, subvalues)
+    blocks = [i for i in blocks if i is not None]
+    a = blocks[0]
+    for i in blocks[1:]:
+        a = a + i
+    a = a + a.T
+    return a, bins
+
+
 def averagePureContactMap(filenames,
                           cutoff=1.7,
                           n=4,  # Num threads
@@ -803,7 +943,7 @@ def averagePureContactMap(filenames,
             try:
                 data = loadFunction(i)
                 print i
-            except exceptionsToIgnore:
+            except tuple(exceptionsToIgnore):
                 print "file not found", i
                 continue
             except:
@@ -876,9 +1016,7 @@ def _test():
         print "time for giveContacts with openmm is: ",
         print time() - a
     else:
-        c3 = c1
-
-
+        c3 = c2
 
     a = time()
     c1 = giveContactsAny(c, cutoff=2.2)
@@ -903,13 +1041,14 @@ def _test():
                                       n=1,
                                       cutoff=1.7,
                                       loadFunction=funnyLoad,
-                                      exceptionsToIgnore=[IOError])[0]
+                                      exceptionsToIgnore=[IOError, exceptions.IOError])
+    manyMap = manyMap[0]
     fmapMap = averageBinnedContactMap(range(50),
                                       binSize=10,
                                       n=8,
                                       cutoff=1.7,
                                       loadFunction=funnyLoad,
-                                      exceptionsToIgnore=[IOError])[0]
+                                      exceptionsToIgnore=[IOError, exceptions.IOError])[0]
 
     assert  np.abs(manyMap - 5 * onemap).sum() < 1
     assert  np.abs(fmapMap - 25 * onemap).sum() < 1

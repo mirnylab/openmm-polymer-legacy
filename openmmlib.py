@@ -661,7 +661,7 @@ class Simulation():
 
     def getData(self):
         "Returns an Nx3 array of positions"
-        return numpy.asarray(self.data / nm, dtype="float32")
+        return numpy.asarray(self.data / nm, dtype=np.float32)
 
     def getScaledData(self):
         """Returns data, scaled back to PBC box """

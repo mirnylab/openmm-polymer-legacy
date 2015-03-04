@@ -26,7 +26,7 @@ def exampleOpenmm():
     # This is relevant, for example, for simulations of polymer collapse
     # If simulation blows up, decrease errorTol by a factor of two and try again
     a = Simulation(thermostat=0.02)  # timestep not necessary for variableLangevin
-    a.setup(platform="cuda", integrator="variableLangevin", errorTol=0.06, verbose=True)
+    a.setup(platform="cuda", integrator="variableLangevin", errorTol=0.06, verbose=True, GPU = "1")
 
     a.saveFolder("trajectory")  # folder where to save trajectory
 

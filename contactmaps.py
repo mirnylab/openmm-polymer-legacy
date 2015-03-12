@@ -896,7 +896,8 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
     for i in blocks[1:]:
         a = a + i
     a = a + a.T
-    return a, bins
+
+    return a, chromosomeStarts
 
 
 def averagePureContactMap(filenames,

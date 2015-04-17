@@ -36,6 +36,19 @@ from polymerutils import load, save
 import warnings
 import polymerutils
 
+# Fixing path to OpenMM libraries
+if "OPENMM_LIB_PATH" in os.environ:
+    newEnv = os.environ.copy()
+    mypath = os.environ["OPENMM_LIB_PATH"]
+    newOpenmmLibPath = mypath + ":" + mypath + "/plugins"
+    newLdLibraryPath = os.environ["LD_LIBRARY_PATH"] + ":" + mypath + ":" + mypath + "/plugins"
+    newEnv["OPENMM_LIB_PATH"] = mypath
+    newEnv["LD_LIBRARY_PATH"] = newLdLibraryPath
+
+else:
+    print "OPENMM_LIB_PATH is not defined! Please define it!"
+    print "Now not using OpenMM for contactmaps :("
+    CPU = False
 
 
 
@@ -52,16 +65,18 @@ if openmm == True:
     ver = simtk.openmm.__version__
     nums = tuple([int(i) for i in ver.split(".")])
     if nums < (6, 0):
-        print "OpenMM CPU contactlist would only work with OpenMM >= 6.1"
+        print "OpenMM CPU contactlist would only work with OpenMM >= 6.0"
         print 'Switching to default contact list finder'
         CPU = False
-    if nums > (6, 2):
-        print"You might need to recompile OpenMM neighbors list"
-        print "please do this if something fails"
+
     if ((nums < (6, 1)) and (nums >= (6, 0))):
         CPUfile = "getCpuNeighborList6.0"
-    else:
+    elif nums < (6, 2):
         CPUfile = "getCpuNeighborList6.1"
+    elif nums < (6, 3):
+        CPUfile = "getCpuNeighborList6.2"
+    else:
+        CPUfile = "getCpuNeighborList6.3"
     folderName = os.path.split(__file__)[0]
     CPUfile = os.path.join(folderName, CPUfile)
     if not os.path.exists(CPUfile):
@@ -230,7 +245,7 @@ def giveContactsOpenMM(data, cutoff=1.7):
     data = np.asarray(data, order="C", dtype=np.float32)
 
 
-    newProcess = subprocess.Popen([CPUfile, str(cutoff), str(len(data))], stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=-1)
+    newProcess = subprocess.Popen([CPUfile, str(cutoff), str(len(data))], stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=-1, env=newEnv)
 
     try:
         output, err = newProcess.communicate(data.tostring(order="C"))
@@ -240,7 +255,7 @@ def giveContactsOpenMM(data, cutoff=1.7):
 
     returncode = newProcess.returncode
     if returncode != 0:
-        print "Bad return code"
+        print "Bad return code", returncode
         return None
 
     array = np.fromstring(output, dtype=np.int32)
@@ -903,7 +918,8 @@ def averagePureContactMap(filenames,
                           cutoff=1.7,
                           n=4,  # Num threads
                           loadFunction=load,
-                          exceptionsToIgnore=None):
+                          exceptionsToIgnore=None,
+                          printProbability=1):
     """
         Parameters
     ----------
@@ -942,7 +958,8 @@ def averagePureContactMap(filenames,
         for i in values:
             try:
                 data = loadFunction(i)
-                print i
+                if np.random.random() < printProbability:
+                    print i
             except tuple(exceptionsToIgnore):
                 print "file not found", i
                 continue

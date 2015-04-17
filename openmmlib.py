@@ -1762,7 +1762,7 @@ class Simulation():
                              "Initialize context before that")
 
         sigma = units.sqrt(self.kT / self.system.getParticleMass(
-            0))  # calculating mean velocity
+            1))  # calculating mean velocity
         velocs = units.Quantity(mult * numpy.random.normal(
             size=(self.N, 3)), units.meter) * (sigma / units.meter)
         # Guide to simtk.unit: 1. Always use units.quantity.
@@ -1992,7 +1992,7 @@ class Simulation():
                     or self.integrator_type.lower() == 'variableverlet'):
                     dt = self.integrator.getStepSize()
                     print 'dt=%.1lffs' % (dt / fs),
-                    mass = self.system.getParticleMass(0)
+                    mass = self.system.getParticleMass(1)
                     dx = (units.sqrt(2.0 * eK * self.kT / mass) * dt)
                     print 'dx=%.2lfpm' % (dx / nm * 1000.0),
 
@@ -2052,7 +2052,7 @@ class Simulation():
         bonds = numpy.sqrt(numpy.sum(numpy.diff(pos, axis=0) ** 2, axis=1))
         sbonds = numpy.sort(bonds)
         vel = state.getVelocities()
-        mass = self.system.getParticleMass(0)
+        mass = self.system.getParticleMass(1)
         vkT = numpy.array(vel / units.sqrt(self.kT / mass), dtype=float)
         self.velocs = vkT
         EkPerParticle = 0.5 * numpy.sum(vkT ** 2, axis=1)

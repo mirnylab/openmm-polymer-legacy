@@ -340,6 +340,9 @@ class Simulation():
                 platformObject.setPropertyDefaultValue('CudaDeviceIndex', self.GPU)
             platformObject.setPropertyDefaultValue('CudaPrecision', precision)
             platformObject.setPropertyDefaultValue('CudaUseBlockingSync', "true")
+        elif platform.lower() == "cpu":
+            platformObject = self.mm.Platform.getPlatformByName('CPU')
+
 
         else:
             self.exit("\n!!!!!!!!!!unknown platform!!!!!!!!!!!!!!!\n")

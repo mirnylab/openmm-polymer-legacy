@@ -160,6 +160,8 @@ def give_distance(data, bins=None, ring=False):
     return (bins, rads)
 
 
+
+
 def giveRgScaling(data, bins=None, ring=False):
     "main working horse for radius of gyration"
     "uses dymanic programming algorithm"

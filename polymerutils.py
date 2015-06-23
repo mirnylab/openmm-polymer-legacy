@@ -1,12 +1,30 @@
 import warnings
-import sys
 import numpy as np
 import joblib
 import os
 from math import sqrt, sin, cos
 import numpy
 
-import scipy, scipy.stats
+import scipy, scipy.stats  # @UnusedImport
+
+def scanBlocks(folder, assertContinuous=True):
+    if not os.path.exists(folder):
+        files = []
+    else:
+        files = os.listdir(folder)
+        files = [i for i in files if i.startswith("block") and i.endswith("dat")]
+        files = sorted(files, key=lambda x:int(x[5:-4]))
+
+    keys = np.array([int(i[5:-4]) for i in files])
+
+    if assertContinuous:
+        if len(files) > 0:
+            assert np.all(np.diff(np.array(keys)) == 1)
+
+    files = [os.path.join(folder, i) for i in files]
+    return {"files":files, "keys":keys}
+
+
 
 def Cload(filename, center=False):
     """fast polymer loader using weave.inline

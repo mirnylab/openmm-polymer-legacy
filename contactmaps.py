@@ -919,7 +919,7 @@ def averagePureContactMap(filenames,
                           cutoff=1.7,
                           n=4,  # Num threads
                           loadFunction=load,
-                          exceptionsToIgnore=None,
+                          exceptionsToIgnore=[],
                           printProbability=1):
     """
         Parameters

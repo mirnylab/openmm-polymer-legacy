@@ -36,6 +36,8 @@ from polymerutils import load, save
 import warnings
 import polymerutils
 
+
+"""
 # Fixing path to OpenMM libraries
 if "OPENMM_LIB_PATH" in os.environ:
     newEnv = os.environ.copy()
@@ -82,12 +84,13 @@ if openmm == True:
     if not os.path.exists(CPUfile):
         raise ValueError("OPenMM contactmap file missing! This bug should be reported.")
 
+
 try:
     simtk.openmm.Platform_getPlatformByName("CPU")
 except:
     print "Not using OpenMM contact map finder"
     CPU = False
-
+"""
 
 
 # a set of checks for OpenMM contact list, and selector of OpenMM contact list finder
@@ -264,6 +267,7 @@ def giveContactsOpenMM(data, cutoff=1.7):
     return array
 
 
+"""
 testData = np.random.random((10, 3))
 try:
     giveContactsOpenMM(testData)
@@ -274,8 +278,8 @@ except:
     traceback.print_exc(file=sys.stdout)
     print "---Continuing withont OpenMM contact finder---"
     print "You may try to recompile OpenMM contact finder to make it work"
-
-
+"""
+CPU = False
 
 
 

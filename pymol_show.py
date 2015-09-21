@@ -1,4 +1,4 @@
-#(c) 2013 Massachusetts Institute of Technology. All Rights Reserved
+# (c) 2013 Massachusetts Institute of Technology. All Rights Reserved
 # Code written by: Maksim Imakaev (imakaev@mit.edu)
 #                  Anton Goloborodko (golobor@mit.edu)
 
@@ -8,17 +8,11 @@ Note that the limit of pymol is 100k monomers, therefore interpolateData is
 useful to collapse the 200k-long simulation into a 100k-long conformation.
 """
 import os
-import sys
 import tempfile
-import cPickle
 import subprocess
 import textwrap
-
 import numpy as np
-from scipy.interpolate.interpolate import interp1d
 from scipy.interpolate.fitpack2 import InterpolatedUnivariateSpline
-
-from mirnylib.systemutils import deprecate, setExceptionHook
 import polymerutils
 
 
@@ -215,7 +209,7 @@ def do_coloring(data, regions, colors, transparencies,
     tmpPdbFile.close()
     polymerutils.save(data, tmpPdbFilename, mode='pdb', pdbGroups=pdbGroups)
 
-    #starting background check
+    # starting background check
     N = len(data)
     nregions = np.array(regions)
     if len(nregions) > 0:
@@ -253,7 +247,7 @@ def do_coloring(data, regions, colors, transparencies,
     for i in xrange(len(regions)):
         out.write("select %s\n" % (getSelectionString(*regions[i])))
         out.write("create subchain%s,sele\n" % (names[i]))
-        #out.write("remove subchain%s in %s\n"%(names[i],pdbname))
+        # out.write("remove subchain%s in %s\n"%(names[i],pdbname))
 
     if showChain == "worm":
         out.write("set cartoon_trace_atoms,1,%s\n" % pdbname)
@@ -307,12 +301,12 @@ def do_coloring(data, regions, colors, transparencies,
         return "".join(open(out.name).readlines())
 
 
-    #out.write("alter all, vdw={0} \n".format(sphereRadius))
+    # out.write("alter all, vdw={0} \n".format(sphereRadius))
 
 
     script = "".join(open(out.name).readlines())
     if not (saveTo is None):
-        #out.write("viewport 1200,1200\n")
+        # out.write("viewport 1200,1200\n")
         out.write("ray 800,800\n")
         out.write("png {}\n".format(saveTo))
         print "saved to: ", saveTo
@@ -322,7 +316,7 @@ def do_coloring(data, regions, colors, transparencies,
     out.flush()
 
 
-    #saving data
+    # saving data
 
 
     from time import sleep
@@ -439,7 +433,7 @@ def new_coloring(data, regions, colors, transparencies,
     for i in xrange(len(regions)):
         out.write("select %s, resi %d-%d\n" % (names[i], regions[i][0], regions[i][1]))
         out.write("create subchain%s,%s\n" % (names[i], names[i]))
-        #out.write("remove subchain%s in %s\n"%(names[i],pdbname))
+        # out.write("remove subchain%s in %s\n"%(names[i],pdbname))
 
     for i in xrange(len(regions)):
 
@@ -450,7 +444,7 @@ def new_coloring(data, regions, colors, transparencies,
             out.write("cartoon tube,%s\n" % name)
             out.write("color %s,subchain%s\n" % (colors[i], names[i]))
             out.write("set cartoon_transparency,%f,%s\n" % (transparencies[i], name))
-            #out.write("show cartoon,%s\n" % (name))
+            # out.write("show cartoon,%s\n" % (name))
 
         elif showChain == "spheres":
             out.write("alter {0}, vdw={1}\n".format(name, 1.5 * subchainRadius[i]))
@@ -460,9 +454,9 @@ def new_coloring(data, regions, colors, transparencies,
             out.write("set sphere_transparency,%f,%s\n" % (transparencies[i], name))
 
 
-    #if showChain == "worm":
+    # if showChain == "worm":
     #    out.write("show cartoon,name ca\n")
-    #out.write("zoom %s\n" % pdbname)
+    # out.write("zoom %s\n" % pdbname)
 
     out.write(support)
     out.write("\n")
@@ -473,12 +467,12 @@ def new_coloring(data, regions, colors, transparencies,
         return "".join(open(out.name).readlines())
 
 
-    #out.write("alter all, vdw={0} \n".format(sphereRadius))
+    # out.write("alter all, vdw={0} \n".format(sphereRadius))
 
 
     script = "".join(open(out.name).readlines())
     if not (saveTo is None):
-        #out.write("viewport 1200,1200\n")
+        # out.write("viewport 1200,1200\n")
         out.write("ray 800,800\n")
         out.write("png {}\n".format(saveTo))
         print "saved to: ", saveTo
@@ -488,7 +482,7 @@ def new_coloring(data, regions, colors, transparencies,
     out.flush()
 
 
-    #saving data
+    # saving data
 
 
     from time import sleep
@@ -502,19 +496,19 @@ def new_coloring(data, regions, colors, transparencies,
 
 
 def example_pymol():
-    #Creating a random walk
+    # Creating a random walk
     rw = .4 * np.cumsum(np.random.random((1000, 3)) - 0.5, axis=0)
 
-    #Highlighting first 100 monomers and then 200-400
+    # Highlighting first 100 monomers and then 200-400
     regions = [(000, 100), (100, 200)]
 
-    #Coloring them red and blue
+    # Coloring them red and blue
     colors = ["red", "green"]
 
-    #Making red semi-transparent
+    # Making red semi-transparent
     transp = [0.7, 0]
 
-    #Running the script with default chain radiuses
+    # Running the script with default chain radiuses
     do_coloring(
                 data=rw,
                 regions=regions,
@@ -523,7 +517,7 @@ def example_pymol():
                 spherePositions=[500, 600],
                 sphereRadius=0.3)
 
-#example_pymol()
+# example_pymol()
 
 def getTmpPath(folder=None):
     tmpFile = tempfile.NamedTemporaryFile(dir=folder)
@@ -618,7 +612,7 @@ def makeMoviePymol(
 
     for i, dataPath in enumerate(fileList):
         d = polymerutils.load(dataPath)
-        d[:,0], d[:,2] = d[:,2].copy(), d[:,0].copy()
+        d[:, 0], d[:, 2] = d[:, 2].copy(), d[:, 0].copy()
         d *= rescalingFactor
         d -= np.mean(d, axis=0)[None, :]
         pdbFilename = '{0:0{width}}.pdb'.format(i, width=numDigits)

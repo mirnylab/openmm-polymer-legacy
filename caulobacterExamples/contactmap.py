@@ -16,15 +16,15 @@ from brushManaging import makeBondsForBrush
 from scipy.ndimage.filters import gaussian_filter, gaussian_filter1d
 from mirnylib.h5dict import h5dict
 
-filelist = ["newSweep_nokick_lambda3.7_L25_gap8_stiff8_ind{0}/block{1}.dat".format(i, j) for i in range(40)  for j in xrange(100, 500, 5)]
+filelist = ["newSweep_lambda3.7_L25_gap8_stiff8_ind{0}/block{1}.dat".format(i, j) for i in range(40)  for j in xrange(100, 500, 5)]
 saveName = "temp"
 
 
 print sum([os.path.exists(i) for i in filelist])
-#if True not in [os.path.exists(i) for i in filelist]:
+# if True not in [os.path.exists(i) for i in filelist]:
 #    raise
 def myLoad(filename, dummy=None):
-    #ugly workaround:
+    # ugly workaround:
     if filename[:4] == "_HU_":
         HU = "HU"
         filename = filename[4:]
@@ -72,7 +72,7 @@ for filename in filelist:
                            tosave=None, nproc=4,
                            slices=[250], sliceParams=(200),
                            multipliers=numpy.arange(0.850001, 1.0001, 0.001),
-                           #multipliers=[1],
+                           # multipliers=[1],
                            mode="chain",
                            loadFunction=polymerutils.load)
     setExceptionHook()

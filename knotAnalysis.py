@@ -2,14 +2,10 @@
 # Code written by: Maksim Imakaev (imakaev@mit.edu)
 
 import numpy
-from mirnylib.plotting import showPolymerRasmol
 from mirnylib.numutils import isInteger
 np = numpy
-from scipy import weave
-import os
 import os.path
 from tempfile import NamedTemporaryFile
-from polymerutils import grow_rw, getLinkingNumber, create_random_walk
 from polymerutils import findSimplifiedPolymer
 import platform
 import polymerutils
@@ -211,7 +207,7 @@ def _testAnalyzeKnot():
     # showPolymerRasmol(p31, shifts=np.arange(0, 1, 0.01), rescale=False)
 
 
-    for i in xrange(10):
+    for _ in xrange(10):
         mat = np.random.random((3, 3))
         a1 = analyzeKnot(np.dot(p31, mat), simplify=False)
         a2 = analyzeKnot(np.dot(p31, mat), simplify=True)

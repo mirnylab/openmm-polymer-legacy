@@ -1,7 +1,6 @@
 # (c) 2013 Massachusetts Institute of Technology. All Rights Reserved
 # Code written by: Maksim Imakaev (imakaev@mit.edu)
 
-import mirnylib.systemutils
 from mirnylib.systemutils import fmap
 import polymerutils
 from mirnylib.numutils import logbins

@@ -159,7 +159,6 @@ Select timestep or collision rate - :py:class:`Simulation`
 
 import numpy
 import numpy as np
-from polymerutils import getLinkingNumber
 import cPickle
 import sys
 import os
@@ -167,7 +166,6 @@ import time
 import joblib
 import tempfile
 import warnings
-import polymerutils
 
 
 os.environ["LD_LIBRARY_PATH"] = os.environ.get("LD_LIBRARY_PATH", "") + ":/usr/local/cuda/lib64:/usr/local/openmm/lib"
@@ -246,7 +244,7 @@ class Simulation():
 
 
     def setup(self, platform="CUDA", PBC=False, PBCbox=None, GPU="default",
-              integrator="langevin", verbose=True, errorTol=None, precision="mixed"):
+              integrator="langevin", errorTol=None, precision="mixed"):
         """Sets up the important low-level parameters of the platform.
         Mandatory to run.
 
@@ -917,8 +915,6 @@ class Simulation():
             If True then do not calculate non-bonded forces between the
             particles connected by a bond. True by default.
         """
-        wiggleDimensionless = wiggleDist
-        lengthDImensionless = bondLength
 
 
         for start, end, isRing in self.chains:
@@ -2105,7 +2101,7 @@ class Simulation():
         print
         print "Potential Energy Ep = ", eP / self.N / self.kT
 
-    def show(self, shifts=[0., 0.2, 0.4, 0.6, 0.8]):
+    def show(self, shifts=[0., 0.2, 0.4, 0.6, 0.8], scale="auto"):
         """shows system in rasmol by drawing spheres
         draws 4 spheres in between any two points (5 * N spheres total)
         """
@@ -2121,11 +2117,14 @@ class Simulation():
             print "wrong data!"
             return
         # determining the 95 percentile distance between particles,
-        meandist = numpy.percentile(numpy.sqrt(
-            numpy.sum(numpy.diff(data, axis=0) ** 2, axis=1)), 95)
-        # rescaling the data, so that bonds are of the order of 1.
-        # This is because rasmol spheres are of the fixed diameter.
-        data /= meandist
+        if scale == "auto":
+            meandist = numpy.percentile(numpy.sqrt(
+                numpy.sum(numpy.diff(data, axis=0) ** 2, axis=1)), 95)
+            # rescaling the data, so that bonds are of the order of 1.
+            # This is because rasmol spheres are of the fixed diameter.
+            data /= meandist
+        else:
+            data /= scale
 
         if self.N > 1000:  # system is sufficiently large
             count = 0

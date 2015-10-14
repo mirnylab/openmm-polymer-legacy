@@ -37,7 +37,24 @@ import warnings
 import polymerutils
 
 
-"""
+
+import signal
+from contextlib import contextmanager
+
+class TimeoutException(Exception): pass
+
+@contextmanager
+def time_limit(seconds):
+    def signal_handler(signum, frame):
+        raise TimeoutException, "Timed out!"
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+
+
 # Fixing path to OpenMM libraries
 if "OPENMM_LIB_PATH" in os.environ:
     newEnv = os.environ.copy()
@@ -58,6 +75,7 @@ try:
     import simtk.openmm
     openmm = True
 except:
+    print "Cannot import OpenMM"
     openmm = False
     CPU = False
 
@@ -90,7 +108,6 @@ try:
 except:
     print "Not using OpenMM contact map finder"
     CPU = False
-"""
 
 
 # a set of checks for OpenMM contact list, and selector of OpenMM contact list finder
@@ -250,11 +267,8 @@ def giveContactsOpenMM(data, cutoff=1.7):
 
     newProcess = subprocess.Popen([CPUfile, str(cutoff), str(len(data))], stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=-1, env=newEnv)
 
-    try:
-        output, err = newProcess.communicate(data.tostring(order="C"))
-    except:
-        print "Process failed!"
-        return None
+
+    output, err = newProcess.communicate(data.tostring(order="C"))
 
     returncode = newProcess.returncode
     if returncode != 0:
@@ -267,10 +281,11 @@ def giveContactsOpenMM(data, cutoff=1.7):
     return array
 
 
-"""
+
 testData = np.random.random((10, 3))
 try:
-    giveContactsOpenMM(testData)
+    with time_limit(2):
+        giveContactsOpenMM(testData)
 except:
     CPU = False
     print '---Failed to execute OpenMM contact finder-----'
@@ -278,8 +293,8 @@ except:
     traceback.print_exc(file=sys.stdout)
     print "---Continuing withont OpenMM contact finder---"
     print "You may try to recompile OpenMM contact finder to make it work"
-"""
-CPU = False
+
+# CPU = False
 
 
 

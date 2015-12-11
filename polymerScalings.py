@@ -2,11 +2,11 @@
 # Code written by: Maksim Imakaev (imakaev@mit.edu)
 
 from mirnylib.systemutils import fmap
-import polymerutils
+from . import polymerutils
 from mirnylib.numutils import logbins
-import contactmaps
-from contactmaps import load, giveContacts
-import cPickle
+from . import contactmaps
+from .contactmaps import load, giveContacts
+import pickle
 from math import sqrt
 import random
 import numpy as np
@@ -55,7 +55,7 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False,
     N = len(data[0])
 
     bins0 = np.array(bins0)
-    bins = [(bins0[i], bins0[i + 1]) for i in xrange(len(bins0) - 1)]
+    bins = [(bins0[i], bins0[i + 1]) for i in range(len(bins0) - 1)]
 
     if intContacts == False:
         contacts = np.array(giveContacts(data, cutoff, maxContacts=maxContacts))
@@ -78,7 +78,7 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False,
         possible = np.diff(N * bins0 + 0.5 * bins0 - 0.5 * (bins0 ** 2))
 
     if verbose:
-        print "average contacts per monomer:", connections.sum() / N
+        print("average contacts per monomer:", connections.sum() / N)
 
     if integrate == False:
         connections /= possible
@@ -87,7 +87,7 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False,
 
     a = [sqrt(i[0] * (i[1] - 1)) for i in bins]
     if verbose:
-        print list(connections)
+        print(list(connections))
     return (a, connections)
 
 
@@ -111,8 +111,8 @@ def giveEndToEndScaling(data, bins=None, ring=False):
     if ring == True:
         data = np.concatenate([data, data], axis=1)
 
-    rads = [0. for i in xrange(len(bins))]
-    for i in xrange(len(bins)):
+    rads = [0. for i in range(len(bins))]
+    for i in range(len(bins)):
         length = bins[i]
         if ring == True:
             rads[i] = np.mean(np.sqrt(np.sum((data[:, :N]
@@ -137,14 +137,14 @@ def give_distance(data, bins=None, ring=False):
     N = len(data[0])
     if ring == True:
         data = np.concatenate([data, data], axis=1)
-    bins = [(bins[i], bins[i + 1]) for i in xrange(len(bins) - 1)]
+    bins = [(bins[i], bins[i + 1]) for i in range(len(bins) - 1)]
 
-    rads = [0. for i in xrange(len(bins))]
-    for i in xrange(len(bins)):
+    rads = [0. for i in range(len(bins))]
+    for i in range(len(bins)):
         oneBin = bins[i]
         rad = 0.
         count = 0
-        for j in xrange(oneBin[0], oneBin[1], (oneBin[1] - oneBin[0]) / 10 + 1):
+        for j in range(oneBin[0], oneBin[1], (oneBin[1] - oneBin[0]) / 10 + 1):
             length = j
             if ring == True:
                 rad += np.mean(np.sqrt(np.sum((data[:, :N]
@@ -195,8 +195,8 @@ def giveRgScaling(data, bins=None, ring=False):
         sums = np.sqrt(np.sum(diffs, 0))
         return np.mean(sums)
 
-    rads = [0. for i in xrange(len(bins))]
-    for i in xrange(len(bins)):
+    rads = [0. for i in range(len(bins))]
+    for i in range(len(bins)):
         rads[i] = radius_gyration(int(bins[i]))
     return (copy(bins), rads)
 
@@ -205,7 +205,7 @@ def give_radius_scaling(data, bins=None, ring=False):
     "main working horse for radius of gyration"
     "uses dymanic programming algorithm"
 
-    bins = [int(sqrt(bins[i] * bins[i + 1])) for i in xrange(len(bins) - 1)]
+    bins = [int(sqrt(bins[i] * bins[i + 1])) for i in range(len(bins) - 1)]
     return giveRgScaling(data, bins, ring)
 
 def give_radius_scaling_eig(data, bins=None):
@@ -228,7 +228,7 @@ def give_radius_scaling_eig(data, bins=None):
     ret = []
     for i in bins:
         av = 0.
-        for j in xrange(1000):
+        for j in range(1000):
             t = np.random.randint(5, N - 5 - i)
             res = tensor(t, t + i)
             av += sqrt(3) * (res[0] * res[1] * res[2] * 1.) ** (1 / 6.)
@@ -288,7 +288,7 @@ def subchainDensityFunction(filenames, bins, normalize="Rg", maxLength=3, Nbins=
             count = int(N * coverage / np.mean(onebin) + 1)
             sphereCounts = np.zeros(len(volumes), float)
 
-            for i in xrange(count):
+            for i in range(count):
                 size = np.random.randint(onebin[0], onebin[1])
                 start = np.random.randint(0, N - size)
                 subchain = data[start:start + size]
@@ -309,7 +309,7 @@ def subchainDensityFunction(filenames, bins, normalize="Rg", maxLength=3, Nbins=
             elif normalize == "none":
                 curresults.append(np.array([lengthBinMids, sphereCounts]))
             else:
-                print "Normalize=", normalize, "is not implemented"
+                print("Normalize=", normalize, "is not implemented")
                 raise NotImplementedError()
         results.append(curresults)
     results = np.mean(np.array(results, float), axis=0)
@@ -319,7 +319,7 @@ def subchainDensityFunction(filenames, bins, normalize="Rg", maxLength=3, Nbins=
         import matplotlib.pyplot as plt
         plt.plot(i[0], i[1], **kwargs)
 
-    return dict(zip(midbins, results))
+    return dict(list(zip(midbins, results)))
 
 
 def give_slices(base, tosave, slices, sliceParams,
@@ -337,10 +337,10 @@ def give_slices(base, tosave, slices, sliceParams,
         def slice2D(a, b, mult=[1]):
             tm = []
             if type(b) == tuple:
-                for i in xrange(b[0], b[1] + 1):
+                for i in range(b[0], b[1] + 1):
                     tm.append((i, a))
             elif type(b) == int:
-                for i in xrange(1, b + 1):
+                for i in range(1, b + 1):
                     tm.append((i, a))
             elif type(b) == list:
                 tm = [(i, a) for i in b]
@@ -349,17 +349,17 @@ def give_slices(base, tosave, slices, sliceParams,
                     float(i[1]) * m)) for i in tm for m in mult])))
             else:
                 tm2 = sorted(tm)
-            print tm2
+            print(tm2)
             return tm2
 
         def slice3D(a, b, c, mult=[1]):
             tm = []
-            for i in xrange(b[0], b[1] + 1):
-                for t in xrange(c[0], c[1] + 1):
+            for i in range(b[0], b[1] + 1):
+                for t in range(c[0], c[1] + 1):
                     tm.append((i, a, t))
             tm2 = sorted(list(set([(i[0], int(
                 float(i[1]) * m)) for i in tm for m in mult])))
-            print tm2
+            print(tm2)
             return tm2
 
         # sluces actually are defined
@@ -384,16 +384,16 @@ def give_slices(base, tosave, slices, sliceParams,
                 if len(data) != 3:
                     data = data.T
                 if len(data) != 3:
-                    raise StandardError("Wrong shape of data")
+                    raise Exception("Wrong shape of data")
                 data = np.asarray(data, order="C", dtype=float)
                 return data
             except tuple(exceptionList):
-                print "file not found", i
+                print("file not found", i)
                 return None
 
         # use this for determining the file size
-        datas = filter(lambda x: x is not None, fmap(newload, files[::
-                                            len(files) / 20 + 1], n=3))
+        datas = [x for x in fmap(newload, files[::
+                                            len(files) / 20 + 1], n=3) if x is not None]
         datlen = len(datas[0][0])
 
         if mode == "chain":
@@ -403,7 +403,7 @@ def give_slices(base, tosave, slices, sliceParams,
         if (mode == "ring") or (mode == "intring"):
             b1 = logbins(2, datlen / 4 - 1, binstep)
             bins2 = [2 * i for i in b1]
-            print bins2
+            print(bins2)
         binsrg = logbins(4, datlen - 100, binstep)
 
         def give_plots(i):
@@ -454,13 +454,13 @@ def give_slices(base, tosave, slices, sliceParams,
 
         parPlots = fmap(give_plots, files, n=nproc)
 
-        parPlots = filter(lambda x: x is not None, parPlots)
+        parPlots = [x for x in parPlots if x is not None]
 
         means = np.mean(parPlots, axis=0)
         plotsBySlice.append([means, {"slice":cur_slice}])
 
     if tosave is not None:
-        cPickle.dump(plotsBySlice, open(tosave, 'wb'), -1)
-    print "Finished!!!"
+        pickle.dump(plotsBySlice, open(tosave, 'wb'), -1)
+    print("Finished!!!")
     return plotsBySlice
 

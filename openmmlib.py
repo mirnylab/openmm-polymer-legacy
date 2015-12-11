@@ -156,17 +156,17 @@ Select timestep or collision rate - :py:class:`Simulation`
 # Licensed under the MIT license:
 # http://www.opensource.org/licenses/mit-license.php
 
-
+from __future__ import absolute_import, division, print_function
 import numpy
 import numpy as np
-import cPickle
+import pickle
 import sys
 import os
 import time
 import joblib
 import tempfile
 import warnings
-
+from six import string_types
 
 os.environ["LD_LIBRARY_PATH"] = os.environ.get("LD_LIBRARY_PATH", "") + ":/usr/local/cuda/lib64:/usr/local/openmm/lib"
 
@@ -309,8 +309,8 @@ class Simulation():
                 # size of the system plus some overhead
 
                 self.SolventGridSize = (datasize / 1.1) - 2
-                print "density is ", self.N / (datasize[0]
-                    * datasize[1] * datasize[2])
+                print("density is ", self.N / (datasize[0]
+                    * datasize[1] * datasize[2]))
             else:
                 PBCbox = numpy.array(PBCbox)
                 datasize = PBCbox
@@ -320,7 +320,7 @@ class Simulation():
                 0.], [0., datasize[1], 0.], [0., 0., datasize[2]])
             self.BoxSizeReal = datasize
 
-        self.GPU = GPU  # setting default GPU
+        self.GPU = str(GPU)  # setting default GPU
 
         if platform.lower() == "opencl":
             platformObject = self.mm.Platform.getPlatformByName('OpenCL')
@@ -349,7 +349,8 @@ class Simulation():
         self.forceDict = {}  # Dictionary to store forces
 
         self.integrator_type = integrator
-        if type(integrator) == str:
+        if isinstance(integrator, string_types):
+            integrator = str(integrator)
             if integrator.lower() == "langevin":
                 self.integrator = self.mm.LangevinIntegrator(self.temperature,
                     self.collisionRate, self.timestep)
@@ -387,8 +388,8 @@ class Simulation():
         self.folder = folder
 
     def _exitProgram(self, line):
-        print line
-        print "--------------> Bye <---------------"
+        print(line)
+        print("--------------> Bye <---------------")
         exit()
 
 
@@ -439,7 +440,7 @@ class Simulation():
             for mass in self.masses:
                 self.system.addParticle(self.mass * mass)
             if self.verbose == True:
-                print "%d particles loaded" % self.N
+                print("%d particles loaded" % self.N)
             self.loaded = True
 
 
@@ -520,11 +521,11 @@ class Simulation():
         self.randomizeData()
 
         if self.verbose == True:
-            print "center of mass is", numpy.mean(self.data, 0)
-            print "Radius of gyration is,", self.RG()
+            print("center of mass is", numpy.mean(self.data, 0))
+            print("Radius of gyration is,", self.RG())
 
         if masses == None:
-            self.masses = [1. for _ in xrange(self.N)]
+            self.masses = [1. for _ in range(self.N)]
         else:
             self.masses = masses
 
@@ -579,7 +580,7 @@ class Simulation():
 
         if mode == "h5dict":
             if not hasattr(self, "storage"):
-                raise StandardError("Cannot save to h5dict!"\
+                raise Exception("Cannot save to h5dict!"\
                                     " Initialize storage first!")
             self.storage[str(self.step)] = self.getData()
             return
@@ -651,7 +652,7 @@ class Simulation():
         self.storage = h5dict(path=filename, mode=mode)
         if mode == "r+":
             myKeys = []
-            for i in self.storage.keys():
+            for i in list(self.storage.keys()):
                 try:
                     myKeys.append(int(i))
                 except:
@@ -754,27 +755,27 @@ class Simulation():
             self.domains = domains
 
         elif filename is not None:
-            self.domains = cPickle.load(open(domains))
+            self.domains = pickle.load(open(domains))
         else:
             self.exit("You have to specify domain vector or filename!")
 
         if len(self.domains) != self.N:
             self._exitProgram("Wrong domain lengths")
 
-        cPickle.dump(self.domains, open(os.path.join(self.folder,
+        pickle.dump(self.domains, open(os.path.join(self.folder,
             "domains.dat"), 'wb'))
         if hasattr(self, "storage"):
             self.storage["domains"] = self.domains
 
     def _initHarmonicBondForce(self):
         "Internal, inits harmonic forse for polymer and non-polymer bonds"
-        if "HarmonicBondForce" not in self.forceDict.keys():
+        if "HarmonicBondForce" not in list(self.forceDict.keys()):
             self.forceDict["HarmonicBondForce"] = self.mm.HarmonicBondForce()
         self.bondType = "Harmonic"
 
     def _initGrosbergBondForce(self):
         "inits Grosberg FENE bond force"
-        if "GrosbergBondForce" not in self.forceDict.keys():
+        if "GrosbergBondForce" not in list(self.forceDict.keys()):
             force = ("- 0.5 * GROSk * GROSr0 * GROSr0 * log(1-(r/GROSr0)* (r / GROSr0))"
                 " + (4 * GROSe * ((GROSs/r)^12 - (GROSs/r)^6) + GROSe) * step(GROScut - r)")
             bondforceGr = self.mm.CustomBondForce(force)
@@ -789,7 +790,7 @@ class Simulation():
 
     def _initAbsBondForce(self):
         "inits abs(x) FENE bond force"
-        if "AbsBondForce" not in self.forceDict.keys():
+        if "AbsBondForce" not in list(self.forceDict.keys()):
             force = "(1. / ABSwiggle) * ABSunivK * "\
             "(sqrt((r-ABSr0 * ABSconlen)* "\
             " (r - ABSr0 * ABSconlen) + ABSa * ABSa) - ABSa)"
@@ -804,7 +805,7 @@ class Simulation():
 
     def _initAbsDistanceLimitation(self):
         "inits abs(x) FENE bond force"
-        if "AbsLimitation" not in self.forceDict.keys():
+        if "AbsLimitation" not in list(self.forceDict.keys()):
             force = ("(1. / ABSwiggle) * ABSunivK * step(r - ABSr0 * ABSconlen) "
                 "* (sqrt((r-ABSr0 * ABSconlen)"
                 "*(r - ABSr0 * ABSconlen) + ABSa * ABSa) - ABSa)")
@@ -895,8 +896,8 @@ class Simulation():
         else:
             self._exitProgram("Bond type not known")
         if verbose == True:
-            print "%s bond added between %d,%d, wiggle %lf dist %lf" % (
-                bondType, i, j, float(bondWiggleDistance), float(distance))
+            print("%s bond added between %d,%d, wiggle %lf dist %lf" % (
+                bondType, i, j, float(bondWiggleDistance), float(distance)))
 
     def addHarmonicPolymerBonds(self,
                                 wiggleDist=0.05,
@@ -918,7 +919,7 @@ class Simulation():
 
 
         for start, end, isRing in self.chains:
-            for j in xrange(start, end - 1):
+            for j in range(start, end - 1):
                 self.addBond(j, j + 1, wiggleDist,
                     distance=bondLength,
                     bondType="Harmonic", verbose=False)
@@ -931,7 +932,7 @@ class Simulation():
                 if exceptBonds:
                     self.bondsForException.append((start, end - 1))
                 if self.verbose == True:
-                    print "ring bond added", start, end - 1
+                    print("ring bond added", start, end - 1)
 
         self.metadata["HarmonicPolymerBonds"] = repr(
             {"wiggleDist": wiggleDist, 'bondLength':bondLength})
@@ -954,7 +955,7 @@ class Simulation():
          """
 
         for start, end, isRing in self.chains:
-            for j in xrange(start, end - 1):
+            for j in range(start, end - 1):
                 self.addBond(j, j + 1, bondType="Grosberg")
                 self.bondsForException.append((j, j + 1))
 
@@ -962,7 +963,7 @@ class Simulation():
                 self.addBond(start, end - 1, distance=1, bondType="Harmonic")
                 self.bondsForException.append((start, end - 1))
                 if self.verbose == True:
-                    print "ring bond added", start, end - 1
+                    print("ring bond added", start, end - 1)
 
         self.metadata["GorsbergPolymerForce"] = repr({"k": k})
 
@@ -989,7 +990,7 @@ class Simulation():
             "kT*angK * (theta - 3.141592) * (theta - 3.141592) * (0.5)")
         self.forceDict["AngleForce"] = stiffForce
         for start, end, isRing in self.chains:
-            for j in xrange(start + 1, end - 1):
+            for j in range(start + 1, end - 1):
                 stiffForce.addAngle(j - 1, j, j + 1, [float(k[j])])
             if isRing:
                 stiffForce.addAngle(end - 2, end - 1, start, [k[end - 1]])
@@ -1032,7 +1033,7 @@ class Simulation():
         stiffForce.addGlobalParameter("kT", self.kT)
         stiffForce.addPerAngleParameter("GRk")
         for start, end, isRing in self.chains:
-            for j in xrange(start + 1, end - 1):
+            for j in range(start + 1, end - 1):
                 stiffForce.addAngle(j - 1, j, j + 1, [k[j]])
             if isRing:
                 stiffForce.addAngle(end - 2, end - 1, start, [k[end - 1]])
@@ -1375,7 +1376,7 @@ class Simulation():
         repulforce = self.mm.NonbondedForce()
 
         self.forceDict["Nonbonded"] = repulforce
-        for i in xrange(self.N):
+        for i in range(self.N):
             particleParameters = [0., 0., 0.]
 
             if numpy.random.random() > blindFraction:
@@ -1461,20 +1462,20 @@ class Simulation():
             sigma = 1.1 * self.conlen
         epsilon = epsilon * units.kilocalorie_per_mole
         if (min(i, j) < length) or (max(i, j) > self.N - length):
-            print "!!!!!!!!!bond with %d and %d is out of range!!!!!" % (i, j)
+            print("!!!!!!!!!bond with %d and %d is out of range!!!!!" % (i, j))
             return
         repulforce = self.forceDict["Nonbonded"]
-        for t1 in xrange(i - length / 2, i + (length - length / 2)):
-            for t2 in xrange(j - length / 2, j + (length - length / 2)):
+        for t1 in range(i - length / 2, i + (length - length / 2)):
+            for t2 in range(j - length / 2, j + (length - length / 2)):
                 repulforce.addException(t1, t2, 0, sigma, epsilon, True)
                 if self.verbose == True:
-                    print "Exception added between"\
-                    " particles %d and %d" % (t1, t2)
+                    print("Exception added between"\
+                    " particles %d and %d" % (t1, t2))
 
-        for tt in xrange(i - length, i + length):
+        for tt in range(i - length, i + length):
             repulforce.setParticleParameters(
                 tt, 0, self.conlen, self.epsilonRep)
-        for tt in xrange(j - length, j + length):
+        for tt in range(j - length, j + length):
             repulforce.setParticleParameters(
                 tt, 0, self.conlen, self.epsilonRep)
 
@@ -1501,7 +1502,7 @@ class Simulation():
                 "r = sqrt(x^2 + y^2 + CYLtt^2)")
 
         self.forceDict["CylindricalConfinement"] = extforce2
-        for i in xrange(self.N):
+        for i in range(self.N):
             extforce2.addParticle(i, [])
         extforce2.addGlobalParameter("CYLkb", k * self.kT / nm)
         extforce2.addGlobalParameter("CYLtop", top * self.conlen)
@@ -1541,14 +1542,14 @@ class Simulation():
             ";r = sqrt(x^2 + y^2 + z^2 + SPHtt^2)")
         self.forceDict["SphericalConfinement"] = spherForce
 
-        for i in xrange(self.N):
+        for i in range(self.N):
             spherForce.addParticle(i, [])
         if r == "density":
             r = (3 * self.N / (4 * 3.141592 * density)) ** (1 / 3.)
 
         self.sphericalConfinementRadius = r
         if self.verbose == True:
-            print "Spherical confinement with radius = %lf" % r
+            print("Spherical confinement with radius = %lf" % r)
         # assigning parameters of the force
         spherForce.addGlobalParameter("SPHkb", k * self.kT / nm)
         spherForce.addGlobalParameter("SPHaa", (r - 1. / k) * nm)
@@ -1571,12 +1572,12 @@ class Simulation():
             "r = sqrt((x-EXx)^2 + (y-EXy)^2 + (z-EXz)^2 + EXtt^2)")
         self.forceDict["ExcludeSphere"] = spherForce
 
-        for i in xrange(self.N):
+        for i in range(self.N):
             spherForce.addParticle(i, [])
 
         self.sphericalConfinementRadius = r
         if self.verbose == True:
-            print "Spherical confinement with radius = %lf" % r
+            print("Spherical confinement with radius = %lf" % r)
         # assigning parameters of the force
         spherForce.addGlobalParameter("EXkb", 2 * self.kT / nm)
         spherForce.addGlobalParameter("EXaa", (r - 1. / 3) * nm)
@@ -1612,7 +1613,7 @@ class Simulation():
         self.forceDict["Lamina attraction"] = laminaForce
 
         # adding all the particles on which force acts
-        for i in xrange(self.N):
+        for i in range(self.N):
             if self.domains[i] > 0.5:
                 laminaForce.addParticle(i, [])
         if r is None:
@@ -1622,7 +1623,7 @@ class Simulation():
                 raise ValueError("No spherical confinement radius defined"\
                                  " yet. Apply spherical confinement first!")
         if self.verbose == True:
-            print "Lamina attraction added with r = %d" % r
+            print("Lamina attraction added with r = %d" % r)
 
         laminaForce.addGlobalParameter("LAMaa", r * nm)
         laminaForce.addGlobalParameter("LAMwidth", width * nm)
@@ -1665,7 +1666,7 @@ class Simulation():
             i = int(i)
             tetherForce.addParticle(i, list(pos))
             if self.verbose == True:
-                print "particle %d tethered! " % i
+                print("particle %d tethered! " % i)
 
     def addGravity(self, k=0.1, cutoff=None):
         """adds force pulling downwards in z direction
@@ -1679,7 +1680,7 @@ class Simulation():
             gravity.addGlobalParameter("cutoffG", cutoff * nm)
         gravity.addGlobalParameter("kG", k * self.kT / (nm))
 
-        for i in xrange(self.N):
+        for i in range(self.N):
             gravity.addParticle(i, [])
         self.forceDict["Gravity"] = gravity
 
@@ -1708,7 +1709,7 @@ class Simulation():
         self._loadParticles()
 
         exc = self.bondsForException
-        print "Number of exceptions:", len(exc)
+        print("Number of exceptions:", len(exc))
 
         if len(exc) > 0:
             exc = numpy.array(exc)
@@ -1716,15 +1717,15 @@ class Simulation():
             exc = [tuple(i) for i in exc]
             exc = list(set(exc))  # only unique pairs are left
 
-        for i in self.forceDict.keys():  # Adding exceptions
+        for i in list(self.forceDict.keys()):  # Adding exceptions
             force = self.forceDict[i]
             if hasattr(force, "addException"):
-                print 'Add exceptions for {0} force'.format(i)
+                print('Add exceptions for {0} force'.format(i))
                 for pair in exc:
                     force.addException(int(pair[0]),
                         int(pair[1]), 0, 0, 0, True)
             elif hasattr(force, "addExclusion"):
-                print 'Add exclusions for {0} force'.format(i)
+                print('Add exclusions for {0} force'.format(i))
                 for pair in exc:
                     # force.addExclusion(*pair)
                     force.addExclusion(int(pair[0]), int(pair[1]))
@@ -1733,13 +1734,12 @@ class Simulation():
                                                     force, "CutoffPeriodic"):
                 if self.PBC:
                     force.setNonbondedMethod(force.CutoffPeriodic)
-                    print "Using periodic boundary conditions!!!!"
+                    print("Using periodic boundary conditions!!!!")
                 else:
                     force.setNonbondedMethod(force.CutoffNonPeriodic)
-            print "adding force ", i, self.system.addForce(self.forceDict[i])
+            print("adding force ", i, self.system.addForce(self.forceDict[i]))
 
-        self.context = self.mm.Context(
-            self.system, self.integrator, self.platform)
+        self.context = self.mm.Context(self.system, self.integrator, self.platform)
         self.initPositions()
         self.initVelocities()
         self.forcesApplied = True
@@ -1774,7 +1774,7 @@ class Simulation():
         If system has exploded, this is
          used in the code to reset coordinates. """
 
-        print "Positions... ",
+        print("Positions... ")
         try:
             self.context
         except:
@@ -1782,11 +1782,11 @@ class Simulation():
                              " Initialize context before that")
 
         self.context.setPositions(self.data)
-        print " loaded!",
+        print(" loaded!")
         state = self.context.getState(getPositions=True, getEnergy=True)
             # get state of a system: positions, energies
         eP = state.getPotentialEnergy() / self.N / self.kT
-        print "potential energy is %lf" % eP
+        print("potential energy is %lf" % eP)
 
     def reinitialize(self, mult=1):
         """Reinitializes the OpenMM context object.
@@ -1805,7 +1805,7 @@ class Simulation():
 
     def localEnergyMinimization(self, tolerance=0.3, maxIterations=0):
         "A wrapper to the build-in OpenMM Local Energy Minimization"
-        print "Performing local energy minimization"
+        print("Performing local energy minimization")
 
         self._applyForces()
         oldName = self.name
@@ -1816,7 +1816,7 @@ class Simulation():
         eK = (self.state.getKineticEnergy() / self.N / self.kT)
         eP = self.state.getPotentialEnergy() / self.N / self.kT
         locTime = self.state.getTime()
-        print "before minimization eK={0}, eP={1}, time={2}".format(eK, eP, locTime)
+        print("before minimization eK={0}, eP={1}, time={2}".format(eK, eP, locTime))
 
         self.mm.LocalEnergyMinimizer.minimize(
             self.context, tolerance, maxIterations)
@@ -1826,7 +1826,7 @@ class Simulation():
         eK = (self.state.getKineticEnergy() / self.N / self.kT)
         eP = self.state.getPotentialEnergy() / self.N / self.kT
         locTime = self.state.getTime()
-        print "after minimization eK={0}, eP={1}, time={2}".format(eK, eP, locTime)
+        print("after minimization eK={0}, eP={1}, time={2}".format(eK, eP, locTime))
 
         self.name = oldName
 
@@ -1840,7 +1840,7 @@ class Simulation():
         this is here for backwards compatibility.
         """
 
-        print "Performing energy minimization"
+        print("Performing energy minimization")
         self._applyForces()
         oldName = self.name
         self.name = "minim"
@@ -1856,7 +1856,7 @@ class Simulation():
 
         def minimizeDrop():
             drop = 10.
-            for dummy in xrange(maxIterations):
+            for dummy in range(maxIterations):
                 if drop < 1:
                     drop = 1.
                 if drop > 10000:
@@ -1867,20 +1867,20 @@ class Simulation():
                 self.integrator.setFriction(def_fric * drop)
                 # self.reinitialize()
                 numAttempts = 5
-                for attempt in xrange(numAttempts):
+                for attempt in range(numAttempts):
                     a = self.doBlock(stepsPerIteration, increment=False,
                         reinitialize=False)
                     # self.initVelocities()
                     if a == False:
                         drop *= 2
-                        print "Timestep decreased {0}".format(1. / drop)
+                        print("Timestep decreased {0}".format(1. / drop))
                         self.initVelocities()
                         break
                     if attempt == numAttempts - 1:
                         if drop == 1.:
                             return 0
                         drop /= 2
-                        print "Timestep decreased by {0}".format(drop)
+                        print("Timestep decreased by {0}".format(drop))
                         self.initVelocities()
             return -1
 
@@ -1892,7 +1892,7 @@ class Simulation():
         self.integrator.setFriction(def_fric)
         self.integrator.setStepSize(def_step)
         # self.reinitialize()
-        print "Finished energy minimization"
+        print("Finished energy minimization")
 
     def doBlock(self, steps=None, increment=True, num=None, reinitialize=True, maxIter=0, checkFunctions=[]):
         """performs one block of simulations, doing steps timesteps,
@@ -1913,7 +1913,7 @@ class Simulation():
 
         if self.forcesApplied == False:
             if self.verbose:
-                print "applying forces"
+                print("applying forces")
                 sys.stdout.flush()
             self._applyForces()
             self.forcesApplied = True
@@ -1924,19 +1924,19 @@ class Simulation():
         if (increment == True) and ((self.step % 50) == 25):
             self.printStats()
 
-        for attempt in xrange(6):
-            print "bl=%d" % (self.step),
+        for attempt in range(6):
+            print("bl=%d" % (self.step), end=' ')
             sys.stdout.flush()
             if self.verbose:
-                print
+                print()
                 sys.stdout.flush()
 
             if num is None:
-                num = steps / 5 + 1
+                num = steps // 5 + 1
             a = time.time()
-            for _ in xrange(steps / num):
+            for _ in range(steps // num):
                 if self.verbose:
-                    print "performing integration"
+                    print("performing integration")
                 self.integrator.step(num)  # integrate!
                 sys.stdout.flush()
             if (steps % num) > 0:
@@ -1957,9 +1957,9 @@ class Simulation():
 
             if self.velocityReinitialize:
                 if eK > 2.4:
-                    print "(i)",
+                    print("(i)", end=' ')
                     self.initVelocities()
-            print "pos[1]=[%.1lf %.1lf %.1lf]" % tuple(newcoords[0]),
+            print("pos[1]=[%.1lf %.1lf %.1lf]" % tuple(newcoords[0]), end=' ')
 
 
 
@@ -1974,28 +1974,28 @@ class Simulation():
                 self.context.setPositions(self.data)
                 self.initVelocities()
                 if reinitialize == False:
-                    print "eK={0}, eP={1}".format(eK, eP)
+                    print("eK={0}, eP={1}".format(eK, eP))
                     return False
-                print "eK={0}, eP={1}, trying one more time at step {2} ".format(eK, eP, self.step)
+                print("eK={0}, eP={1}, trying one more time at step {2} ".format(eK, eP, self.step))
             else:
                 dif = numpy.sqrt(numpy.mean(numpy.sum((newcoords -
                     self.getData()) ** 2, axis=1)))
-                print "dr=%.2lf" % (dif,),
+                print("dr=%.2lf" % (dif,), end=' ')
                 self.data = coords
-                print "t=%2.1lfps" % (self.state.getTime() / ps),
-                print "kin=%.2lf pot=%.2lf" % (eK,
-                    eP), "Rg=%.3lf" % self.RG(),
-                print "SPS=%.0lf" % (steps / (float(b - a))),
+                print("t=%2.1lfps" % (self.state.getTime() / ps), end=' ')
+                print("kin=%.2lf pot=%.2lf" % (eK,
+                    eP), "Rg=%.3lf" % self.RG(), end=' ')
+                print("SPS=%.0lf" % (steps / (float(b - a))), end=' ')
 
                 if (self.integrator_type.lower() == 'variablelangevin'
                     or self.integrator_type.lower() == 'variableverlet'):
                     dt = self.integrator.getStepSize()
-                    print 'dt=%.1lffs' % (dt / fs),
+                    print('dt=%.1lffs' % (dt / fs), end=' ')
                     mass = self.system.getParticleMass(1)
                     dx = (units.sqrt(2.0 * eK * self.kT / mass) * dt)
-                    print 'dx=%.2lfpm' % (dx / nm * 1000.0),
+                    print('dx=%.2lfpm' % (dx / nm * 1000.0), end=' ')
 
-                print ""
+                print("")
                 break
 
             if attempt in [3, 4]:
@@ -2025,16 +2025,16 @@ class Simulation():
         bondDistsSorted = numpy.sort(bondDists)
         if (bondDists > (bondArray[:, 2] + maxBondSizeMultipler * bondArray[:, 3])).any():
             isConnected = False
-            print "!! connectivity check failed !!"
-            print "median bond size is ", numpy.median(bondDists)
-            print "longest 10 bonds are", bondDistsSorted[-10:]
+            print("!! connectivity check failed !!")
+            print("median bond size is ", numpy.median(bondDists))
+            print("longest 10 bonds are", bondDistsSorted[-10:])
 
         else:
             isConnected = True
             if printPositiveResult:
-                print "connectivity check passed."
-                print "median bond size is ", numpy.median(bondDists)
-                print "longest 10 bonds are", bondDistsSorted[-10:]
+                print("connectivity check passed.")
+                print("median bond size is ", numpy.median(bondDists))
+                print("longest 10 bonds are", bondDistsSorted[-10:])
 
         return isConnected
 
@@ -2066,40 +2066,40 @@ class Simulation():
         x, y, z = pos[:, 0], pos[:, 1], pos[:, 2]
         minmedmax = lambda x: (x.min(), numpy.median(x), x.mean(), x.max())
 
-        print
-        print "Statistics for the simulation %s, number of particles: %d, "\
+        print()
+        print("Statistics for the simulation %s, number of particles: %d, "\
         " number of chains: %d" % (
-            self.name, self.N, len(self.chains))
-        print
-        print "Statistics for particle position"
-        print "     mean position is: ", numpy.mean(
-            pos, axis=0), "  Rg = ", self.RG()
-        print "     median bond size is ", numpy.median(bonds)
-        print "     three shortest/longest (<10)/ bonds are ", sbonds[
-            :3], "  ", sbonds[sbonds < 10][-3:]
+            self.name, self.N, len(self.chains)))
+        print()
+        print("Statistics for particle position")
+        print("     mean position is: ", numpy.mean(
+            pos, axis=0), "  Rg = ", self.RG())
+        print("     median bond size is ", numpy.median(bonds))
+        print("     three shortest/longest (<10)/ bonds are ", sbonds[
+            :3], "  ", sbonds[sbonds < 10][-3:])
         if (sbonds > 10).sum() > 0:
-            print "longest 10 bonds are", sbonds[-10:]
+            print("longest 10 bonds are", sbonds[-10:])
 
-        print "     95 percentile of distance to center is:   ", per95
-        print "     density of closest 95% monomers is:   ", den
-        print "     density of the core monomers is:   ", den5
-        print "     min/median/mean/max coordinates are: "
-        print "     x: %.2lf, %.2lf, %.2lf, %.2lf" % minmedmax(x)
-        print "     y: %.2lf, %.2lf, %.2lf, %.2lf" % minmedmax(y)
-        print "     z: %.2lf, %.2lf, %.2lf, %.2lf" % minmedmax(z)
-        print
-        print "Statistics for velocities:"
-        print "     mean kinetic energy is: ", numpy.mean(
-            EkPerParticle), "should be:", 1.5
-        print "     fastest particles are (in kT): ", numpy.sort(
-            EkPerParticle)[-5:]
+        print("     95 percentile of distance to center is:   ", per95)
+        print("     density of closest 95% monomers is:   ", den)
+        print("     density of the core monomers is:   ", den5)
+        print("     min/median/mean/max coordinates are: ")
+        print("     x: %.2lf, %.2lf, %.2lf, %.2lf" % minmedmax(x))
+        print("     y: %.2lf, %.2lf, %.2lf, %.2lf" % minmedmax(y))
+        print("     z: %.2lf, %.2lf, %.2lf, %.2lf" % minmedmax(z))
+        print()
+        print("Statistics for velocities:")
+        print("     mean kinetic energy is: ", numpy.mean(
+            EkPerParticle), "should be:", 1.5)
+        print("     fastest particles are (in kT): ", numpy.sort(
+            EkPerParticle)[-5:])
 
-        print
-        print "Statistics for the system:"
-        print "     Forces are: ", self.forceDict.keys()
-        print "     Number of exceptions:  ", len(self.bondsForException)
-        print
-        print "Potential Energy Ep = ", eP / self.N / self.kT
+        print()
+        print("Statistics for the system:")
+        print("     Forces are: ", list(self.forceDict.keys()))
+        print("     Number of exceptions:  ", len(self.bondsForException))
+        print()
+        print("Potential Energy Ep = ", eP / self.N / self.kT)
 
     def show(self, shifts=[0., 0.2, 0.4, 0.6, 0.8], scale="auto"):
         """shows system in rasmol by drawing spheres
@@ -2114,7 +2114,7 @@ class Simulation():
         if len(data[0]) != 3:
             data = numpy.transpose(data)
         if len(data[0]) != 3:
-            print "wrong data!"
+            print("wrong data!")
             return
         # determining the 95 percentile distance between particles,
         if scale == "auto":
@@ -2128,7 +2128,7 @@ class Simulation():
 
         if self.N > 1000:  # system is sufficiently large
             count = 0
-            for _ in xrange(100):
+            for _ in range(100):
                 a, b = numpy.random.randint(0, self.N, 2)
                 dist = numpy.sqrt(numpy.sum((data[a] - data[b]) ** 2))
                 if dist < 1.3:
@@ -2140,7 +2140,7 @@ class Simulation():
 
         rascript = tempfile.NamedTemporaryFile()
         # writing the rasmol script. Spacefill controls radius of the sphere.
-        rascript.write("""wireframe off
+        rascript.write(b"""wireframe off
         color temperature
         spacefill 100
         background white
@@ -2150,12 +2150,12 @@ class Simulation():
         # creating the array, linearly chanhing from -225 to 225
         # to serve as an array of colors
         colors = numpy.array([int((j * 450.) / (len(data))) -
-            225 for j in xrange(len(data))])
+            225 for j in range(len(data))])
 
         # creating spheres along the trajectory
         newData = numpy.zeros(
             (len(data) * len(shifts) - (len(shifts) - 1), 4))
-        for i in xrange(len(shifts)):
+        for i in range(len(shifts)):
             newData[i:-1:len(shifts), :3] = data[:-1] * shifts[
                 i] + data[1:] * (1 - shifts[i])
             newData[i:-1:len(shifts), 3] = colors[:-1]
@@ -2163,11 +2163,11 @@ class Simulation():
         newData[-1, 3] = colors[-1]
 
         towrite = tempfile.NamedTemporaryFile()
-        towrite.write("%d\n\n" % (len(newData)))
+        towrite.write(b"%d\n\n" % (len(newData)))
         # number of atoms and a blank line after is a requirement of rasmol
 
         for i in newData:
-            towrite.write("CA\t%lf\t%lf\t%lf\t%d\n" % tuple(i))
+            towrite.write(b"CA\t%lf\t%lf\t%lf\t%d\n" % tuple(i))
         towrite.flush()
         "TODO: rewrite using subprocess.popen"
 
@@ -2180,12 +2180,6 @@ class Simulation():
 
         rascript.close()
         towrite.close()
-
-
-class SimulationWithCrosslinks(Simulation):
-    """
-    A subclass used to do simulations for the Metaphase project
-    """
 
     def addConsecutiveRandomBonds(self, loopSize, bondWiggle, bondLength=0.,
                                   smeerLoopSize=0.2, distanceBetweenBonds=2,
@@ -2209,7 +2203,7 @@ class SimulationWithCrosslinks(Simulation):
             consecutiveRandomBondList.append([b1, b2])
             begin = b2 + numpy.random.randint(distanceBetweenBonds)
             if self.verbose == True:
-                print "bond added between %d and %d" % (b1, b2)
+                print("bond added between %d and %d" % (b1, b2))
         self.metadata['consecutiveRandomBondList'] = consecutiveRandomBondList
 
     def addDoubleRandomLengthBonds(self, bondlength, bondRange, distance):
@@ -2225,11 +2219,11 @@ class SimulationWithCrosslinks(Simulation):
                 break
             self.addBond(b1, b2, bondRange, distance)
             if self.verbose == True:
-                print "bond added between %d and %d" % (b1, b2)
+                print("bond added between %d and %d" % (b1, b2))
             if started == False:
                 self.addBond(past, b2, bondRange, distance)
                 if self.verbose == True:
-                    print "bond added between %d and %d" % (past, b2)
+                    print("bond added between %d and %d" % (past, b2))
                 past = b1
             started = False
             begin = b2
@@ -2260,7 +2254,7 @@ class SimulationWithCrosslinks(Simulation):
             excludeForce.addGlobalParameter("CORE2rn", r0 * self.conlen)
             excludeForce.addGlobalParameter("CORE2tt", 0.001 * self.conlen)
             self.forceDict["CoreExclusion"] = excludeForce
-            for i in xrange(self.N):
+            for i in range(self.N):
                 excludeForce.addParticle(i, [])
 
     def fixParticlesZCoordinate(self, particles, zCoordinates, k=0.3,
@@ -2332,7 +2326,7 @@ class SimulationWithCrosslinks(Simulation):
         self.forceDict["fixZCoordinates"] = zFixForce
 
 
-class ExperimentalSimulation(Simulation):
+
     "contains some experimental features"
 
     def quickLoad(self, data, mode="chain", Nchains=1,
@@ -2359,8 +2353,8 @@ class ExperimentalSimulation(Simulation):
             right = 1. * nm * right
 
         if self.verbose == True:
-            print "left wall created at ", left / (1. * nm)
-            print "right wall created at ", right / (1. * nm)
+            print("left wall created at ", left / (1. * nm))
+            print("right wall created at ", right / (1. * nm))
 
         extforce2 = self.mm.CustomExternalForce(
             " WALLk * (sqrt((x - WALLright) * (x-WALLright) + WALLa * WALLa ) - WALLa) * step(x-WALLright) "
@@ -2369,7 +2363,7 @@ class ExperimentalSimulation(Simulation):
         extforce2.addGlobalParameter("WALLleft", left)
         extforce2.addGlobalParameter("WALLright", right)
         extforce2.addGlobalParameter("WALLa", 1 * nm)
-        for i in xrange(self.N):
+        for i in range(self.N):
             extforce2.addParticle(i, [])
         self.forceDict["WALL Force"] = extforce2
 
@@ -2383,7 +2377,7 @@ class ExperimentalSimulation(Simulation):
         self.forceDict["Well attraction"] = extforce4
 
         # adding all the particles on which force acts
-        for i in xrange(self.N):
+        for i in range(self.N):
             if self.domains[i] > 0.5:
                 extforce4.addParticle(i, [])
         if r is None:
@@ -2393,7 +2387,7 @@ class ExperimentalSimulation(Simulation):
                 exit("No spherical confinement radius defined yet."\
                      " Apply spherical confinement first!")
         if self.verbose == True:
-            print "Well attraction added with r = %d" % r
+            print("Well attraction added with r = %d" % r)
 
         # assigning parameters of the force
         extforce4.addGlobalParameter("WELLwidth", r * nm)
@@ -2418,14 +2412,14 @@ class YeastSimulation(Simulation):
         self.forceDict["NucleolusConfinement"] = extforce3
         # adding all the particles on which force acts
         if self.verbose == True:
-            print "NUCleolus confinement from radius = %lf" % r
+            print("NUCleolus confinement from radius = %lf" % r)
         # assigning parameters of the force
         extforce3.addGlobalParameter("NUCkb", k * self.kT / nm)
         extforce3.addGlobalParameter("NUCaa", (r - 1. / k) * nm * 1.75)
         extforce3.addGlobalParameter("NUCoffset", (r - 1. / k) * nm * 1.1)
         extforce3.addGlobalParameter("NUCt", (1. / k) * nm / 10.)
         extforce3.addGlobalParameter("NUCtt", 0.01 * nm)
-        for i in xrange(self.N):
+        for i in range(self.N):
             extforce3.addParticle(i, [])
 
     def addLaminaAttraction(self, width=1, depth=1, r=None, particles=None):
@@ -2439,16 +2433,16 @@ class YeastSimulation(Simulation):
 
         # adding all the particles on which force acts
         if particles is None:
-            for i in xrange(self.N):
+            for i in range(self.N):
                 extforce3.addParticle(i, [])
                 if self.verbose == True:
-                    print "particle %d laminated! " % i
+                    print("particle %d laminated! " % i)
 
         else:
             for i in particles:
                 extforce3.addParticle(i, [])
                 if self.verbose == True:
-                    print "particle %d laminated! " % i
+                    print("particle %d laminated! " % i)
 
         if r is None:
             try:
@@ -2458,7 +2452,7 @@ class YeastSimulation(Simulation):
                      "Apply spherical confinement first!")
 
         if self.verbose == True:
-            print "Lamina attraction added with r = %d" % r
+            print("Lamina attraction added with r = %d" % r)
 
         # assigning parameters of the force
         extforce3.addGlobalParameter("LAMaa", r * nm)
@@ -2467,7 +2461,4 @@ class YeastSimulation(Simulation):
         extforce3.addGlobalParameter("LAMtt", 0.01 * nm)
 
 
-class GrandeSimulation(Simulation,
-                       SimulationWithCrosslinks,
-                       ExperimentalSimulation):
-    pass
+

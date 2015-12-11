@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function, unicode_literals
+import six
 import warnings
 import numpy as np
 import joblib
@@ -7,13 +9,65 @@ import numpy
 
 import scipy, scipy.stats  # @UnusedImport
 
+import base64
+import json
+import numpy as np
+import joblib
+import gzip
+
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        """If input object is an ndarray it will be converted into a dict
+        holding dtype, shape and the data, base64 encoded.
+        """
+        if isinstance(obj, np.ndarray):
+            if obj.flags['C_CONTIGUOUS']:
+                obj_data = obj.data
+            else:
+                cont_obj = np.ascontiguousarray(obj)
+                assert (cont_obj.flags['C_CONTIGUOUS'])
+                obj_data = cont_obj.data
+            data_b64 = base64.b64encode(obj_data)
+            return dict(__ndarray__=data_b64,
+                        dtype=str(obj.dtype),
+                        shape=obj.shape)
+        # Let the base class default method raise the TypeError
+        return json.JSONEncoder(self, obj)
+
+
+def json_numpy_obj_hook(dct):
+    """Decodes a previously encoded numpy ndarray with proper shape and dtype.
+
+    :param dct: (dict) json encoded ndarray
+    :return: (ndarray) if input was an encoded ndarray
+    """
+    if isinstance(dct, dict) and '__ndarray__' in dct:
+        data = base64.b64decode(dct['__ndarray__'])
+        return np.frombuffer(data, dct['dtype']).reshape(dct['shape'])
+    return dct
+
+
+def joblibToJson(filename, outFilename="auto"):
+    data = joblib.load(filename)
+    if outFilename == "auto":
+        outFilename = filename.replace(".dat", "json.gz")
+    json.dump(data, gzip.open("block1.json.gz", 'wb', compresslevel=9), cls=NumpyEncoder)
+
+
+def loadJson(filename):
+    myfile = gzip.open(filename)
+    data = myfile.read()
+    return json.loads(data.decode(), object_hook=json_numpy_obj_hook)
+
+
 def scanBlocks(folder, assertContinuous=True):
     if not os.path.exists(folder):
         files = []
     else:
         files = os.listdir(folder)
         files = [i for i in files if i.startswith("block") and i.endswith("dat")]
-        files = sorted(files, key=lambda x:int(x[5:-4]))
+        files = sorted(files, key=lambda x: int(x[5:-4]))
 
     keys = np.array([int(i[5:-4]) for i in files])
 
@@ -22,8 +76,7 @@ def scanBlocks(folder, assertContinuous=True):
             assert np.all(np.diff(np.array(keys)) == 1)
 
     files = [os.path.join(folder, i) for i in files]
-    return {"files":files, "keys":keys}
-
+    return {"files": files, "keys": keys}
 
 
 def Cload(filename, center=False):
@@ -55,7 +108,7 @@ def Cload(filename, center=False):
     from scipy import weave
     try:
         weave.inline(code, ['filename', 'N', 'ret'], extra_compile_args=[
-        '-march=native -malign-double'], support_code=support)
+            '-march=native -malign-double'], support_code=support)
     except:
         raise IOError("C code failed to open txt file {0}").format(filename)
     if center == True:
@@ -66,6 +119,7 @@ def Cload(filename, center=False):
 def load(filename, h5dictKey=None):
     """Universal load function for any type of data file"""
 
+
     if not os.path.exists(filename):
         raise IOError("File not found :( \n %s" % filename)
 
@@ -74,16 +128,16 @@ def load(filename, h5dictKey=None):
         line0 = open(filename).readline()
         try:
             N = int(line0)
-        except ValueError:
+        except (ValueError, UnicodeDecodeError):
             raise TypeError("Cannot read text file... reading pickle file")
         # data = Cload(filename, center=False)
-        data = [map(float, i.split()) for i in open(filename).readlines()[1:]]
+        data = [list(map(float, i.split())) for i in open(filename).readlines()[1:]]
 
         if len(data) != N:
             raise ValueError("N does not correspond to the number of lines!")
         return np.array(data)
 
-    except TypeError:
+    except (TypeError, UnicodeDecodeError):
         pass
 
     try:
@@ -96,15 +150,23 @@ def load(filename, h5dictKey=None):
         pass
 
     try:
+        data = loadJson(filename)
+        return data["data"]
+    except:
+        print("Could not load json")
+        pass
+
+
+    try:
         "checking for h5dict file "
         from mirnylib.h5dict import h5dict
         mydict = h5dict(path=filename, mode='r')
         if h5dictKey is None:
-            keys = mydict.keys()
+            keys = list(mydict.keys())
             if len(keys) != 1:
                 raise ValueError("H5Dict has more than one key. Please specify the key.")
             h5dictKey = keys[0]
-        assert h5dictKey in mydict.keys()
+        assert h5dictKey in list(mydict.keys())
         data = mydict[str(h5dictKey)]
         return data
     except IOError:
@@ -112,7 +174,6 @@ def load(filename, h5dictKey=None):
 
 
 def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
-
     data = np.asarray(data, dtype=np.float32)
 
     h5dictKey = str(h5dictKey)
@@ -125,10 +186,14 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
         del mydict
         return
 
-    elif mode == "joblib":
+    elif mode in ["joblib", "json"]:
         metadata = {}
         metadata["data"] = data
-        joblib.dump(metadata, filename=filename, compress=3)
+        if mode == "joblib":
+            joblib.dump(metadata, filename=filename, compress=9)
+        else:
+            myfile = gzip.open(filename, 'wb', compresslevel=9)
+            json.dump(metadata, myfile, cls=NumpyEncoder)
         return
 
     elif mode == "txt":
@@ -137,20 +202,15 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
 
         for particle in data:
             lines.append("{0} {1} {2}\n".format(*particle))
-
-
         if filename == None:
             return lines
-        elif type(filename) == str:
+        elif isinstance(filename, six.string_types):
             with open(filename, 'w') as myfile:
                 myfile.writelines(lines)
-
         elif hasattr(filename, "writelines"):
             filename.writelines(lines)
         else:
             return lines
-
-
 
     elif mode == 'pdb':
         data = data - np.minimum(np.min(data, axis=0), np.zeros(3, float) - 100)[None, :]
@@ -161,12 +221,13 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
                 return st[:n]
             else:
                 return st + " " * (n - len(st))
+
         if pdbGroups == None:
             pdbGroups = ["A" for i in range(len(data))]
         else:
             pdbGroups = [str(int(i)) for i in pdbGroups]
 
-        for i, line, group in zip(range(len(data)), data, pdbGroups):
+        for i, line, group in zip(list(range(len(data))), data, pdbGroups):
             atomNum = (i + 1) % 90000
             segmentNum = (i + 1) / 90000 + 1
             line = [float(j) for j in line]
@@ -192,6 +253,7 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
     else:
         raise ValueError("Unknown mode : %s, use h5dict, joblib, txt or pdb" % mode)
 
+
 def rotation_matrix(rotate):
     """Calculates rotation matrix based on three rotation angles"""
     tx, ty, tz = rotate
@@ -199,6 +261,7 @@ def rotation_matrix(rotate):
     Ry = np.array([[np.cos(ty), 0, -np.sin(ty)], [0, 1, 0], [np.sin(ty), 0, np.cos(ty)]])
     Rz = np.array([[np.cos(tz), -np.sin(tz), 0], [np.sin(tz), np.cos(tz), 0], [0, 0, 1]])
     return np.dot(Rx, np.dot(Ry, Rz))
+
 
 def msd(data1, data2, rotate=True, N=999999, fullReturn=False):
     """
@@ -236,7 +299,7 @@ def msd(data1, data2, rotate=True, N=999999, fullReturn=False):
         return numpy.sqrt(numpy.mean((newa - newb) ** 2) * 3)
 
     def distance(rotate_shift, N=N):
-    #    print rotate
+        #    print rotate
         rotate = rotate_shift[:3]
         shift = rotate_shift[3:]
         rotated = numpy.dot(data2, rotation_matrix(rotate))
@@ -253,15 +316,15 @@ def msd(data1, data2, rotate=True, N=999999, fullReturn=False):
     mydist = distance(optimal, N=999999)
     shuffled = distN(data1, data1[r], N=999999)
     original = distN(data1, data2, N=999999)
-    print "shuffled distance = ", shuffled
-    print "original distance =", original
-    print "optimized distance= ", mydist
+    print("shuffled distance = ", shuffled)
+    print("original distance =", original)
+    print("optimized distance= ", mydist)
     if not fullReturn:
         return mydist
     else:
-        return {"optimized":mydist, "original":original,
-                "shuffled":shuffled, "angle":optimal[:3],
-                "shift":optimal[3:]}
+        return {"optimized": mydist, "original": original,
+                "shuffled": shuffled, "angle": optimal[:3],
+                "shift": optimal[3:]}
 
 
 def bondLengths(data):
@@ -276,7 +339,7 @@ def persistenceLength(data):
     avgCosines = np.array([np.diag(bondCosines, i).mean() for i in range(lens.size)])
     truncCosines = avgCosines[:np.where(avgCosines < 1.0 / np.e / np.e)[0][0]]
     slope, intercept, _, _, _ = scipy.stats.linregress(
-        range(truncCosines.size), np.log(truncCosines))
+            list(range(truncCosines.size)), np.log(truncCosines))
     return -1.0 / slope
 
 
@@ -292,7 +355,7 @@ def generateRandomLooping(length=10000, oneMoverPerBp=1000, numSteps=100):
             myarray[i[1]] = 1
 
     def addMovers():
-        for _ in xrange(np.random.poisson(onsetRate)):
+        for _ in range(np.random.poisson(onsetRate)):
             pos = np.random.randint(N - 1)
             if myarray[pos:pos + 2].sum() == 0:
                 movers.append((pos, pos + 1))
@@ -317,7 +380,7 @@ def generateRandomLooping(length=10000, oneMoverPerBp=1000, numSteps=100):
             movers[j] = (left, right)
         return moved
 
-    for _ in xrange(numSteps):
+    for _ in range(numSteps):
         addMovers()
         translocateMovers()
     while translocateMovers():
@@ -384,7 +447,7 @@ def create_spiral(r1, r2, N):
         if (len(points) == N) or (finished[0] == True):
             points = np.array(points)
             finished[0] = True
-            print "finished!!!"
+            print("finished!!!")
         else:
             points.append(point)
 
@@ -398,14 +461,14 @@ def create_spiral(r1, r2, N):
         if forward == True:
             curphi = nextphi(curphi)
             add_point(fullcoord(curphi, z))
-            if(rad(curphi) > r2):
+            if (rad(curphi) > r2):
                 forward = False
                 z += 1
                 add_point(fullcoord(curphi, z))
         else:
             curphi = prevphi(curphi)
             add_point(fullcoord(curphi, z))
-            if(rad(curphi) < r1):
+            if (rad(curphi) < r1):
                 forward = True
                 z += 1
                 add_point(fullcoord(curphi, z))
@@ -426,6 +489,8 @@ def create_random_walk(step_size, N, segment_length=1):
 
 
 matlabImported = False
+
+
 def createFBM(length, H):
     if not matlabImported:
         import mlabwrap
@@ -452,20 +517,20 @@ def grow_rw(step, size, method="line"):
 
     """
     numpy = np
-    t = size / 2
+    t = size // 2
     if method == "standard":
         a = [(t, t, t), (t, t, t + 1), (t, t + 1, t + 1), (t, t + 1, t)]
     elif method == "line":
         a = []
-        for i in xrange(1, size):
+        for i in range(1, size):
             a.append((t, t, i))
 
-        for i in xrange(size - 1, 0, -1):
+        for i in range(size - 1, 0, -1):
             a.append((t, t - 1, i))
 
     elif method == "linear":
         a = []
-        for i in xrange(0, size + 1):
+        for i in range(0, size + 1):
             a.append((t, t, i))
         if (len(a) % 2) != (step % 2):
             a = a[:-1]
@@ -476,7 +541,7 @@ def grow_rw(step, size, method="line"):
     b = numpy.zeros((size + 1, size + 1, size + 1), int)
     for i in a:
         b[i] = 1
-    for i in xrange((step - len(a)) / 2):
+    for i in range((step - len(a)) // 2):
         # print len(a)
         while True:
             t = numpy.random.randint(0, len(a))
@@ -501,19 +566,19 @@ def grow_rw(step, size, method="line"):
             shiftar[direction] = shift
             t3 = t0 + shiftar
             t4 = t1 + shiftar
-            if (b[tuple(t3)] == 0) and (b[tuple(t4)] == 0) and (numpy.min(t3) >= 1) and (numpy.min(t4) >= 1) and (numpy.max(t3) < size) and (numpy.max(t4) < size):
+            if (b[tuple(t3)] == 0) and (b[tuple(t4)] == 0) and (numpy.min(t3) >= 1) and (numpy.min(t4) >= 1) and (
+                numpy.max(t3) < size) and (numpy.max(t4) < size):
                 a.insert(t + 1, tuple(t3))
                 a.insert(t + 2, tuple(t4))
                 b[tuple(t3)] = 1
                 b[tuple(t4)] = 1
                 break
-        # print a
+                # print a
     return numpy.array(a)
 
 
 def _test():
-
-    print "testing save/load"
+    print("testing save/load")
     a = np.random.random((20000, 3))
     save(a, "bla", mode="txt")
     b = load("bla")
@@ -523,13 +588,22 @@ def _test():
     b = load("bla")
     assert abs(b.mean() - a.mean()) < 0.00001
 
+    save(a, "bla.json.gz", mode="json")
+    b = load("bla.json.gz")
+    assert abs(b.mean() - a.mean()) < 0.00001
+
+    save(a, "bla.json", mode="json")
+    b = load("bla.json")
+    assert abs(b.mean() - a.mean()) < 0.00001
+
     save(a, "bla", mode="h5dict")
     b = load("bla")
     assert abs(b.mean() - a.mean()) < 0.00001
 
     os.remove("bla")
+    os.remove("bla.json.gz")
 
-    print "Finished testing save/load, successfull"
+    print("Finished testing save/load, successfull")
 
 
 def createSpiralRing(N, twist, r=0, offsetPerParticle=np.pi, offset=0):
@@ -538,7 +612,7 @@ def createSpiralRing(N, twist, r=0, offsetPerParticle=np.pi, offset=0):
     """
     from mirnylib import numutils
     if not numutils.isInteger(N * offsetPerParticle / (2 * np.pi)):
-        print N * offsetPerParticle / (2 * np.pi)
+        print(N * offsetPerParticle / (2 * np.pi))
         raise ValueError("offsetPerParticle*N should be multitudes of 2*Pi")
     totalTwist = twist * N
     totalTwist = np.floor(totalTwist / (2 * np.pi)) * 2 * np.pi
@@ -658,17 +732,17 @@ def getCloudGeometry(d, frac=0.05, numSegments=1, widthPercentile=50, delta=0):
     dists = []
     length = 0.0
     for segm in range(numSegments):
-        segmd = d[segm * (d.shape[0] // numSegments) : (segm + 1) * (d.shape[0] // numSegments)]
+        segmd = d[segm * (d.shape[0] // numSegments): (segm + 1) * (d.shape[0] // numSegments)]
         (e1, e2), _ = numutils.PCA(segmd, 2)
         e3 = np.cross(e1, e2)
         xs = np.dot(segmd, e1)
         ys = np.vstack([np.dot(segmd, e2), np.dot(segmd, e3)])
         ys_pred = np.vstack([
             statsmodels.nonparametric.smoothers_lowess.lowess(
-                        ys[0], xs, frac=frac, return_sorted=False, delta=10),
+                    ys[0], xs, frac=frac, return_sorted=False, delta=10),
             statsmodels.nonparametric.smoothers_lowess.lowess(
-                        ys[1], xs, frac=frac, return_sorted=False,
-                         delta=10)])
+                    ys[1], xs, frac=frac, return_sorted=False,
+                    delta=10)])
         order = np.argsort(xs)
         fit_d = np.vstack([xs[order],
                            ys_pred[0][order],
@@ -676,13 +750,12 @@ def getCloudGeometry(d, frac=0.05, numSegments=1, widthPercentile=50, delta=0):
 
         for i in range(len(xs)):
             dists.append(
-                (((fit_d - np.array([xs[i], ys[0][i], ys[1][i]])) ** 2).sum(axis=1) ** 0.5).min())
+                    (((fit_d - np.array([xs[i], ys[0][i], ys[1][i]])) ** 2).sum(axis=1) ** 0.5).min())
 
         length += (((fit_d[1:] - fit_d[:-1]) ** 2).sum(axis=1) ** 0.5).sum()
     width = np.percentile(dists, widthPercentile)
 
     return length, width
-
 
 
 def _getLinkingNumber(data1, data2, randomOffset=True):
@@ -780,9 +853,9 @@ long int intersectValue(double *p1, double *v1, double *p2, double *v2) {
 
 """
     M, N  # Eclipse warning removal
-    weave.inline(code, ['M', 'olddata', 'N', "returnArray"], extra_compile_args=['-march=native -malign-double -O3'], support_code=support)
+    weave.inline(code, ['M', 'olddata', 'N', "returnArray"], extra_compile_args=['-march=native -malign-double -O3'],
+                 support_code=support)
     return returnArray[0]
-
 
 
 def findSimplifiedPolymer(data):
@@ -1294,22 +1367,23 @@ else return -1;
 
 def mutualSimplify(a, b, verbose=False):
     if verbose:
-        print "Starting mutual simplification of polymers"
+        print("Starting mutual simplification of polymers")
     while True:
         la, lb = len(a), len(b)
         if verbose:
-            print len(a), len(b), "before; ",
+            print(len(a), len(b), "before; ", end=' ')
         a, b = _mutualSimplify(a, b)
         if verbose:
-            print len(a), len(b), "after one; ",
+            print(len(a), len(b), "after one; ", end=' ')
         b, a = _mutualSimplify(b, a)
         if verbose:
-            print len(a), len(b), "after two; "
+            print(len(a), len(b), "after two; ")
 
         if (len(a) == la) and (len(b) == lb):
             if verbose:
-                print "Mutual simplification finished"
+                print("Mutual simplification finished")
             return a, b
+
 
 def getLinkingNumber(a, b, randomOffset=True):
     a, b = mutualSimplify(a, b)
@@ -1329,10 +1403,10 @@ def _testMutualSimplify():
         c1 = getLinkingNumber(a, b, False)
         a, b = mutualSimplify(a, b, verbose=False)
         c2 = getLinkingNumber(a, b)
-        print "simplified from 2000 to {0} and {1}".format(len(a), len(b))
-        print "Link before: {0}, link after: {1}".format(c1, c2)
+        print("simplified from 2000 to {0} and {1}".format(len(a), len(b)))
+        print("Link before: {0}, link after: {1}".format(c1, c2))
         if c1 != c2:
-            print "Test failed! Linking numbers are different"
+            print("Test failed! Linking numbers are different")
             return -1
     for _ in range(10):
         np = numpy
@@ -1348,24 +1422,22 @@ def _testMutualSimplify():
         c1 = _getLinkingNumber(a, b, False)
         a, b = mutualSimplify(a, b, verbose=False)
         c2 = _getLinkingNumber(a, b)
-        print "simplified from 3000 and 1000 to {0} and {1}".format(len(a), len(b))
-        print "Link before: {0}, link after: {1}".format(c1, c2)
+        print("simplified from 3000 and 1000 to {0} and {1}".format(len(a), len(b)))
+        print("Link before: {0}, link after: {1}".format(c1, c2))
         if c1 != c2:
-            print "Test failed! Linking numbers are different"
+            print("Test failed! Linking numbers are different")
             return -1
 
-
-    print 'Test finished successfully'
-
+    print('Test finished successfully')
 
 
 def testLinkingNumber():
     a = np.random.random((3, 1000))
     b = np.random.random((3, 1000))
-    for i in xrange(100):
+    for i in range(100):
         mat = np.random.random((3, 3))
         na = np.dot(mat, a)
         nb = np.dot(mat, b)
-        print getLinkingNumber(na, nb, randomOffset=False)
+        print(getLinkingNumber(na, nb, randomOffset=False))
 
 # testLinkingNumber()

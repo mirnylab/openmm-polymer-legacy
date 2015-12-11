@@ -22,8 +22,8 @@ for profile_path in profiles:
     if os.path.isfile(profile_path):
         for line in open(profile_path):
             if export_line in line:
-                print 'The PYTHONPATH is already set in {0}'.format(
-                    profile_path)
+                print('The PYTHONPATH is already set in {0}'.format(
+                    profile_path))
                 setflag = 0
                 break
 
@@ -34,4 +34,4 @@ for profile_path in profiles:
             ['\n# Added by the mirnylab install script.\n',
              export_line,
              '\n'])
-        print 'PYTHONPATH is added to {0}'.format(profile_path)
+        print('PYTHONPATH is added to {0}'.format(profile_path))

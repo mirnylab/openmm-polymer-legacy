@@ -18,7 +18,7 @@ Find average contact maps
 
 """
 
-
+from __future__ import absolute_import, division, print_function, unicode_literals
 import subprocess
 import numpy
 from mirnylib.h5dict import h5dict
@@ -32,9 +32,9 @@ from math import sqrt
 from mirnylib.systemutils import fmapred, fmap, deprecate, setExceptionHook
 import sys
 import mirnylib.numutils
-from polymerutils import load, save
+from .polymerutils import load, save
 import warnings
-import polymerutils
+from . import polymerutils
 
 
 
@@ -46,7 +46,7 @@ class TimeoutException(Exception): pass
 @contextmanager
 def time_limit(seconds):
     def signal_handler(signum, frame):
-        raise TimeoutException, "Timed out!"
+        raise TimeoutException("Timed out!")
     signal.signal(signal.SIGALRM, signal_handler)
     signal.alarm(seconds)
     try:
@@ -65,8 +65,8 @@ if "OPENMM_LIB_PATH" in os.environ:
     newEnv["LD_LIBRARY_PATH"] = newLdLibraryPath
 
 else:
-    print "OPENMM_LIB_PATH is not defined! Please define it!"
-    print "Now not using OpenMM for contactmaps :("
+    print("OPENMM_LIB_PATH is not defined! Please define it!")
+    print("Now not using OpenMM for contactmaps :(")
     CPU = False
 
 
@@ -75,7 +75,7 @@ try:
     import simtk.openmm
     openmm = True
 except:
-    print "Cannot import OpenMM"
+    print("Cannot import OpenMM")
     openmm = False
     CPU = False
 
@@ -85,8 +85,8 @@ if openmm == True:
     ver = simtk.openmm.__version__
     nums = tuple([int(i) for i in ver.split(".")])
     if nums < (6, 0):
-        print "OpenMM CPU contactlist would only work with OpenMM >= 6.0"
-        print 'Switching to default contact list finder'
+        print("OpenMM CPU contactlist would only work with OpenMM >= 6.0")
+        print('Switching to default contact list finder')
         CPU = False
 
     if ((nums < (6, 1)) and (nums >= (6, 0))):
@@ -106,7 +106,7 @@ if openmm == True:
 try:
     simtk.openmm.Platform_getPlatformByName("CPU")
 except:
-    print "Not using OpenMM contact map finder"
+    print("Not using OpenMM contact map finder")
     CPU = False
 
 
@@ -164,7 +164,7 @@ class h5dictLoad(object):
     def fetch(self, filename, dummy=True):
         base, num = os.path.split(filename)
 
-        if base not in self.baseDict.keys():
+        if base not in list(self.baseDict.keys()):
             self.baseDict[base] = h5dict(base, mode='r')
         return self.baseDict[base][num]
 
@@ -254,10 +254,10 @@ def giveContactsOpenMM(data, cutoff=1.7):
     assert os.path.exists(CPUfile)
     data = numpy.asarray(data)
     if len(data.shape) != 2:
-        print "bad data"
+        print("bad data")
         raise ValueError("Wrong dimensions of data")
     if 3 not in data.shape:
-        print "bad data"
+        print("bad data")
         raise ValueError("Wrong size of data: %s,%s" % data.shape)
     if data.shape[0] == 3:
         data = data.T
@@ -272,7 +272,7 @@ def giveContactsOpenMM(data, cutoff=1.7):
 
     returncode = newProcess.returncode
     if returncode != 0:
-        print "Bad return code", returncode
+        print("Bad return code", returncode)
         return None
 
     array = np.fromstring(output, dtype=np.int32)
@@ -288,11 +288,11 @@ try:
         giveContactsOpenMM(testData)
 except:
     CPU = False
-    print '---Failed to execute OpenMM contact finder-----'
-    print "Error code below"
+    print('---Failed to execute OpenMM contact finder-----')
+    print("Error code below")
     traceback.print_exc(file=sys.stdout)
-    print "---Continuing withont OpenMM contact finder---"
-    print "You may try to recompile OpenMM contact finder to make it work"
+    print("---Continuing withont OpenMM contact finder---")
+    print("You may try to recompile OpenMM contact finder to make it work")
 
 # CPU = False
 
@@ -430,7 +430,7 @@ def giveContacts(data, cutoff=1.7, maxContacts=300, method="auto", tryOpenMM=Tru
         warnings.warn("\nPolymer does not seem continuous, falling back"
                       "to arbitrary contact finger 'give_contacts_any'"
                       "\n This is ok, just be aware of this! ")
-        print "ratio of smaller to larger bonds is {0}".format(maxRatio)
+        print("ratio of smaller to larger bonds is {0}".format(maxRatio))
         return giveContactsAny(data, cutoff, maxContacts)
         safeDistance = numpy.percentile(dists2, 99)
         cutoff = cutoff / safeDistance
@@ -639,60 +639,60 @@ def cool_trunk(data):
                     (scale * dataz[i] - dataz[j]) ** 2)
     breakflag = 0
     escapeflag = 0
-    for i in xrange(N):
+    for i in range(N):
         exitflag = 0
         pace = 0.25 / dist(i)
         for j in numpy.arange(1, 10, pace):
             # print j
             escapeflag = 1
-            for k in xrange(N):
+            for k in range(N):
                 if k == i:
                     continue
                 escapeflag, breakflag
 
                 if 0.001 < sqdist2(i, k, j) < CUTOFF:
                     breakflag = 1
-                    print "breaking at", k
+                    print("breaking at", k)
                     break
                 if 0.001 < sqdist2(i, k, j) < CUTOFF2:
                     escapeflag = 0
 
             if breakflag == 1:
                 breakflag = 0
-                print i, dist(i), j
+                print(i, dist(i), j)
                 break
             if escapeflag == 1:
-                print i, dist(i)
+                print(i, dist(i))
                 found1 = i
                 exitflag
                 exitflag = 1
                 break
         if exitflag == 1:
             break
-    for i in xrange(N - 1, 0, -1):
+    for i in range(N - 1, 0, -1):
         exitflag = 0
         pace = 0.25 / dist(i)
         for j in numpy.arange(1, 10, pace):
             # print j
             escapeflag = 1
-            for k in xrange(N - 1, 0, -1):
+            for k in range(N - 1, 0, -1):
                 if k == i:
                     continue
                 escapeflag, breakflag
 
                 if 0.001 < sqdist2(i, k, j) < CUTOFF:
                     breakflag = 1
-                    print "breaking at", k
+                    print("breaking at", k)
                     break
                 if 0.001 < sqdist2(i, k, j) < CUTOFF2:
                     escapeflag = 0
 
             if breakflag == 1:
                 breakflag = 0
-                print i, dist(i), j
+                print(i, dist(i), j)
                 break
             if escapeflag == 1:
-                print i, dist(i)
+                print(i, dist(i))
                 found2 = i
                 exitflag
                 exitflag = 1
@@ -717,7 +717,7 @@ def cool_trunk(data):
 
 
 def averageContactMap(*args, **kvargs):
-    print 'please use averageBinnedContactMap or averagePureContactMap'
+    print('please use averageBinnedContactMap or averagePureContactMap')
     raise Exception('deprecated function')
 
 
@@ -776,7 +776,7 @@ def averageBinnedContactMapOld(filenames, chains=None, binSize=None, cutoff=1.7,
         except:
             fileInd = fileInd + 1
         if fileInd >= len(filenames):
-            print "no valid files found in filenames"
+            print("no valid files found in filenames")
             raise ValueError("no valid files found in filenames")
 
     if chains is None:
@@ -788,7 +788,7 @@ def averageBinnedContactMapOld(filenames, chains=None, binSize=None, cutoff=1.7,
     chains = numpy.asarray(chains)
     chainBinNums = (
         numpy.ceil((chains[:, 1] - chains[:, 0]) / (0.0 + binSize)))
-    for i in xrange(len(chainBinNums)):
+    for i in range(len(chainBinNums)):
         bins.append(binSize * (numpy.arange(int(chainBinNums[i])))
                     + chains[i, 0])
     bins.append(numpy.array([chains[-1, 1] + 1]))
@@ -804,13 +804,13 @@ def averageBinnedContactMapOld(filenames, chains=None, binSize=None, cutoff=1.7,
     chromosomeStarts = numpy.hstack((0, chromosomeStarts))
 
     def action(i):  # Fetch rescale map from filename.
-        print i
+        print(i)
         try:
             data = loadFunction(i)  # load filename
 
         except exceptionsToIgnore:
             # if file faled to load, return empty map
-            print "file not found"
+            print("file not found")
             return numpy.zeros((Nbase, Nbase), "float")
         value = rescaledMap(data, bins, cutoff=cutoff)
         return value
@@ -864,7 +864,7 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
 
     """
     n = min(n, len(filenames))
-    subvalues = [filenames[i::n] for i in xrange(n)]
+    subvalues = [filenames[i::n] for i in range(n)]
 
     getResolution = 0
     fileInd = 0
@@ -875,7 +875,7 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
         except:
             fileInd = fileInd + 1
         if fileInd >= len(filenames):
-            print "no valid files found in filenames"
+            print("no valid files found in filenames")
             raise ValueError("no valid files found in filenames")
 
     if chains is None:
@@ -887,7 +887,7 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
     chains = numpy.asarray(chains)
     chainBinNums = (
         numpy.ceil((chains[:, 1] - chains[:, 0]) / (0.0 + binSize)))
-    for i in xrange(len(chainBinNums)):
+    for i in range(len(chainBinNums)):
         bins.append(binSize * (numpy.arange(int(chainBinNums[i])))
                     + chains[i, 0])
     bins.append(numpy.array([chains[-1, 1] + 1]))
@@ -907,9 +907,9 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
         for i in values:
             try:
                 data = loadFunction(i)
-                print i
+                print(i)
             except tuple(exceptionsToIgnore):
-                print "file not found", i
+                print("file not found", i)
                 continue
 
             if data.shape[0] == 3:
@@ -971,7 +971,7 @@ def averagePureContactMap(filenames,
     """
 
     n = min(n, len(filenames))
-    subvalues = [filenames[i::n] for i in xrange(n)]
+    subvalues = [filenames[i::n] for i in range(n)]
 
     def myaction(values):  # our worker receives some filenames
         mysum = None  # future contact map.
@@ -979,13 +979,13 @@ def averagePureContactMap(filenames,
             try:
                 data = loadFunction(i)
                 if np.random.random() < printProbability:
-                    print i
+                    print(i)
             except tuple(exceptionsToIgnore):
-                print "file not found", i
+                print("file not found", i)
                 continue
             except:
-                print "Unexpected error:", sys.exc_info()[0]
-                print "File is: ", i
+                print("Unexpected error:", sys.exc_info()[0])
+                print("File is: ", i)
                 return -1
 
             if data.shape[0] == 3:
@@ -1017,7 +1017,7 @@ def averagePureContactMap(filenames,
 
 def _test():
     setExceptionHook()
-    print "----> Testing giveContacts subroutine"
+    print("----> Testing giveContacts subroutine")
     try:
         c = polymerutils.load("/net/evolution/home/magus/trajectories/"
                               "globule_creation/32000_RW/crumpled1.dat")
@@ -1044,26 +1044,26 @@ def _test():
     from time import time
     a = time()
     c2 = giveContacts(c, cutoff=2.2, tryOpenMM=False)
-    print "time for giveContacts is: ",
-    print time() - a
+    print("time for giveContacts is: ", end=' ')
+    print(time() - a)
 
     if CPU == True:
         a = time()
         c3 = giveContactsOpenMM(c, cutoff=2.2)
-        print "time for giveContacts with openmm is: ",
-        print time() - a
+        print("time for giveContacts with openmm is: ", end=' ')
+        print(time() - a)
     else:
         c3 = c2
 
     a = time()
     c1 = giveContactsAny(c, cutoff=2.2)
-    print "time for contactsAny is:", time() - a
+    print("time for contactsAny is:", time() - a)
     assert transformContacts(c1) == transformContacts(c2)
     assert transformContacts(c1) == transformContacts(c3)
 
-    print "Test completed successfully"
+    print("Test completed successfully")
 
-    print "----> Testing averageContactMap subroutine"
+    print("----> Testing averageContactMap subroutine")
 
     def funnyLoad(x):
         if x % 2 == 1:
@@ -1073,14 +1073,14 @@ def _test():
 
     onemap = rescaledMap(c, -0.5 + np.arange(0, len(c) + 10, 10), cutoff=1.7)
 
-    manyMap = averageBinnedContactMap(range(10),
+    manyMap = averageBinnedContactMap(list(range(10)),
                                       binSize=10,
                                       n=1,
                                       cutoff=1.7,
                                       loadFunction=funnyLoad,
                                       exceptionsToIgnore=[IOError, exceptions.IOError])
     manyMap = manyMap[0]
-    fmapMap = averageBinnedContactMap(range(50),
+    fmapMap = averageBinnedContactMap(list(range(50)),
                                       binSize=10,
                                       n=8,
                                       cutoff=1.7,
@@ -1089,17 +1089,17 @@ def _test():
 
     assert  np.abs(manyMap - 5 * onemap).sum() < 1
     assert  np.abs(fmapMap - 25 * onemap).sum() < 1
-    print "Finished"
+    print("Finished")
 
-    print "----> Testing concurrent h5dict load"
+    print("----> Testing concurrent h5dict load")
 
     a = h5dict("bla", "w")
-    for i in xrange(40):
+    for i in range(40):
         a[str(i)] = c + numpy.random.random(c.shape) * 0.2
     del a
     loader = h5dictLoad()
     robustLoad = loader.simpleFetch
-    filenames = ["bla/%d" % i for i in xrange(50)]
+    filenames = ["bla/%d" % i for i in range(50)]
     oneThreadMap = averageBinnedContactMap(filenames,
                                            binSize=10,
                                            n=1,
@@ -1112,7 +1112,7 @@ def _test():
                                              exceptionsToIgnore=[IOError, KeyError])[0]
 
     assert np.abs(oneThreadMap - eightThreadMap).sum() < 1
-    print "Concurrent h5dict load test successful!"
+    print("Concurrent h5dict load test successful!")
     os.remove("bla")
 
 

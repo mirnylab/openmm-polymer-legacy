@@ -1,14 +1,14 @@
 # (c) 2013 Massachusetts Institute of Technology. All Rights Reserved
 # Code written by: Maksim Imakaev (imakaev@mit.edu)
-
+from __future__ import absolute_import, division, print_function, unicode_literals
 import numpy
 from mirnylib.numutils import isInteger
 np = numpy
 import os.path
 from tempfile import NamedTemporaryFile
-from polymerutils import findSimplifiedPolymer
+from .polymerutils import findSimplifiedPolymer
 import platform
-import polymerutils
+from . import polymerutils
 arch = platform.architecture()
 
 folderName = os.path.split(__file__)[0]
@@ -45,14 +45,14 @@ def getKnotNumber(data, evalAt=-1.1):
         newfile.flush()
 
 
-        print "runnung command {0} {1} -p {4}  > {2}_{3}".format(reduceKnotFilename, name,
-                                     name, "_output", evalAt)
+        print("runnung command {0} {1} -p {4}  > {2}_{3}".format(reduceKnotFilename, name,
+                                     name, "_output", evalAt))
         os.system("{0} {1} -p {4}  > {2}_{3}".format(reduceKnotFilename, name,
                                      name, "_output", evalAt))
         lines = open("%s_%s" % (name, "_output")).readlines()
-        print "Contents of the output: -----"
-        print lines
-        print "End of the output-----"
+        print("Contents of the output: -----")
+        print(lines)
+        print("End of the output-----")
         os.remove("%s_%s" % (name, "_output"))
         return lines
 
@@ -69,7 +69,7 @@ def expandPolymerRing(data, mode="auto", steps=20):
         "ring", or "chain", default - autodetect
     """
 
-    from openmmlib import Simulation
+    from .openmmlib import Simulation
     from time import sleep
     sim = Simulation(
         timestep=70, thermostat=0.002, velocityReinitialize=True)
@@ -90,7 +90,7 @@ def expandPolymerRing(data, mode="auto", steps=20):
     # sim.localEnergyMinimization(tolerance = 0.001)
     # sim.localEnergyMinimization()
     sim.doBlock(40)
-    for _ in xrange(steps):
+    for _ in range(steps):
         sim.doBlock(2000)
     data = sim.getData()
     del sim
@@ -177,7 +177,7 @@ def analyzeKnot(data, useOpenmm=False, simplify=True, evalAt=-1.1, lock=None, of
     else:
         t = data
 
-    print "simplified from {0} to {1} monomers".format(len(data), len(t))
+    print("simplified from {0} to {1} monomers".format(len(data), len(t)))
     if len(t) < 5:
         if returnLog:
             return 0
@@ -185,7 +185,7 @@ def analyzeKnot(data, useOpenmm=False, simplify=True, evalAt=-1.1, lock=None, of
             return 1
 
     try:
-        print "OpenMM helped: %d to %d" % (ll, len(t))
+        print("OpenMM helped: %d to %d" % (ll, len(t)))
     except:
         pass
     output = getKnotNumber(t, evalAt=evalAt)
@@ -207,7 +207,7 @@ def _testAnalyzeKnot():
     # showPolymerRasmol(p31, shifts=np.arange(0, 1, 0.01), rescale=False)
 
 
-    for _ in xrange(10):
+    for _ in range(10):
         mat = np.random.random((3, 3))
         a1 = analyzeKnot(np.dot(p31, mat), simplify=False)
         a2 = analyzeKnot(np.dot(p31, mat), simplify=True)
@@ -217,42 +217,42 @@ def _testAnalyzeKnot():
             raise
 
 
-    for _ in xrange(2):
-        print "tttttest"
+    for _ in range(2):
+        print("tttttest")
         a = polymerutils.grow_rw(7000, 25, method="standard")
-        print a.shape
-        print "gggggrow"
+        print(a.shape)
+        print("gggggrow")
         kn = analyzeKnot(a, simplify=False)
-        print kn
+        print(kn)
         assert kn == 1
 
 
 
-    for _ in xrange(50):
+    for _ in range(50):
         a = np.random.random((200, 3))
         ka = analyzeKnot(a, simplify=False, evalAt=-1.1, returnLog=True)
         mat = np.random.random((3, 3))
         kb = analyzeKnot(np.dot(a, mat), simplify=False, evalAt=-1.1, returnLog=True)
-        print
-        print ka, kb
+        print()
+        print(ka, kb)
         assert np.abs(ka / kb - 1) < 0.0001
-        print
+        print()
 
 
 def _testSimplify():
     np = numpy
 
-    for _ in xrange(2000):
+    for _ in range(2000):
         s = 100
         a = np.cumsum(np.random.randn(s, 3), axis=0) + np.random.randn(s, 3) * 2
         # a = np.random.randn(s, 3) * 2
 
         ka = analyzeKnot(a, simplify=False)
         kb = analyzeKnot(a, simplify=True)
-        print
-        print ka, kb
+        print()
+        print(ka, kb)
         assert np.abs(ka / kb - 1) < 0.0001
-        print
+        print()
 
 if __name__ == "__main__":
     _testAnalyzeKnot()

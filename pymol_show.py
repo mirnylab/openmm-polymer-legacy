@@ -7,13 +7,14 @@ This class is a collection of functions for showing data with pymol.
 Note that the limit of pymol is 100k monomers, therefore interpolateData is
 useful to collapse the 200k-long simulation into a 100k-long conformation.
 """
+from __future__ import absolute_import, division, print_function, unicode_literals
 import os
 import tempfile
 import subprocess
 import textwrap
 import numpy as np
 from scipy.interpolate.fitpack2 import InterpolatedUnivariateSpline
-import polymerutils
+from . import polymerutils
 
 
 def interpolateData(data, targetN=90000, colorArrays=[]):
@@ -52,7 +53,7 @@ def interpolateData(data, targetN=90000, colorArrays=[]):
 
     splined = np.zeros((len(targetRange), numDim), float)
     colorsSplined = []
-    for coor in xrange(numDim):
+    for coor in range(numDim):
         spline = InterpolatedUnivariateSpline(evaluateRange,
                                         data[:, coor], k=3)
         evaled = spline(targetRange)
@@ -244,7 +245,7 @@ def do_coloring(data, regions, colors, transparencies,
     if transparentBackground:
         out.write("set ray_opaque_background, off\n")
 
-    for i in xrange(len(regions)):
+    for i in range(len(regions)):
         out.write("select %s\n" % (getSelectionString(*regions[i])))
         out.write("create subchain%s,sele\n" % (names[i]))
         # out.write("remove subchain%s in %s\n"%(names[i],pdbname))
@@ -266,7 +267,7 @@ def do_coloring(data, regions, colors, transparencies,
         pass
     else:
         raise ValueError("please select showChain to be 'worm' or 'spheres' or 'none'")
-    for i in xrange(len(regions)):
+    for i in range(len(regions)):
 
         name = "subchain%s" % names[i]
         if showChain == "worm":
@@ -309,7 +310,7 @@ def do_coloring(data, regions, colors, transparencies,
         # out.write("viewport 1200,1200\n")
         out.write("ray 800,800\n")
         out.write("png {}\n".format(saveTo))
-        print "saved to: ", saveTo
+        print("saved to: ", saveTo)
     if not showGui:
         out.write("quit\n")
 
@@ -322,8 +323,8 @@ def do_coloring(data, regions, colors, transparencies,
     from time import sleep
     sleep(0.5)
 
-    print os.system("pymol {1} -u {0} {2}".format(out.name, tmpPdbFilename,
-                                                  miscArguments))
+    print(os.system("pymol {1} -u {0} {2}".format(out.name, tmpPdbFilename,
+                                                  miscArguments)))
     return script
 
 def new_coloring(data, regions, colors, transparencies,
@@ -430,12 +431,12 @@ def new_coloring(data, regions, colors, transparencies,
     if transparentBackground:
         out.write("set ray_opaque_background, off\n")
 
-    for i in xrange(len(regions)):
+    for i in range(len(regions)):
         out.write("select %s, resi %d-%d\n" % (names[i], regions[i][0], regions[i][1]))
         out.write("create subchain%s,%s\n" % (names[i], names[i]))
         # out.write("remove subchain%s in %s\n"%(names[i],pdbname))
 
-    for i in xrange(len(regions)):
+    for i in range(len(regions)):
 
         name = "subchain%s" % names[i]
         if showChain == "worm":
@@ -475,7 +476,7 @@ def new_coloring(data, regions, colors, transparencies,
         # out.write("viewport 1200,1200\n")
         out.write("ray 800,800\n")
         out.write("png {}\n".format(saveTo))
-        print "saved to: ", saveTo
+        print("saved to: ", saveTo)
     if not showGui:
         out.write("quit\n")
 
@@ -488,8 +489,8 @@ def new_coloring(data, regions, colors, transparencies,
     from time import sleep
     sleep(0.5)
 
-    print os.system("pymol {1} -u {0} {2}".format(out.name, tmpPdbFilename,
-                                                  miscArguments))
+    print(os.system("pymol {1} -u {0} {2}".format(out.name, tmpPdbFilename,
+                                                  miscArguments)))
     return script
 
 
@@ -541,7 +542,7 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", chains=None, *
         data = polymerutils.load(data)
     chain_radius = kwargs.get('chain_radius', 0.4)
     data -= np.min(data, axis=0)[None, :]
-    print data.min()
+    print(data.min())
 
     tmpPdbPath, pdbname = getTmpPath()
     if chains == None:

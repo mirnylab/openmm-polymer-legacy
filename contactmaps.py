@@ -19,34 +19,83 @@ Find average contact maps
 """
 
 from __future__ import absolute_import, division, print_function, unicode_literals
+
+import os
 import subprocess
+import traceback
+
 import numpy
 from mirnylib.h5dict import h5dict
-import os
-import traceback
 from mirnylib.numutils import sumByArray
-import exceptions
+
 np = numpy
-from scipy import weave
 from math import sqrt
 from mirnylib.systemutils import fmapred, fmap, deprecate, setExceptionHook
 import sys
 import mirnylib.numutils
-from .polymerutils import load, save
+from polymerutils import load
 import warnings
-from . import polymerutils
-
-
+import polymerutils
+import time
 
 import signal
 from contextlib import contextmanager
 
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.spatial import ckdtree
+from scipy.spatial.distance import pdist
+
+from fastContacts import contactsCython
+
+
 class TimeoutException(Exception): pass
+
+
+a = np.random.random((100, 3)) * 3
+
 
 @contextmanager
 def time_limit(seconds):
     def signal_handler(signum, frame):
         raise TimeoutException("Timed out!")
+
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+
+
+matplotlib.rcParams.update({'font.size': 8})
+
+
+def giveContactsCKDTree(X, max_d):
+    tree = ckdtree.cKDTree(X)
+    pairs = tree.query_pairs(max_d)
+    return pairs
+
+
+def condensed_to_pair_indices(n, k):
+    x = n - (4. * n ** 2 - 4 * n - 8 * k + 1) ** .5 / 2 - .5
+    i = x.astype(int)
+    j = k + i * (i + 3 - 2 * n) / 2 + 1
+    return np.array([i, j]).T
+
+
+a = np.random.random((100, 3)) * 3  # test set
+
+
+class TimeoutException(Exception): pass
+
+
+@contextmanager
+def time_limit(seconds):
+    def signal_handler(signum, frame):
+        raise TimeoutException("Timed out!")
+
     signal.signal(signal.SIGALRM, signal_handler)
     signal.alarm(seconds)
     try:
@@ -69,10 +118,9 @@ else:
     print("Now not using OpenMM for contactmaps :(")
     CPU = False
 
-
-
 try:
     import simtk.openmm
+
     openmm = True
 except:
     print("Cannot import OpenMM")
@@ -102,10 +150,9 @@ if openmm == True:
     if not os.path.exists(CPUfile):
         raise ValueError("OPenMM contactmap file missing! This bug should be reported.")
 
-
 try:
-    simtk.openmm.Platform_getPlatformByName("CPU")
-except:
+    simtk.openmm.Platform_getPlatformByName(str("CPU"))
+except None:
     print("Not using OpenMM contact map finder")
     CPU = False
 
@@ -113,39 +160,6 @@ except:
 # a set of checks for OpenMM contact list, and selector of OpenMM contact list finder
 
 
-
-def intload(filename, center="N/A"):
-    """
-    .. warning:: About to be deprecated
-    """
-    "dedicated weave.inline for loading int polymers"
-    f = open(filename, 'r')
-    line = f.readline()
-    f.close()
-    N = int(line)
-    ret = numpy.zeros((3, N), order="C", dtype=numpy.int)
-    code = """
-    #line 85 "binary_search.py"
-    using namespace std;
-    FILE *in;
-    const char * myfile = filename.c_str();
-    in = fopen(myfile,"r");
-    int dummy;
-    dummy = fscanf(in,"%d",&dummy);
-    for (int i = 0; i < N; i++)
-    {
-    dummy = fscanf(in,"%ld %ld %ld ",&ret[i],&ret[i + N],&ret[i + 2 * N]);
-    if (dummy < 3){printf("Error in the file!!!");throw -1;}
-    }
-    fclose(in);
-    """
-    support = """
-    #include <math.h>
-    """
-    weave.inline(code, ['filename', 'N', 'ret'], extra_compile_args=[
-        '-march=native -malign-double'], support_code=support)
-
-    return ret
 
 class h5dictLoad(object):
     """
@@ -158,6 +172,7 @@ class h5dictLoad(object):
 
     use simpleFetch method for concurrent fetching using fmap
     """
+
     def __init__(self):
         self.baseDict = {}
 
@@ -200,7 +215,9 @@ def rad2(data):
             diffs = coms2d - comsd
             sums = numpy.sqrt(numpy.sum(diffs, 0))
             return numpy.mean(sums)
+
         return radius_gyration(target)
+
     return give_radius_scaling(data)
 
 
@@ -234,9 +251,9 @@ def giveIntContacts(data):
             M] = numpy.arange(N, dtype=numpy.int32)
     tocheck.shape = (M, M, M)
     contacts1 = numpy.concatenate([tocheck[1:, :, :].ravel(), tocheck[
-        :, 1:, :].ravel(), tocheck[:, :, 1:].ravel()])
+                                                              :, 1:, :].ravel(), tocheck[:, :, 1:].ravel()])
     contacts2 = numpy.concatenate([tocheck[:-1, :, :].ravel(), tocheck[
-        :, :-1, :].ravel(), tocheck[:, :, :-1].ravel()])
+                                                               :, :-1, :].ravel(), tocheck[:, :, :-1].ravel()])
     mask = (contacts1 != -1) * (contacts2 != -1)
     contacts1 = contacts1[mask]
     contacts2 = contacts2[mask]
@@ -264,9 +281,8 @@ def giveContactsOpenMM(data, cutoff=1.7):
 
     data = np.asarray(data, order="C", dtype=np.float32)
 
-
-    newProcess = subprocess.Popen([CPUfile, str(cutoff), str(len(data))], stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=-1, env=newEnv)
-
+    newProcess = subprocess.Popen([CPUfile, str(cutoff), str(len(data))], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                  bufsize=-1, env=newEnv)
 
     output, err = newProcess.communicate(data.tostring(order="C"))
 
@@ -281,7 +297,6 @@ def giveContactsOpenMM(data, cutoff=1.7):
     return array
 
 
-
 testData = np.random.random((10, 3))
 try:
     with time_limit(2):
@@ -294,84 +309,12 @@ except:
     print("---Continuing withont OpenMM contact finder---")
     print("You may try to recompile OpenMM contact finder to make it work")
 
+
 # CPU = False
 
 
 
-def giveContactsAny(data, cutoff=1.7, maxContacts=300):
-    """Returns contacts of any sets of molecules with a given cutoff.
-    Is slower than give_contacts, but can tolerate multiple chains.
-
-    Parameters
-    ----------
-    data : Nx3 or 3xN array
-        Polymer configuration. One chaon only.
-    cutoff : float , optional
-        Cutoff distance that defines contact
-    maxContacts : int
-        Maximum number of contacts per monomer.
-        If total number of contacts exceeds maxContacts*N, program becomes uncontrollable.
-
-    Returns
-    -------
-
-    k by 2 array of contacts. Each row corresponds to a contact.
-    """
-    data = numpy.asarray(data)
-    if len(data.shape) != 2:
-        raise ValueError("Wrong dimensions of data")
-    if 3 not in data.shape:
-        raise ValueError("Wrong size of data: %s,%s" % data.shape)
-    if data.shape[0] == 3:
-        data = data.T
-    data = numpy.asarray(data, float, order="C")
-    N = len(data)
-    points = numpy.zeros((maxContacts * N, 2), int, order="C")
-    N  # Eclipse warning remover
-
-    code = """
-    #line 50 "binary_search.py"
-        using namespace std;
-        double CUTOFF2 = cutoff * cutoff;
-
-        int counter  = 0;
-
-        double  d;
-        for (int i=0;i<N;i++)
-            {
-            for (int j=i+1;j<N;j++)
-                {
-
-                if (dist(data,N,i,j) <= CUTOFF2)
-                    {
-                    int t = j - i;
-                    points[2*counter] = i;
-                    points[2*counter + 1 ] = j;
-                    counter ++ ;
-                    //cout << i << " "   << j  << " "  << d <<  " " << counter << endl;
-                    }
-            }
-            }
-       """
-    support = """
-        #include <math.h>
-        double sq(double x) {return x*x;}
-        double  dist(double* data, int N, int i,int j)
-        {
-        return (pow((data[3 * i]-data[3 * j]),2.) + pow((data[3 * i + 1] - data[3 * j + 1]),2.) + pow((data[3 * i + 2] - data[3 * j + 2]),2.));
-        }
-       """
-    #
-    weave.inline(code, ['data', 'N', 'cutoff', 'points'], extra_compile_args=[
-        '-march=native -malign-double'], support_code=support)
-    k = numpy.max(numpy.nonzero(points[:, 1]))
-    return points[:k + 1, :]
-
-
-
-
-
-def giveContacts(data, cutoff=1.7, maxContacts=300, method="auto", tryOpenMM=True):
+def giveContacts(data, cutoff=1.7, method="auto"):
     """Returns contacts of a single polymer with a given cutoff
 
     .. warning:: Use this only to find contacts of a single polymer chain
@@ -384,12 +327,6 @@ def giveContacts(data, cutoff=1.7, maxContacts=300, method="auto", tryOpenMM=Tru
         Polymer configuration. One chaon only.
     cutoff : float , optional
         Cutoff distance that defines contact
-    maxContacts : int
-        Maximum number of contacts per monomer.
-        If total number of contacts exceeds maxContacts*N,
-        program becomes uncontrollable.
-    method : "auto", "continuous", "any"
-        Selects between a method suitable for a continuous polymer, and an auto method
 
     Returns
     -------
@@ -401,87 +338,44 @@ def giveContacts(data, cutoff=1.7, maxContacts=300, method="auto", tryOpenMM=Tru
     if np.isnan(data).any():
         raise RuntimeError("Data contains NANs")
 
-    if max(data.shape) < 2000:
-        return giveContactsAny(data, cutoff, maxContacts)
+    if max(data.shape) < 1000:
+        return contactsCython(data, cutoff)
 
-    if len(data.shape) != 2:
-        raise ValueError("Wrong dimensions of data")
-    if 3 not in data.shape:
-        raise ValueError("Wrong size of data: %s,%s" % data.shape)
-    if data.shape[0] == 3:
-        data = data.T
+    if cutoff < 1.5:
+        return giveContactsCKDTree(data, cutoff)
 
-
-    if (CPU == True) and (tryOpenMM == True) and (len(data) > 2000):
-
-        conts = giveContactsOpenMM(data, cutoff)
-        if conts == None:
-            warnings.warn(RuntimeWarning("OpenMM did not work. Please use OpenMM 6.1 or recompile contact searcher. "))
+    if max(data.shape) > 40000:
+        if CPU:
+            return giveContactsOpenMM(data, cutoff)
         else:
-            return conts
+            return giveContactsCKDTree(data, cutoff)
+
+    return contactsCython(data, cutoff)
 
 
-    dists2 = numpy.sqrt(numpy.sum(numpy.diff(data, axis=0) ** 2, axis=1))
-    maxRatio = dists2.max() / numpy.median(dists2)
-
-    if method == "any":
-        return giveContactsAny(data, cutoff, maxContacts)
-    if (method == "auto") and (maxRatio > 5):
-        warnings.warn("\nPolymer does not seem continuous, falling back"
-                      "to arbitrary contact finger 'give_contacts_any'"
-                      "\n This is ok, just be aware of this! ")
-        print("ratio of smaller to larger bonds is {0}".format(maxRatio))
-        return giveContactsAny(data, cutoff, maxContacts)
-        safeDistance = numpy.percentile(dists2, 99)
-        cutoff = cutoff / safeDistance
-        data = data / safeDistance
-
-    data = numpy.asarray(data, float, order="C")
-    cutoff = float(cutoff)
-    N = len(data)
-    points = numpy.zeros((maxContacts * N, 2), int, order="C")
-    N  # Eclipse warning remover
-    code = r"""
-    #line 196 "binary_search.py"
-        using namespace std;
-        int counter  = 0;
-          double  d;
-        for (int i=0;i<N;i++)
-            {
-            for (int j=i+1;j<N;j++)
-                {
-                d = dist(data,N,i,j);
-
-                if (d<= cutoff)
-                    {
-                    int t = j - i;
-                    points[2*counter] = i;
-                    points[2*counter + 1 ] = j;
-                    counter ++ ;
-                    //cout << i << " "   << j  << " "  << d;
-                    //cout <<  " " << counter << endl;
-
-                    }
-                else if (d>4)
-                    {
-                    j +=  d-4;
-                    }
-            }
-            }
-       """
-    support = """
-        #include <math.h>
-        double  dist(double* data, int N, int i,int j)
-        {
-        return sqrt(pow((data[3 * i]-data[3 * j]),2.) + pow((data[3 * i + 1] - data[3 * j + 1]),2.) + pow((data[3 * i + 2] - data[3 * j + 2]),2.));
-        }
-       """
-    weave.inline(code, ['data', 'N', 'cutoff', 'points'], extra_compile_args=[
-        '-march=native -malign-double -O3'], support_code=support)
-
-    k = numpy.max(numpy.nonzero(points[:, 1]))
-    return points[:k + 1, :]
-
+methods = {"cython": contactsCython, "ckdtree": giveContactsCKDTree, "OpenMM": giveContactsOpenMM}
+def findMethod(datas, cutoff):
+    if isinstance(datas, np.ndarray):
+        datas = [datas]
+    times = []
+    keys = list(methods.keys())
+    for key in keys:
+        st = time.time()
+        try:
+            for data in datas:
+                methods[key](data, cutoff)
+        except:
+            print("Method {0} failed".format(key))
+            traceback.print_exc(file=sys.stdout)
+            times.append(9999999)
+            continue
+        end = time.time()
+        times.append(end - st)
+        print("Method {0} takes {1} seconds".format(key, end-st))
+    arg = np.argmin(times)
+    key = keys[arg]
+    print("Method {0} is the best; using it! ".format(key))
+    return methods[key]
 
 def giveDistanceMap(data, size=1000):
     """returns  a distance map of a polymer with a given size"""
@@ -520,11 +414,10 @@ def giveDistanceMap(data, size=1000):
         return sqrt(pow((data[3 * i]-data[3 * j]),2.) + pow((data[3 * i + 1] - data[3 * j + 1]),2.) + pow((data[3 * i + 2] - data[3 * j + 2]),2.));
         }
        """
+    from scipy import weave
     weave.inline(code, ['data', 'N', 'size', 'toret'], extra_compile_args=[
         '-march=native -malign-double'], support_code=support)
     return toret
-
-
 
 
 def rescalePoints(points, bins):
@@ -573,12 +466,6 @@ def rescaledMap(data, bins, cutoff=1.7, contactMap=None):
     contactMap[uniquex, uniquey] += inds
 
     return contactMap
-
-
-
-
-
-
 
 
 def pureMap(data, cutoff=1.7, contactMap=None):
@@ -637,6 +524,7 @@ def cool_trunk(data):
         return sqrt((scale * datax[i] - datax[j]) ** 2 +
                     (scale * datay[i] - datay[j]) ** 2 +
                     (scale * dataz[i] - dataz[j]) ** 2)
+
     breakflag = 0
     escapeflag = 0
     for i in range(N):
@@ -722,9 +610,9 @@ def averageContactMap(*args, **kvargs):
 
 
 def averageBinnedContactMapOld(filenames, chains=None, binSize=None, cutoff=1.7,
-                            n=4,  # Num threads
-                            loadFunction=load,
-                            exceptionsToIgnore=None):
+                               n=4,  # Num threads
+                               loadFunction=load,
+                               exceptionsToIgnore=None):
     """
     Returns an average contact map of a set of conformations.
     Non-existing files are ignored if exceptionsToIgnore is set to IOError.
@@ -921,9 +809,10 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
 
             else:  # if not
                 rescaledMap(data, bins, cutoff, mysum)
-                    # use existing map and fill in contacts
+                # use existing map and fill in contacts
 
         return mysum
+
     blocks = fmap(myaction, subvalues)
     blocks = [i for i in blocks if i is not None]
     a = blocks[0]
@@ -1003,7 +892,7 @@ def averagePureContactMap(filenames,
 
             else:  # if not
                 pureMap(data, cutoff, mysum)
-                    # use existing map and fill in contacts
+                # use existing map and fill in contacts
 
         return mysum
 
@@ -1078,17 +967,17 @@ def _test():
                                       n=1,
                                       cutoff=1.7,
                                       loadFunction=funnyLoad,
-                                      exceptionsToIgnore=[IOError, exceptions.IOError])
+                                      exceptionsToIgnore=[IOError])
     manyMap = manyMap[0]
     fmapMap = averageBinnedContactMap(list(range(50)),
                                       binSize=10,
                                       n=8,
                                       cutoff=1.7,
                                       loadFunction=funnyLoad,
-                                      exceptionsToIgnore=[IOError, exceptions.IOError])[0]
+                                      exceptionsToIgnore=[IOError])[0]
 
-    assert  np.abs(manyMap - 5 * onemap).sum() < 1
-    assert  np.abs(fmapMap - 25 * onemap).sum() < 1
+    assert np.abs(manyMap - 5 * onemap).sum() < 1
+    assert np.abs(fmapMap - 25 * onemap).sum() < 1
     print("Finished")
 
     print("----> Testing concurrent h5dict load")
@@ -1114,7 +1003,6 @@ def _test():
     assert np.abs(oneThreadMap - eightThreadMap).sum() < 1
     print("Concurrent h5dict load test successful!")
     os.remove("bla")
-
 
 
 if __name__ == "__main__":

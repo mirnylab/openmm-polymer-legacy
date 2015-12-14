@@ -2,10 +2,10 @@
 # Code written by: Maksim Imakaev (imakaev@mit.edu)
 
 from mirnylib.systemutils import fmap
-from . import polymerutils
+import polymerutils
 from mirnylib.numutils import logbins
-from . import contactmaps
-from .contactmaps import load, giveContacts
+import contactmaps
+from contactmaps import load, giveContacts
 import pickle
 from math import sqrt
 import random
@@ -157,7 +157,6 @@ def give_distance(data, bins=None, ring=False):
         rads[i] = rad / count
     bins = [sqrt(i[0] * i[1]) for i in bins]
     return (bins, rads)
-
 
 
 

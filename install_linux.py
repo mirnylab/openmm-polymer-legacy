@@ -35,3 +35,5 @@ for profile_path in profiles:
              export_line,
              '\n'])
         print('PYTHONPATH is added to {0}'.format(profile_path))
+
+os.system("python setup.py build_ext --inplace")

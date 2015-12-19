@@ -160,7 +160,7 @@ if openmm == True:
 
 try:
     simtk.openmm.Platform_getPlatformByName(str("CPU"))
-except None:
+except Exception:
     print("Not using OpenMM contact map finder")
     CPU = False
 

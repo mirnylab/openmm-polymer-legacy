@@ -3,38 +3,33 @@ from distutils.extension import Extension
 from Cython.Distutils import build_ext
 from Cython.Build import cythonize
 import numpy 
-
-ext = Extension(
-    "polymerCython",                 # name of extension
-    ["polymerCython.pyx","qcprot.c"],           # filename of our Pyrex/Cython source
+cmdclass = {}
+ext = [Extension(
+    "openmmlib.polymerCython",                 # name of extension
+    ["openmmlib/polymerCython.pyx","openmmlib/qcpSource/qcprot.c"],           # filename of our Pyrex/Cython source
     language="c",              # this causes Pyrex/Cython to create C++ source
-
     include_dirs=[".", numpy.get_include()],
     library_dirs=["."],
-    cmdclass = {'build_ext': build_ext}
-    )
+    )]
 
 
-setup(
-    name = "polymerCython",
-    cmdclass={"build_ext":build_ext},
-    ext_modules=[ext]
-)
-
-
-ext = Extension(
-    "fastContacts",                 # name of extension
-    ["fastContacts.pyx"],           # filename of our Pyrex/Cython source
+ext.append(Extension(
+    "openmmlib.fastContacts",                 # name of extension
+    ["openmmlib/fastContacts.pyx"],           # filename of our Pyrex/Cython source
     language="c++",              # this causes Pyrex/Cython to create C++ source    
-
     include_dirs=[".", numpy.get_include()],
     library_dirs=["."],
-    cmdclass = {'build_ext': build_ext}
-    )
+    ))
 
+
+cmdclass.update({'build_ext': build_ext} )
 
 setup(
-    name = "fastContacts",
-    cmdclass={"build_ext":build_ext},
-    ext_modules=[ext]
+    name='openmmlib',
+    url='http://mirnylab.bitbucket.org/hiclib/index.html',
+    description=('Hi-C data analysis library.'),
+      ext_modules=ext,
+      cmdclass = cmdclass,
+       packages=['openmmlib'],
+
 )

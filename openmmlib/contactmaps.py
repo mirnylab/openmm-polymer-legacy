@@ -72,16 +72,16 @@ def time_limit(seconds):
 matplotlib.rcParams.update({'font.size': 8})
 
 
-def giveContactsCKDTree(X, max_d):
+def giveContactsCKDTree(X, cutoff = 1.7):
     tree = ckdtree.cKDTree(X)
-    pairs = tree.query_pairs(max_d)
+    pairs = tree.query_pairs(cutoff)
     if len(pairs) == 0:
         return np.zeros((0,2))
     return np.array(list(pairs))
 
-def giveContactsCKDTreeFuture(X, max_d):
+def giveContactsCKDTreeFuture(X, cutoff = 1.7):
     tree = ckdtree.cKDTree(X)
-    pairs = tree.query_pairs(max_d,output_type="ndarray" )
+    pairs = tree.query_pairs(cutoff,output_type="ndarray" )
     return pairs
 
 

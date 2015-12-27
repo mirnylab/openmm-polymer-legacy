@@ -1,3 +1,4 @@
+from setuptools import find_packages
 from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
@@ -29,6 +30,9 @@ setup(
     url='http://mirnylab.bitbucket.org/hiclib/index.html',
     description=('Hi-C data analysis library.'),
       ext_modules=ext,
+      include_package_data=True,
+       package_data = {
+                   '': ['openmmlib/getCpu*']},
       cmdclass = cmdclass,
        packages=['openmmlib'],
 

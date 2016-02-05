@@ -81,8 +81,15 @@ def giveContactsCKDTree(X, cutoff = 1.7):
 
 def giveContactsCKDTreeFuture(X, cutoff = 1.7):
     tree = ckdtree.cKDTree(X)
-    pairs = tree.query_pairs(cutoff,output_type="ndarray" )
-    return pairs
+    try:
+        pairs = tree.query_pairs(cutoff,output_type="ndarray" )
+        return pairs
+    except:  # workaround for the current bug
+        pairs = tree.query_pairs(cutoff)
+        if len(pairs) == 0:
+            return np.zeros((0,2))
+        raise RuntimeError("This thing is broken. Sorry:(")
+
 
 
 

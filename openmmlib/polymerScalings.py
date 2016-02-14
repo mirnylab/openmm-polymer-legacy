@@ -15,8 +15,7 @@ from copy import copy
 
 
 def giveCpScaling(data, bins0, cutoff=1.1, integrate=False,
-                  ring=False, intContacts=False, verbose=False,
-                  maxContacts=300):
+                  ring=False, intContacts=False, verbose=False):
 
     """
     Returns contact probability scaling for a given polymer conformation
@@ -37,9 +36,6 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False,
         If True, will speed up calculation of contacts for a cubit lattice case.
     verbose : bool, optional
         If True, print some information.
-    maxContacts : int
-        Maximum number of contacts per monomer.
-        If total number of contacts exceeds maxContacts*N, program becomes uncontrollable.
 
     Returns
     -------
@@ -58,7 +54,7 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False,
     bins = [(bins0[i], bins0[i + 1]) for i in range(len(bins0) - 1)]
 
     if intContacts == False:
-        contacts = np.array(giveContacts(data, cutoff, maxContacts=maxContacts))
+        contacts = np.array(giveContacts(data, cutoff))
     else:
         contacts = contactmaps.giveIntContacts(
             data)  # integer contacts are faster

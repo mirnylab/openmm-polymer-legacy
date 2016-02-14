@@ -84,7 +84,7 @@ def giveContactsCKDTreeFuture(X, cutoff = 1.7):
     try:
         pairs = tree.query_pairs(cutoff,output_type="ndarray" )
         return pairs
-    except:  # workaround for the current bug
+    except TypeError:  # workaround for the current bug
         pairs = tree.query_pairs(cutoff)
         if len(pairs) == 0:
             return np.zeros((0,2))
@@ -388,7 +388,10 @@ def findMethod(datas, cutoff):
             times.append(9999999)
             continue
         end = time.time()
-        times.append(end - st)
+        mytime = end - st 
+        if key == "OpenMM":
+            mytime *= 2
+        times.append(mytime)
         print("Method {0} takes {1} seconds".format(key, end-st))
     arg = np.argmin(times)
     key = keys[arg]

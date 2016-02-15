@@ -2321,7 +2321,7 @@ class Simulation():
         zFixForce.addPerParticleParameter("ZFIXr0")
 
         zFixForce.addGlobalParameter("ZFIXa", 0.05 * self.conlen)
-        for par, zcoor in map(None, particles, zCoordinates):
+        for par, zcoor in zip(particles, zCoordinates):
             zFixForce.addParticle(int(par), [float(zcoor)])
         self.forceDict["fixZCoordinates"] = zFixForce
 

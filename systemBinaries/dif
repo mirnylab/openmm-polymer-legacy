@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import absolute_import, division, print_function
 import sys 
 import numpy
 from numpy import sqrt
@@ -6,9 +7,10 @@ import scipy.optimize
 np = numpy
 from numpy import sin,cos
 import joblib
-import polymerutils
+from openmmlib import polymerutils
 import os 
-import polymerCython
+import pyximport; pyximport.install()
+from openmmlib import polymerCython
 
 
 if os.path.exists(sys.argv[1]):
@@ -29,7 +31,7 @@ else:
 datab = data - numpy.sum(data,0)/float(len(data))
 
 
-print "Shuffled distance", np.mean([polymerCython.fastMSD(dataa, datab[np.argsort(np.random.random(len(datab)))]) for _ in range(10)])
+print("Shuffled distance", np.mean([polymerCython.fastMSD(dataa, datab[np.argsort(np.random.random(len(datab)))]) for _ in range(10)]))
 
-print "actual distance", polymerCython.fastMSD(dataa,datab)
+print("actual distance", polymerCython.fastMSD(dataa,datab))
 

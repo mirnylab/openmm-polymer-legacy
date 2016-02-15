@@ -91,6 +91,12 @@ def giveContactsCKDTreeFuture(X, cutoff = 1.7):
         raise RuntimeError("This thing is broken. Sorry:(")
 
 
+try:
+    a = np.random.random((100,3)) * 3
+    giveContactsCKDTreeFuture(a)
+    doFuture = True
+except:
+    doFuture = False
 
 
 def condensed_to_pair_indices(n, k):
@@ -353,8 +359,12 @@ def giveContacts(data, cutoff=1.7, method="auto"):
     if np.isnan(data).any():
         raise RuntimeError("Data contains NANs")
 
+
     if max(data.shape) < 1000:
         return contactsCython(data, cutoff)
+
+    #if doFuture:
+    #    return giveContactsCKDTreeFuture(data, cutoff)
 
     if cutoff < 1.5:
         return giveContactsCKDTree(data, cutoff)

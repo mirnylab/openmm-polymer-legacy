@@ -140,7 +140,7 @@ def give_distance(data, bins=None, ring=False):
         oneBin = bins[i]
         rad = 0.
         count = 0
-        for j in range(oneBin[0], oneBin[1], (oneBin[1] - oneBin[0]) / 10 + 1):
+        for j in range(oneBin[0], oneBin[1], (oneBin[1] - oneBin[0]) // 10 + 1):
             length = j
             if ring == True:
                 rad += np.mean(np.sqrt(np.sum((data[:, :N]
@@ -258,7 +258,7 @@ def subchainDensityFunction(filenames, bins, normalize="Rg", maxLength=3, Nbins=
     results = []
     newbins = [(i - 2, i + 2) for i in bins]
     binsForRg = sum([list(i) for i in newbins], [])
-    midbins = [(i[0] + i[1]) / 2 for i in newbins]
+    midbins = [(i[0] + i[1]) // 2 for i in newbins]
     rgs = []
     for filename in filenames:
         rgs.append(give_radius_scaling(polymerutils.load(filename).T, binsForRg, ring=False)[1][::2])
@@ -290,7 +290,7 @@ def subchainDensityFunction(filenames, bins, normalize="Rg", maxLength=3, Nbins=
                 if centerAt == "com":
                     com = np.mean(subchain, axis=0)
                 elif centerAt == "mid":
-                    com = subchain[len(subchain) / 2]
+                    com = subchain[len(subchain) // 2]
                 else:
                     raise ValueError("Provide correct centerAt: com or mid")
                 shifted = subchain - com[None, :]
@@ -388,7 +388,7 @@ def give_slices(base, tosave, slices, sliceParams,
 
         # use this for determining the file size
         datas = [x for x in fmap(newload, files[::
-                                            len(files) / 20 + 1], n=3) if x is not None]
+                                            len(files) // 20 + 1], n=3) if x is not None]
         datlen = len(datas[0][0])
 
         if mode == "chain":
@@ -396,7 +396,7 @@ def give_slices(base, tosave, slices, sliceParams,
         if mode == "parts":
             bins2 = logbins(4, datlen - 100, binstep)
         if (mode == "ring") or (mode == "intring"):
-            b1 = logbins(2, datlen / 4 - 1, binstep)
+            b1 = logbins(2, datlen // 4 - 1, binstep)
             bins2 = [2 * i for i in b1]
             print(bins2)
         binsrg = logbins(4, datlen - 100, binstep)

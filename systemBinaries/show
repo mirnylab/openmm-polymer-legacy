@@ -1,18 +1,18 @@
 #!/usr/bin/env python
+from __future__ import absolute_import, division, print_function
 import  os, tempfile, sys
 import numpy as np
 import joblib
-import docopt 
 import textwrap
 
 if len(sys.argv) < 2:
-    print   textwrap.dedent("""
+    print((   textwrap.dedent("""
             Usage: show filename [start end pace]
                  show filenum [start end pace] 
 
                  filenum is a number of files of the type block123.dat
 
-                 start, end, pace will convert data to data[start:end:pace]""")
+                 start, end, pace will convert data to data[start:end:pace]""")))
        
   
 
@@ -52,7 +52,7 @@ def showData(data):
 
     #writing the rasmol script. Spacefill controls radius of the sphere.
     rascript = tempfile.NamedTemporaryFile()
-    rascript.write("""wireframe off
+    rascript.write(b"""wireframe off
     color temperature
     spacefill 100
     background white
@@ -62,7 +62,7 @@ def showData(data):
 
     #creating the array, linearly chanhing from -225 to 225, to serve as an array of colors
     #(rasmol color space is -250 to 250, but it  still sets blue to the minimum color it found and red to the maximum).
-    colors = np.array([int((j * 450.) / (len(data))) - 225 for j in xrange(len(data))])
+    colors = np.array([int((j * 450.) / (len(data))) - 225 for j in range(len(data))])
 
     #creating spheres along the trajectory
     #for speedup I just create a Nx4 array, where first three columns are coordinates, and fourth is the color
@@ -70,7 +70,7 @@ def showData(data):
     def convertData(data, colors):
         "Returns an somethingx4 array for each subchain"
         newData = np.zeros((len(data) * len(shifts) - (len(shifts) - 1) , 4))
-        for i in xrange(len(shifts)):
+        for i in range(len(shifts)):
             #filling in the array like 0,5,10,15; then 1,6,11,16; then 2,7,12,17, etc.
             #this is just very fast
             newData[i:-1:len(shifts), :3] = data[:-1] * shifts[i] + data[1:] * (1 - shifts[i])
@@ -81,14 +81,14 @@ def showData(data):
 
     newDatas = [convertData(data[breaks[i]:breaks[i + 1]],
                               colors[breaks[i]:breaks[i + 1]])
-                 for i in xrange(len(breaks) - 1)]
+                 for i in range(len(breaks) - 1)]
     newData = np.concatenate(newDatas)
 
     towrite = tempfile.NamedTemporaryFile()
-    towrite.write("%d\n\n" % (len(newData)))  #number of atoms and a blank line after is a requirement of rasmol
+    towrite.write(b"%d\n\n" % (len(newData)))  #number of atoms and a blank line after is a requirement of rasmol
 
     for i in newData:
-        towrite.write("CA\t%lf\t%lf\t%lf\t%d\n" % tuple(i))
+        towrite.write(b"CA\t%lf\t%lf\t%lf\t%d\n" % tuple(i))
     towrite.flush()
     #For windows you might need to change the place where your rasmol file is
     if os.name == "posix":  #if linux
@@ -100,7 +100,7 @@ def showData(data):
 
 
 def load(filename):
-    import polymerutils
+    from openmmlib import polymerutils
     return polymerutils.load(filename)
 
 

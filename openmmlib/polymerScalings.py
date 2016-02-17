@@ -62,7 +62,7 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False,
     contacts = contacts[:, 1] - contacts[:, 0]  # contact lengthes
 
     if ring == True:
-        mask = contacts > N / 2
+        mask = contacts > N // 2
         contacts[mask] = N - contacts[mask]
     scontacts = np.sort(contacts)  # sorted contact lengthes
     connections = 1. * np.diff(np.searchsorted(

@@ -712,6 +712,7 @@ class Simulation():
         Gyration ratius in units of length (bondlength).
         """
         data = self.getScaledData()
+        data = data - np.mean(data, axis=0)[None,:]
         return numpy.sqrt(numpy.sum(numpy.var(numpy.array(data), 0)))
 
     def RMAX(self, percentile=None):

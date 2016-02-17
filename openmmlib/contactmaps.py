@@ -385,13 +385,18 @@ def findMethod(datas, cutoff):
         datas = [datas]
     for data in datas:
         assert len(data.shape) == 2
+    datalen = len(datas[0])
+    if datalen > 40000:
+        mymethods = {i:j for i,j in methods.items() if "cython" != i}
+    else:
+        mymethods = methods
     times = []
-    keys = list(methods.keys())
+    keys = list(mymethods.keys())
     for key in keys:
         st = time.time()
         try:
             for data in datas:
-                methods[key](data, cutoff)
+                mymethods[key](data, cutoff)
         except:
             print("Method {0} failed (ckdtreeFuture will fail without scipy 0.17)".format(key))
             traceback.print_exc(file=sys.stdout)

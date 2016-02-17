@@ -266,7 +266,7 @@ class filenameContactMap(object):
 
         When initialized, the iterator should store these args properly and create all necessary constructs
         """
-        import contactmaps
+        from openmmlib import contactmaps
         self.contactmaps  = contactmaps
         self.filenames = filenames
         self.cutoff = cutoff
@@ -293,6 +293,7 @@ class filenameContactMap(object):
 def averagePureContactMap(filenames,
                           cutoff=1.7,
                           n=4,  # Num threads
+                          method = "auto",
                           loadFunction=polymerutils.load,
                           exceptionsToIgnore=[]):
     datas = []
@@ -305,7 +306,11 @@ def averagePureContactMap(filenames,
                 break
         except tuple(exceptionsToIgnore):
             continue
-    method = contactmaps.findMethod(datas, cutoff = cutoff)
+    if method != "auto":
+        mymethods = {i.lower():j for i,j in contactmaps.methods.items()}
+        method = mymethods[method.lower()]
+    else:
+        method = contactmaps.findMethod(datas, cutoff = cutoff )
     assert len(set(map(len, datas))) == 1
     N = len(datas[0])
 
@@ -316,6 +321,7 @@ def averagePureContactMap(filenames,
 
 def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
                             n=4,  # Num threads
+                            method = "auto",
                             loadFunction=polymerutils.load,
                             exceptionsToIgnore=None):
     n = min(n, len(filenames))
@@ -331,7 +337,11 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
                 break
         except tuple(exceptionsToIgnore):
             continue
-    method = contactmaps.findMethod(datas, cutoff = cutoff )
+    if method != "auto":
+        mymethods = {i.lower():j for i,j in contactmaps.methods.items()}
+        method = mymethods[method.lower()]
+    else:
+        method = contactmaps.findMethod(datas, cutoff = cutoff )
     assert len(set(map(len, datas))) == 1
     data = datas[0]
 
@@ -383,7 +393,7 @@ class dummyContactMap(object):
 
 def _test():
     a = np.random.random((60,3)) * 4
-    import contactmaps
+    from openmmlib import contactmaps
     conts = contactmaps.giveContactsCKDTree(a,1)
     cmap1 = averageContacts(dummyContactMap, range(20), 100, classInitArgs=[conts], nproc=20)
     cmap4 = averageContacts(dummyContactMap, range(20), 100, classInitArgs=[conts], nproc=1)

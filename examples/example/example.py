@@ -5,8 +5,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import os,sys
 sys.path.insert(0, os.path.abspath(".."))
 from mirnylib.systemutils import setExceptionHook
-from openmmlib import Simulation
-import polymerutils
+from openmmlib.openmmlib import Simulation
+from openmmlib import polymerutils
 import os
 
 def exampleOpenmm():

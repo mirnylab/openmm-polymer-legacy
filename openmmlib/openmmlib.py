@@ -2164,11 +2164,12 @@ class Simulation():
         newData[-1, 3] = colors[-1]
 
         towrite = tempfile.NamedTemporaryFile()
-        towrite.write(b"%d\n\n" % (len(newData)))
-        # number of atoms and a blank line after is a requirement of rasmol
+        towrite.write( ((  ("{:d}\n\n".format(int(len(newData))).encode('utf-8'))   )))
 
+        # number of atoms and a blank line after is a requirement of rasmol
         for i in newData:
-            towrite.write(b"CA\t%lf\t%lf\t%lf\t%d\n" % tuple(i))
+            towrite.write(   ("CA\t{:f}\t{:f}\t{:f}\t{:d}\n".format(i[0],i[1],i[2],int(i[3]) )).encode('utf-8')     )
+
         towrite.flush()
         "TODO: rewrite using subprocess.popen"
 

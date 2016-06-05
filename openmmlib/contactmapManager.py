@@ -316,7 +316,7 @@ def averagePureContactMap(filenames,
 
     args = [cutoff, loadFunction]
     values = [filenames[i::n] for i in range(n)]
-    return averageContacts(filenameContactMap,values,N, classInitArgs=args, useFmap=True, uniqueContacts = True)
+    return averageContacts(filenameContactMap,values,N, classInitArgs=args, useFmap=True, uniqueContacts = True, nproc=n)
 
 
 def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,

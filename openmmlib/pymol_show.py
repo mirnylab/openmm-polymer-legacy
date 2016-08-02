@@ -180,9 +180,9 @@ def do_coloring(data, regions, colors, transparencies,
             raise ValueError("start should be less than end")
         maxNum = 90000
         atom1 = (start + 1) % maxNum
-        seg1 = (start + 1) / maxNum + 1
+        seg1 = (start + 1) // maxNum + 1
         atom2 = (end + 1) % maxNum
-        seg2 = (end + 1) / maxNum + 1
+        seg2 = (end + 1) // maxNum + 1
 
         if seg1 == seg2:
             return "resi {atom1}-{atom2} and segi {seg1}".format(**locals())
@@ -236,7 +236,7 @@ def do_coloring(data, regions, colors, transparencies,
     letters = [i for i in "1234567890abcdefghijklmnopqrstuvwxyz"]
     names = [i + j + k for i in letters for j in letters for k in letters]
 
-    out = tempfile.NamedTemporaryFile()
+    out = tempfile.NamedTemporaryFile(mode='w')
 
     if returnScriptName is not None:
         pdbname = returnScriptName
@@ -421,7 +421,7 @@ def new_coloring(data, regions, colors, transparencies,
     letters = [i for i in "1234567890abcdefghijklmnopqrstuvwxyz"]
     names = [i + j + k for i in letters for j in letters for k in letters]
 
-    out = tempfile.NamedTemporaryFile()
+    out = tempfile.NamedTemporaryFile(mode='w')
 
     if returnScriptName is not None:
         pdbname = returnScriptName
@@ -518,7 +518,7 @@ def example_pymol():
                 spherePositions=[500, 600],
                 sphereRadius=0.3)
 
-# example_pymol()
+#example_pymol()
 
 def getTmpPath(folder=None):
     tmpFile = tempfile.NamedTemporaryFile(dir=folder)

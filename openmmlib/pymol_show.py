@@ -204,7 +204,7 @@ def do_coloring(data, regions, colors, transparencies,
         subchainRadius = [subchainRadius for _ in regions]
     subchainRadius = [i * multiplier for i in subchainRadius]
 
-    tmpPdbFile = tempfile.NamedTemporaryFile()
+    tmpPdbFile = tempfile.NamedTemporaryFile(mode='w')
     tmpPdbFilename = tmpPdbFile.name
     pdbname = os.path.split(tmpPdbFilename)[-1]
     tmpPdbFile.close()
@@ -521,7 +521,7 @@ def example_pymol():
 #example_pymol()
 
 def getTmpPath(folder=None):
-    tmpFile = tempfile.NamedTemporaryFile(dir=folder)
+    tmpFile = tempfile.NamedTemporaryFile(dir=folder, mode='w')
     tmpPath = tmpFile.name
     tmpFilename = os.path.split(tmpPath)[-1]
     tmpFile.close()

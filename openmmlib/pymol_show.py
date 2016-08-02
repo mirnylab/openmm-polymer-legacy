@@ -412,7 +412,7 @@ def new_coloring(data, regions, colors, transparencies,
         subchainRadius = [subchainRadius for _ in regions]
     subchainRadius = [i * multiplier for i in subchainRadius]
 
-    tmpPdbFile = tempfile.NamedTemporaryFile()
+    tmpPdbFile = tempfile.NamedTemporaryFile(mode='w')
     tmpPdbFilename = tmpPdbFile.name
     pdbname = os.path.split(tmpPdbFilename)[-1]
     tmpPdbFile.close()
@@ -553,7 +553,7 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", chains=None, *
             pdbArray[i[0]:i[1]] = j
         polymerutils.save(data, tmpPdbPath, mode="pdb", pdbGroups=pdbArray)
 
-    tmpScript = tempfile.NamedTemporaryFile()
+    tmpScript = tempfile.NamedTemporaryFile(mode='w')
     tmpScript.write("hide all\n")
     tmpScript.write("bg white\n")
     tmpScript.write("set ray_opaque_background, off\n")

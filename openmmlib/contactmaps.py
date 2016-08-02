@@ -90,6 +90,24 @@ def giveContactsCKDTreeFuture(X, cutoff = 1.7):
             return np.zeros((0,2))
         raise RuntimeError("This thing is broken. Sorry:(")
 
+def giveContactsMDTraj(X, cutoff=1.7):
+    traj = mdtraj.Trajectory(X, topology=None)
+    list = mdtraj.compute_neighborlist(traj, cutoff)
+    N = sum(map(len, list))
+    finalList = np.zeros((N/2, 2), dtype = np.int32)
+    st = 0
+    for i, cur in enumerate(list):
+        if len(cur) == 0:
+            continue
+        curmore = cur[cur>i]
+        if len(curmore) == 0:
+            continue
+        end = st + len(curmore)
+        finalList[st:end,0] = i
+        finalList[st:end, 1] = curmore
+        st = end
+    assert st == N/2
+    return finalList
 
 try:
     a = np.random.random((100,3)) * 3
@@ -379,7 +397,14 @@ def giveContacts(data, cutoff=1.7, method="auto"):
 
 
 methods = {"cython": contactsCython, "ckdtree": giveContactsCKDTree, "OpenMM": giveContactsOpenMM,
-           "ckdtreeFuture":giveContactsCKDTreeFuture}
+           "ckdtree0.17":giveContactsCKDTreeFuture}
+
+try:
+    import mdtraj
+    methods["mdtraj"] = giveContactsMDTraj
+except:
+    print("Cannot import mdtraj")
+
 def findMethod(datas, cutoff):
     if isinstance(datas, np.ndarray):
         datas = [datas]

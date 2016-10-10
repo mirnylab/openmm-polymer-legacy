@@ -399,11 +399,6 @@ def giveContacts(data, cutoff=1.7, method="auto"):
 methods = {"cython": contactsCython, "ckdtree": giveContactsCKDTree, "OpenMM": giveContactsOpenMM,
            "ckdtree0.17":giveContactsCKDTreeFuture}
 
-try:
-    import mdtraj
-    methods["mdtraj"] = giveContactsMDTraj
-except:
-    print("Cannot import mdtraj")
 
 def findMethod(datas, cutoff):
     if isinstance(datas, np.ndarray):

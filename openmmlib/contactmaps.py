@@ -380,20 +380,11 @@ def giveContacts(data, cutoff=1.7, method="auto"):
 
     if max(data.shape) < 1000:
         return contactsCython(data, cutoff)
-
-    #if doFuture:
-    #    return giveContactsCKDTreeFuture(data, cutoff)
-
-    if cutoff < 1.5:
+    if doFuture:
+        return giveContactsCKDTreeFuture(data, cutoff)
+    else:
         return giveContactsCKDTree(data, cutoff)
 
-    if max(data.shape) > 40000:
-        if CPU:
-            return giveContactsOpenMM(data, cutoff)
-        else:
-            return giveContactsCKDTree(data, cutoff)
-
-    return contactsCython(data, cutoff)
 
 
 methods = {"cython": contactsCython, "ckdtree": giveContactsCKDTree, "OpenMM": giveContactsOpenMM,

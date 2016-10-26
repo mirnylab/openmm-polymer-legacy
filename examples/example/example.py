@@ -93,7 +93,7 @@ def exampleOpenmm():
 
     # -----------Running a simulation ---------
 
-    a.save()  # save original conformation
+    a.save()  # save original conformationz
     for _ in range(10):  # Do 10 blocks
         a.doBlock(2000)  # Of 2000 timesteps each
         a.save()  # and save data every block

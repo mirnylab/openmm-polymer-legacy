@@ -1,18 +1,17 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, division, print_function
 import  os, tempfile, sys
 import numpy as np
 import joblib
 import textwrap
 
 if len(sys.argv) < 2:
-    print((   textwrap.dedent("""
+    print(textwrap.dedent("""
             Usage: show filename [start end pace]
                  show filenum [start end pace] 
 
                  filenum is a number of files of the type block123.dat
 
-                 start, end, pace will convert data to data[start:end:pace]""")))
+                 start, end, pace will convert data to data[start:end:pace]"""))
        
   
 
@@ -51,8 +50,8 @@ def showData(data):
 
 
     #writing the rasmol script. Spacefill controls radius of the sphere.
-    rascript = tempfile.NamedTemporaryFile()
-    rascript.write(b"""wireframe off
+    rascript = tempfile.NamedTemporaryFile(mode='w')
+    rascript.write("""wireframe off
     color temperature
     spacefill 100
     background white
@@ -84,13 +83,12 @@ def showData(data):
                  for i in range(len(breaks) - 1)]
     newData = np.concatenate(newDatas)
 
-    towrite = tempfile.NamedTemporaryFile()
-    towrite.write( ((  ("{:d}\n\n".format(int(len(newData))).encode('utf-8'))   )))
-    # number of atoms and a blank line after is a requirement of rasmol
+    towrite = tempfile.NamedTemporaryFile(mode='w')
+    towrite.write("%d\n\n" % (len(newData)))  #number of atoms and a blank line after is a requirement of rasmol
+
     for i in newData:
-        towrite.write(   ("CA\t{:f}\t{:f}\t{:f}\t{:d}\n".format(i[0],i[1],i[2],int(i[3]) )).encode('utf-8')     )
+        towrite.write("CA\t%lf\t%lf\t%lf\t%d\n" % tuple(i))
     towrite.flush()
-    
     #For windows you might need to change the place where your rasmol file is
     if os.name == "posix":  #if linux
         os.system("rasmol -xyz %s -script %s" % (towrite.name, rascript.name))

@@ -13,6 +13,7 @@ import tempfile
 import subprocess
 import textwrap
 import numpy as np
+import shutil
 from scipy.interpolate.fitpack2 import InterpolatedUnivariateSpline
 from . import polymerutils
 
@@ -180,9 +181,9 @@ def do_coloring(data, regions, colors, transparencies,
             raise ValueError("start should be less than end")
         maxNum = 90000
         atom1 = (start + 1) % maxNum
-        seg1 = (start + 1) / maxNum + 1
+        seg1 = (start + 1) // maxNum + 1
         atom2 = (end + 1) % maxNum
-        seg2 = (end + 1) / maxNum + 1
+        seg2 = (end + 1) // maxNum + 1
 
         if seg1 == seg2:
             return "resi {atom1}-{atom2} and segi {seg1}".format(**locals())
@@ -204,7 +205,7 @@ def do_coloring(data, regions, colors, transparencies,
         subchainRadius = [subchainRadius for _ in regions]
     subchainRadius = [i * multiplier for i in subchainRadius]
 
-    tmpPdbFile = tempfile.NamedTemporaryFile()
+    tmpPdbFile = tempfile.NamedTemporaryFile(mode='w')
     tmpPdbFilename = tmpPdbFile.name
     pdbname = os.path.split(tmpPdbFilename)[-1]
     tmpPdbFile.close()
@@ -496,38 +497,16 @@ def new_coloring(data, regions, colors, transparencies,
 
 
 
-def example_pymol():
-    # Creating a random walk
-    rw = .4 * np.cumsum(np.random.random((1000, 3)) - 0.5, axis=0)
 
-    # Highlighting first 100 monomers and then 200-400
-    regions = [(000, 100), (100, 200)]
-
-    # Coloring them red and blue
-    colors = ["red", "green"]
-
-    # Making red semi-transparent
-    transp = [0.7, 0]
-
-    # Running the script with default chain radiuses
-    do_coloring(
-                data=rw,
-                regions=regions,
-                colors=colors,
-                transparencies=transp,
-                spherePositions=[500, 600],
-                sphereRadius=0.3)
-
-# example_pymol()
 
 def getTmpPath(folder=None):
-    tmpFile = tempfile.NamedTemporaryFile(dir=folder)
+    tmpFile = tempfile.NamedTemporaryFile(dir=folder, mode='w')
     tmpPath = tmpFile.name
     tmpFilename = os.path.split(tmpPath)[-1]
     tmpFile.close()
     return tmpPath, tmpFilename
 
-def show_chain(data, showGui=True, saveTo=None, showChain="worm", chains=None, **kwargs):
+def show_chain(data, showGui=True, saveTo=None, showChain="worm", chains=None, support = "",  **kwargs):
     """Shows a single rainbow-colored chain using PyMOL.
 
     Arguments:
@@ -536,11 +515,11 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", chains=None, *
     showChain - "worm" or "spheres"
 
     Keywords arguments:
-    chain_radius : the radius of the displayed chain. Default: 0.4
+    chain_radius : the radius of the displayed chain. Default: 0.1
     """
     if isinstance(data, str):
         data = polymerutils.load(data)
-    chain_radius = kwargs.get('chain_radius', 0.4)
+    chain_radius = kwargs.get('chain_radius', 0.1)
     data -= np.min(data, axis=0)[None, :]
     print(data.min())
 
@@ -582,6 +561,7 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", chains=None, *
         tmpScript.write("png {}\n".format(saveTo))
     if not showGui:
         tmpScript.write("quit\n")
+    tmpScript.write(support)
 
     tmpScript.flush()
 
@@ -672,7 +652,9 @@ def makeMoviePymol(
     tmpScript.flush()
 
     os.system("cd {0}; pymol -c -u {1}; cd -".format(imgFolder, tmpScriptPath))
+
     _mencoder(imgFolder, fps, aviFilename)
+    shutil.move(os.path.join(imgFolder, aviFilename), os.path.join(destFolder, aviFilename))
 
 def _mencoder(imgFolder, fps, aviFilename):
     subprocess.call(

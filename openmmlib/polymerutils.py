@@ -229,7 +229,7 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
 
         for i, line, group in zip(list(range(len(data))), data, pdbGroups):
             atomNum = (i + 1) % 90000
-            segmentNum = (i + 1) / 90000 + 1
+            segmentNum = (i + 1) // 90000 + 1
             line = [float(j) for j in line]
             ret = add("ATOM", 7)
             ret = add(ret + "%i" % (atomNum), 13)

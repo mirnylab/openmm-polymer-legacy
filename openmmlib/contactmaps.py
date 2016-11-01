@@ -372,11 +372,11 @@ def giveContacts(data, cutoff=1.7, method="auto"):
 
     k by 2 array of contacts. Each row corresponds to a contact.
     """
-
-    data = numpy.asarray(data)
+    if data.shape[1] !=3:
+        data = data.T
+    data = numpy.ascontiguousarray(data, dtype = np.double)
     if np.isnan(data).any():
         raise RuntimeError("Data contains NANs")
-
 
     if max(data.shape) < 1000:
         return contactsCython(data, cutoff)

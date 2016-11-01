@@ -1,23 +1,24 @@
 import os
+from openmmlib.polymerutils import grow_rw
 import numpy as np
-from openmmlib import SimulationWithCrosslinks
+from openmmlib.openmmlib import Simulation
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from mirnylib.numutils import logbins, create_regions, continuousRegions
-import polymerutils
+from openmmlib import polymerutils
 from mirnylib.plotting import mat_img
-from polymerutils import create_spiral, load
-import cPickle
+from openmmlib.polymerutils import create_spiral, load
+import pickle
 from mirnylib.systemutils import setExceptionHook
 from brushManaging import makeBondsForBrush
-import pymol_show
+from openmmlib import pymol_show
 setExceptionHook()
 import sys
 
 if len(sys.argv) < 2:
-    print "Set GPU number as first command line argument"
-    print "Default value of 0 used"
+    print("Set GPU number as first command line argument")
+    print("Default value of 0 used")
     sys.argv = ["dummy", "0"]
 
 
@@ -28,9 +29,9 @@ def exampleOpenmm(supercoilCompaction=4, plectonemeLength=10, plectonemeGap=0, s
     A method that performs one simulation.
     """
 
-    a = SimulationWithCrosslinks(timestep=130, thermostat=0.01)
+    a = Simulation(timestep=100, thermostat=0.01)
 
-    a.setup(platform="cuda", verbose=True, GPU=sys.argv[1])
+    a.setup(platform="cuda",  GPU=sys.argv[1])
 
     foldername = "newSweep_lambda{0}_L{1}_gap{2}_stiff{3}_ind{4}".format(supercoilCompaction, plectonemeLength,
                                                          plectonemeGap, stifness, ind)
@@ -47,23 +48,22 @@ def exampleOpenmm(supercoilCompaction=4, plectonemeLength=10, plectonemeGap=0, s
 
     supercoilDiameterNm = 3.45 * np.sqrt(supercoilBpPerNm)
     supercoilBpPerBall = supercoilBpPerNm * supercoilDiameterNm * 2  # 2 strands
-    print supercoilBpPerBall
-    print supercoilDiameterNm
+    print(supercoilBpPerBall)
+    print(supercoilDiameterNm)
 
     ballNumber = 2 * int(0.5 * (genomeLengthBp / supercoilBpPerBall))
     radiusMon = 0.5 * (diamNm / float(supercoilDiameterNm))
     halfLengthMon = 0.5 * (lengthNm / float(supercoilDiameterNm))
 
     N = ballNumber
-    print N
+    print(N)
     avLength = plectonemeLength
 
     # Growing a circular polymer
-    from polymerutils import grow_rw
     bacteria = grow_rw(N, int(halfLengthMon * 2), "line")
     bacteria = bacteria - np.mean(bacteria, axis=0)
     a.load(bacteria)  # filename to load
-    print bacteria[0]
+    print(bacteria[0])
 
     a.tetherParticles([0, N - 1])
 
@@ -101,12 +101,12 @@ def exampleOpenmm(supercoilCompaction=4, plectonemeLength=10, plectonemeGap=0, s
     # Making bonds
     BD.addBristles(3, plectonemeLength, 0, plectonemeGap)
     BD.sortSegments()
-    print BD.segments
+    print(BD.segments)
     BD.createBonds()
     BD.checkConnectivity()
 
     BD.save(os.path.join(a.folder, "chains"))
-    a.setLayout(mode="chain", chains=BD.getChains())
+    a.setChains(chains=BD.getChains())
 
 
     a._initHarmonicBondForce()
@@ -121,8 +121,8 @@ def exampleOpenmm(supercoilCompaction=4, plectonemeLength=10, plectonemeGap=0, s
     a.localEnergyMinimization()
     a.save()
 
-    for step in xrange(500):
-        a.doBlock(37000)
+    for step in range(500):
+        a.doBlock(50000)
         a.save()
     a.printStats()
 
@@ -131,7 +131,7 @@ stifnesses = [6]
 gaps = [2]
 lengths = [ 35]
 compactions = [3.5]
-inds = [range(200)]
+inds = list(range(200))
 
 
 
@@ -139,10 +139,11 @@ inds = [range(200)]
 combinations = [(i, j, k, l, m) for i in compactions for j in lengths for k in gaps for l in stifnesses for m in inds]
 import random
 random.shuffle(combinations)
+print(combinations)
 for i in combinations:
 
     foldername = "newSweep_lambda{0}_L{1}_gap{2}_stiff{3}_ind{4}".format(*i)
-    print foldername
+    print(foldername)
     if os.path.exists(foldername):
         continue
     exampleOpenmm(*i)

@@ -1,11 +1,11 @@
 import numpy as np
 numpy = np
-from pymol_show import createRegions
+from openmmlib.pymol_show import createRegions
 from mirnylib.numutils import continuousRegions
 from scipy import sparse
 from scipy.sparse import csgraph as graph
 import matplotlib.pyplot as plt
-import cPickle
+import pickle
 from mirnylib.systemutils import setExceptionHook
 
 class makeBondsForBrush(object):
@@ -47,9 +47,9 @@ class makeBondsForBrush(object):
                   "segments": self.segments,
                   "bondStatus":self.bondStatus,
                   "bonds": self.bonds}
-        cPickle.dump(struct, open(filename, "wb"), -1)
+        pickle.dump(struct, open(filename, "wb"))
     def load(self, filename):
-        s = cPickle.load(open(filename))
+        s = pickle.load(open(filename,'rb'))
         self.__init__(s["N"], s["diamNm"], s["lengthNm"], s["monNm"], s.get("monBp", 100), s["genomeLength"])
         self.segments = s["segments"]
         self.bondStatus = s["bondStatus"]
@@ -59,7 +59,7 @@ class makeBondsForBrush(object):
 
     def sortSegments(self):
         self.segments = [i for i in self.segments if i[1] != i[0]]
-        self.segments = sorted(self.segments, lambda x, y:cmp(x[0], y[0]))
+        self.segments = sorted(self.segments, key=lambda x:x[0])
     def checkConnectivity(self, showComponents=True, throwException=True):
         bonds = np.array(self.bonds).T
         matrix = sparse.csc_matrix((np.ones(len(bonds[0])), bonds), (self.N, self.N))
@@ -173,7 +173,7 @@ class makeBondsForBrush(object):
                 self.bonds.append((segment[0], segment[1] if segment[1] < self.N else 0))
             else:
                 self.bonds.append((segment[1] - 1, segment[1] if segment[1] < self.N else 0))
-            for j in xrange(segment[0], segment[1] - 1):
+            for j in range(segment[0], segment[1] - 1):
                 self.bonds.append((j, j + 1))
         if self.mode.lower() == "ring":
             self.bonds.append((0, segments[-1][0]))
@@ -181,7 +181,7 @@ class makeBondsForBrush(object):
             self.bonds = [i for i in self.bonds if abs(i[1] - i[0]) < self.N / 2]
             pass
         else:
-            raise "Please set mode to ring or chain"
+            raise Exception("Please set mode to ring or chain")
 
     def isRing(self):
         bonds = numpy.array(self.bonds)
@@ -192,7 +192,7 @@ class makeBondsForBrush(object):
         return False
     def getChains(self):
         self.sortSegments()
-        return [(i[0], i[1]) for i in self.segments]
+        return [(i[0], i[1], False) for i in self.segments]
 
     def convertChain(self, data):
         "Converts a set of particle coordinates to a continuous chain"

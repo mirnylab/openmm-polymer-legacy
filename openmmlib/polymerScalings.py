@@ -52,9 +52,9 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False,
 
     bins0 = np.array(bins0)
     bins = [(bins0[i], bins0[i + 1]) for i in range(len(bins0) - 1)]
-
     if intContacts == False:
         contacts = np.array(giveContacts(data, cutoff))
+
     else:
         contacts = contactmaps.giveIntContacts(
             data)  # integer contacts are faster

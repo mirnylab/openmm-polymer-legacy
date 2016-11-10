@@ -201,7 +201,7 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
         lines.append(str(len(data)) + "\n")
 
         for particle in data:
-            lines.append("{0} {1} {2}\n".format(*particle))
+            lines.append("{0:.2f} {1:.2f} {2:.2f}\n".format(*particle))
         if filename == None:
             return lines
         elif isinstance(filename, six.string_types):

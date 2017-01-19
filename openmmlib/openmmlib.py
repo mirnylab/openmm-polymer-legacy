@@ -1466,8 +1466,8 @@ class Simulation():
             print("!!!!!!!!!bond with %d and %d is out of range!!!!!" % (i, j))
             return
         repulforce = self.forceDict["Nonbonded"]
-        for t1 in range(i - length / 2, i + (length - length / 2)):
-            for t2 in range(j - length / 2, j + (length - length / 2)):
+        for t1 in range(int(np.ceil(i - length / 2)),int( np.ceil( i + (length - length / 2)))):
+            for t2 in range(int(np.ceil(j - length / 2)), int(np.ceil( j + (length - length / 2))  )):
                 repulforce.addException(t1, t2, 0, sigma, epsilon, True)
                 if self.verbose == True:
                     print("Exception added between"\

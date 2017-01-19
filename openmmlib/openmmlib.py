@@ -994,8 +994,8 @@ class Simulation():
             for j in range(start + 1, end - 1):
                 stiffForce.addAngle(j - 1, j, j + 1, [float(k[j])])
             if isRing:
-                stiffForce.addAngle(end - 2, end - 1, start, [k[end - 1]])
-                stiffForce.addAngle(end - 1, start, start + 1, [k[start]])
+                stiffForce.addAngle(int(end - 2),int( end - 1), int(start), [float(k[end - 1])  ])
+                stiffForce.addAngle(int(end - 1),int( start), int(start + 1), [float(k[start])  ])
 
         stiffForce.addGlobalParameter("kT", self.kT)
         stiffForce.addPerAngleParameter("angK")

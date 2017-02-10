@@ -994,8 +994,8 @@ class Simulation():
             for j in range(start + 1, end - 1):
                 stiffForce.addAngle(j - 1, j, j + 1, [float(k[j])])
             if isRing:
-                stiffForce.addAngle(end - 2, end - 1, start, [k[end - 1]])
-                stiffForce.addAngle(end - 1, start, start + 1, [k[start]])
+                stiffForce.addAngle(int(end - 2),int( end - 1), int(start), [float(k[end - 1])  ])
+                stiffForce.addAngle(int(end - 1),int( start), int(start + 1), [float(k[start])  ])
 
         stiffForce.addGlobalParameter("kT", self.kT)
         stiffForce.addPerAngleParameter("angK")
@@ -1466,8 +1466,8 @@ class Simulation():
             print("!!!!!!!!!bond with %d and %d is out of range!!!!!" % (i, j))
             return
         repulforce = self.forceDict["Nonbonded"]
-        for t1 in range(i - length / 2, i + (length - length / 2)):
-            for t2 in range(j - length / 2, j + (length - length / 2)):
+        for t1 in range(int(np.ceil(i - length / 2)),int( np.ceil( i + (length - length / 2)))):
+            for t2 in range(int(np.ceil(j - length / 2)), int(np.ceil( j + (length - length / 2))  )):
                 repulforce.addException(t1, t2, 0, sigma, epsilon, True)
                 if self.verbose == True:
                     print("Exception added between"\

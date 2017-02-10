@@ -258,7 +258,7 @@ class filenameContactMap(object):
     """
     This is a sample iterator for the contact map finder
     """
-    def __init__(self, filenames, cutoff = 1.7, loadFunction=None):
+    def __init__(self, filenames, cutoff = 1.7, loadFunction=None, exceptionsToIgnore=[]):
         """
         Init accepts arguments to initialize the iterator.
         filenames will be one of the items in the inValues list of the "averageContacts" function
@@ -270,6 +270,7 @@ class filenameContactMap(object):
         self.contactmaps  = contactmaps
         self.filenames = filenames
         self.cutoff = cutoff
+        self.exceptionsToIgnore = exceptionsToIgnore
         if loadFunction is None:
             import polymerutils
             loadFunction = polymerutils.load()
@@ -285,7 +286,12 @@ class filenameContactMap(object):
         """
         if self.i == len(self.filenames):
             raise StopIteration
-        data = self.loadFunction(self.filenames[self.i])
+        try: 
+            data = self.loadFunction(self.filenames[self.i])
+        except tuple(self.exceptionsToIgnore): 
+            print("contactmap manager could not load file", self.filenames[self.i])
+            self.i += 1
+            return None
         contacts = self.contactmaps.giveContacts(data, cutoff=self.cutoff)
         self.i += 1
         return contacts
@@ -314,7 +320,7 @@ def averagePureContactMap(filenames,
     assert len(set(map(len, datas))) == 1
     N = len(datas[0])
 
-    args = [cutoff, loadFunction]
+    args = [cutoff, loadFunction, exceptionsToIgnore]
     values = [filenames[i::n] for i in range(n)]
     return averageContacts(filenameContactMap,values,N, classInitArgs=args, useFmap=True, uniqueContacts = True, nproc=n)
 
@@ -375,9 +381,9 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
         contacts.shape = cshape
         return contacts
 
-    args = [cutoff, loadFunction]
+    args = [cutoff, loadFunction, exceptionsToIgnore]
     values = [filenames[i::n] for i in range(n)]
-    mymap =  averageContacts(filenameContactMap,values,Nbase, classInitArgs=args, useFmap=True, contactProcessing=contactAction)
+    mymap =  averageContacts(filenameContactMap,values,Nbase, classInitArgs=args, useFmap=True, contactProcessing=contactAction, nproc=n)
     return mymap, chromosomeStarts
 
 

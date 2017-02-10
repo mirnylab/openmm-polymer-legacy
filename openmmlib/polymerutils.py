@@ -28,12 +28,12 @@ class NumpyEncoder(json.JSONEncoder):
                 cont_obj = np.ascontiguousarray(obj)
                 assert (cont_obj.flags['C_CONTIGUOUS'])
                 obj_data = cont_obj.data
-            data_b64 = base64.b64encode(obj_data)
+            data_b64 = base64.b64encode(obj_data).decode("ascii")
             return dict(__ndarray__=data_b64,
                         dtype=str(obj.dtype),
                         shape=obj.shape)
         # Let the base class default method raise the TypeError
-        return json.JSONEncoder(self, obj)
+        return super().default(obj)
 
 
 def json_numpy_obj_hook(dct):
@@ -43,7 +43,8 @@ def json_numpy_obj_hook(dct):
     :return: (ndarray) if input was an encoded ndarray
     """
     if isinstance(dct, dict) and '__ndarray__' in dct:
-        data = base64.b64decode(dct['__ndarray__'])
+        todecode = dct['__ndarray__'].encode("ascii")
+        data = base64.b64decode(todecode)
         return np.frombuffer(data, dct['dtype']).reshape(dct['shape'])
     return dct
 
@@ -56,9 +57,9 @@ def joblibToJson(filename, outFilename="auto"):
 
 
 def loadJson(filename):
-    myfile = gzip.open(filename)
-    data = myfile.read()
-    return json.loads(data.decode(), object_hook=json_numpy_obj_hook)
+    with gzip.open(filename,'rb') as myfile:
+        data = myfile.read()
+        return json.loads(data.decode(), object_hook=json_numpy_obj_hook)
 
 
 def scanBlocks(folder, assertContinuous=True):
@@ -125,13 +126,14 @@ def load(filename, h5dictKey=None):
 
     try:
         "checking for a text file"
-        line0 = open(filename).readline()
-        try:
-            N = int(line0)
-        except (ValueError, UnicodeDecodeError):
-            raise TypeError("Cannot read text file... reading pickle file")
-        # data = Cload(filename, center=False)
-        data = [list(map(float, i.split())) for i in open(filename).readlines()[1:]]
+        with open(filename) as f1:
+            line0 = f1.readline()
+            try:
+                N = int(line0)
+            except (ValueError, UnicodeDecodeError):
+                raise TypeError("Cannot read text file... reading pickle file")
+            # data = Cload(filename, center=False)
+            data = [list(map(float, i.split())) for i in f1.readlines()]
 
         if len(data) != N:
             raise ValueError("N does not correspond to the number of lines!")
@@ -192,8 +194,12 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
         if mode == "joblib":
             joblib.dump(metadata, filename=filename, compress=9)
         else:
-            myfile = gzip.open(filename, 'wb', compresslevel=9)
-            json.dump(metadata, myfile, cls=NumpyEncoder)
+
+            with gzip.open(filename, 'wb') as myfile:
+                mystr = json.dumps(metadata,  cls=NumpyEncoder)
+                mybytes = mystr.encode("ascii")
+                myfile.write(mybytes)
+
         return
 
     elif mode == "txt":
@@ -201,7 +207,7 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
         lines.append(str(len(data)) + "\n")
 
         for particle in data:
-            lines.append("{0:.2f} {1:.2f} {2:.2f}\n".format(*particle))
+            lines.append("{0:.3f} {1:.3f} {2:.3f}\n".format(*particle))
         if filename == None:
             return lines
         elif isinstance(filename, six.string_types):
@@ -245,10 +251,9 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
             ret = add(ret, 73)
             ret = add(ret + str(segmentNum), 77)
             retret += (ret + "\n")
-
-        f = open(filename, 'w')
-        f.write(retret)
-        f.flush()
+        with open(filename, 'w') as f:
+            f.write(retret)
+            f.flush()
 
     else:
         raise ValueError("Unknown mode : %s, use h5dict, joblib, txt or pdb" % mode)
@@ -582,11 +587,18 @@ def _test():
     a = np.random.random((20000, 3))
     save(a, "bla", mode="txt")
     b = load("bla")
+    print(a)
+    print(b)
     assert abs(b.mean() - a.mean()) < 0.00001
 
     save(a, "bla", mode="joblib")
     b = load("bla")
     assert abs(b.mean() - a.mean()) < 0.00001
+
+    save(a, "bla.json", mode="json")
+    b = loadJson("bla.json")["data"]
+    assert abs(b.mean() - a.mean()) < 0.00001
+
 
     save(a, "bla.json.gz", mode="json")
     b = load("bla.json.gz")

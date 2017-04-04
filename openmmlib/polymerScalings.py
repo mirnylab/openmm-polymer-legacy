@@ -26,6 +26,7 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False,
         Input polymer conformation
     bins0 : list
         Bins to calculate scaling.
+        Bins should probably be log-spaced; log-spaced bins can be quickly calculated using mirnylib.numtuis.logbinsnew. 
     cutoff : float, optional
         Cutoff to calculate scaling
     integrate : bool, optional
@@ -87,7 +88,7 @@ def giveCpScaling(data, bins0, cutoff=1.1, integrate=False,
     return (a, connections)
 
 
-def giveEndToEndScaling(data, bins=None, ring=False):
+def giveEndToEndScaling(data, bins, ring=False):
     """
     Returns end-to-end distance scaling of a given polymer conformation.
     ..warning:: This method averages end-to-end scaling over bins to make better average
@@ -96,6 +97,7 @@ def giveEndToEndScaling(data, bins=None, ring=False):
     ----------
 
     data: 3xN array
+    bins: the same as in giveCpScaling
 
     """
     if len(data) != 3:
@@ -199,7 +201,7 @@ def giveRgScaling(data, bins=None, ring=False):
 def give_radius_scaling(data, bins=None, ring=False):
     "main working horse for radius of gyration"
     "uses dymanic programming algorithm"
-
+    "This function is here just for backwards compatibility, with auto-assigned bins" 
     bins = [int(sqrt(bins[i] * bins[i + 1])) for i in range(len(bins) - 1)]
     return giveRgScaling(data, bins, ring)
 

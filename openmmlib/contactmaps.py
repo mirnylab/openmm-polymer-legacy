@@ -19,7 +19,6 @@ Find average contact maps
 """
 
 from __future__ import absolute_import, division, print_function, unicode_literals
-
 import os
 import traceback
 
@@ -41,7 +40,7 @@ import time
 
 from scipy.spatial import ckdtree
 
-from openmmlib.fastContacts import contactsCython
+from .fastContacts import contactsCython
 
 
 class TimeoutException(Exception): pass

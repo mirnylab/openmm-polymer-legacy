@@ -36,8 +36,8 @@ import warnings
 from . import polymerutils
 import time
 
-import matplotlib
-import matplotlib.pyplot as plt
+#import matplotlib
+#import matplotlib.pyplot as plt
 
 from scipy.spatial import ckdtree
 
@@ -49,7 +49,7 @@ class TimeoutException(Exception): pass
 
 a = np.random.random((100, 3)) * 3
 
-matplotlib.rcParams.update({'font.size': 8})
+#matplotlib.rcParams.update({'font.size': 8})
 
 
 def giveContactsCKDTree(X, cutoff=1.7):

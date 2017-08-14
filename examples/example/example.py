@@ -48,7 +48,7 @@ def exampleOpenmm():
     # polymer = polymerutils.create_spiral(r1=4, r2=10, N=8000)
     # Creates a compact polymer arranged in a cylinder of radius 10, 8000 monomers long
 
-    polymer = polymerutils.create_random_walk(1, 8000)
+    polymer = polymerutils.create_random_walk(1, 80000)
     # Creates an extended "random walk" conformation of length 8000
 
     a.load(polymer, center=True)  # loads a polymer, puts a center of mass at zero

@@ -103,6 +103,7 @@ def createRegions(a):
 def do_coloring(data, regions, colors, transparencies,
                 showGui=True, saveTo=None, showChain="worm",
                 returnScriptName=None,
+                showMainChain=True, 
                 chainRadius=0.02, subchainRadius=0.04,
                 chainTransparency=0.5, support="",
                 transparentBackground=True,
@@ -110,6 +111,7 @@ def do_coloring(data, regions, colors, transparencies,
                 spherePositions=[],
                 pdbGroups=None,
                 sphereRadius=.3,
+                sphereColor="grey60", 
                 force=False,
                 miscArguments=""):
 
@@ -179,7 +181,7 @@ def do_coloring(data, regions, colors, transparencies,
     def getSelectionString(start, end):
         if start > end:
             raise ValueError("start should be less than end")
-        maxNum = 90000
+        maxNum = 9000
         atom1 = (start + 1) % maxNum
         seg1 = (start + 1) // maxNum + 1
         atom2 = (end + 1) % maxNum
@@ -189,9 +191,14 @@ def do_coloring(data, regions, colors, transparencies,
             return "resi {atom1}-{atom2} and segi {seg1}".format(**locals())
         elif np.abs(seg1 - seg2) == 1:
             return "(resi {atom1}-{maxNum} and segi {seg1}) or (resi 0-{atom2} and segi {seg2})".format(**locals())
-        elif np.abs(seg1 - seg2) == 2:
-            segMid = seg1 + 1
-            return "(resi {atom1}-{maxNum} and segi {seg1}) or (resi 0-{atom2} and segi {seg2}) or (segi {segMid})".format(**locals())
+        
+        elif np.abs(seg1 - seg2) >= 2:
+            
+             
+            line = "(resi {atom1}-{maxNum} and segi {seg1}) or (resi 0-{atom2} and segi {seg2})".format(**locals())
+            for i in range(seg1 + 1, seg2):
+                line = line +  " or (segi {0})".format(i)
+            return  line
         else:
             raise ValueError("Atoms are too far")
 
@@ -205,9 +212,9 @@ def do_coloring(data, regions, colors, transparencies,
         subchainRadius = [subchainRadius for _ in regions]
     subchainRadius = [i * multiplier for i in subchainRadius]
 
-    tmpPdbFile = tempfile.NamedTemporaryFile(mode='w')
+    tmpPdbFile = tempfile.NamedTemporaryFile(mode='w', suffix=".pdb")
     tmpPdbFilename = tmpPdbFile.name
-    pdbname = os.path.split(tmpPdbFilename)[-1]
+    pdbname = os.path.split(tmpPdbFilename)[-1].replace(".pdb","")
     tmpPdbFile.close()
     polymerutils.save(data, tmpPdbFilename, mode='pdb', pdbGroups=pdbGroups)
 
@@ -264,11 +271,12 @@ def do_coloring(data, regions, colors, transparencies,
         out.write("as spheres\n")
         out.write("set sphere_transparency,%f,%s\n" % (chainTransparency, pdbname))
         out.write("color %s,%s\n" % (bgcolor, pdbname))
-    elif showChain == "none":
+    elif (showChain == "none") or (not showChain):
         pass
     else:
         raise ValueError("please select showChain to be 'worm' or 'spheres' or 'none'")
     for i in range(len(regions)):
+        
 
         name = "subchain%s" % names[i]
         if showChain == "worm":
@@ -284,11 +292,16 @@ def do_coloring(data, regions, colors, transparencies,
             out.write("as spheres\n")
             out.write("color %s,subchain%s\n" % (colors[i], names[i]))
             out.write("set sphere_transparency,%f,%s\n" % (transparencies[i], name))
+        elif (showChain == "none") or (not showChain):
+            pass
+        else:
+            raise ValueError("please select showChain to be 'worm' or 'spheres' or 'none'")
 
     for i  in spherePositions:
-        out.write("show spheres, i. {0}-{0}\n".format(i))
-        out.write("alter resi {0}, vdw={1}\n".format(i, 1.5 * sphereRadius))
-        out.write("set sphere_color, grey60 \n")
+        out.write("select {0} and  {1}\n".format(name, getSelectionString(i, i)))
+        out.write("show spheres, sele\n")
+        out.write("alter sele, vdw={1}\n".format(i, 1.5 * sphereRadius))
+        out.write("set sphere_color, {0}, sele \n".format(sphereColor))
 
     if showChain == "worm":
         out.write("show cartoon,name ca\n")
@@ -413,7 +426,7 @@ def new_coloring(data, regions, colors, transparencies,
         subchainRadius = [subchainRadius for _ in regions]
     subchainRadius = [i * multiplier for i in subchainRadius]
 
-    tmpPdbFile = tempfile.NamedTemporaryFile(mode='w')
+    tmpPdbFile = tempfile.NamedTemporaryFile(mode='w', suffix=".pdb")
     tmpPdbFilename = tmpPdbFile.name
     pdbname = os.path.split(tmpPdbFilename)[-1]
     tmpPdbFile.close()
@@ -499,8 +512,8 @@ def new_coloring(data, regions, colors, transparencies,
 
 
 
-def getTmpPath(folder=None):
-    tmpFile = tempfile.NamedTemporaryFile(dir=folder, mode='w')
+def getTmpPath(folder=None, **kwargs):
+    tmpFile = tempfile.NamedTemporaryFile(dir=folder, mode='w', **kwargs)
     tmpPath = tmpFile.name
     tmpFilename = os.path.split(tmpPath)[-1]
     tmpFile.close()
@@ -523,7 +536,7 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", chains=None, s
     data -= np.min(data, axis=0)[None, :]
     print(data.min())
 
-    tmpPdbPath, pdbname = getTmpPath()
+    tmpPdbPath, pdbname = getTmpPath(suffix = ".pdb")
     if chains == None:
         polymerutils.save(data, tmpPdbPath, mode="pdb")
     else:
@@ -531,6 +544,7 @@ def show_chain(data, showGui=True, saveTo=None, showChain="worm", chains=None, s
         for j, i in enumerate(chains):
             pdbArray[i[0]:i[1]] = j
         polymerutils.save(data, tmpPdbPath, mode="pdb", pdbGroups=pdbArray)
+    pdbname = pdbname.replace(".pdb","")
 
     tmpScript = tempfile.NamedTemporaryFile(mode='w')
     tmpScript.write("hide all\n")

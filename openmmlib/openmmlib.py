@@ -321,23 +321,21 @@ class Simulation():
             self.BoxSizeReal = datasize
 
         self.GPU = str(GPU)  # setting default GPU
+        properties = {}
+        if self.GPU.lower() != "default":
+            properties["DeviceIndex"] = str(GPU)
+            properties["Precision"] = precision
+        self.properties = properties
 
         if platform.lower() == "opencl":
             platformObject = self.mm.Platform.getPlatformByName('OpenCL')
-            if self.GPU.lower() != "default":
-                platformObject.setPropertyDefaultValue(
-                    'OpenCLDeviceIndex', self.GPU)
-            platformObject.setPropertyDefaultValue('OpenCLPrecision', precision)
 
         elif platform.lower() == "reference":
             platformObject = self.mm.Platform.getPlatformByName('Reference')
 
         elif platform.lower() == "cuda":
             platformObject = self.mm.Platform.getPlatformByName('CUDA')
-            if self.GPU.lower() != "default":
-                platformObject.setPropertyDefaultValue('CudaDeviceIndex', self.GPU)
-            platformObject.setPropertyDefaultValue('CudaPrecision', precision)
-            platformObject.setPropertyDefaultValue('CudaUseBlockingSync', "true")
+
         elif platform.lower() == "cpu":
             platformObject = self.mm.Platform.getPlatformByName('CPU')
 
@@ -1740,7 +1738,7 @@ class Simulation():
                     force.setNonbondedMethod(force.CutoffNonPeriodic)
             print("adding force ", i, self.system.addForce(self.forceDict[i]))
 
-        self.context = self.mm.Context(self.system, self.integrator, self.platform)
+        self.context = self.mm.Context(self.system, self.integrator, self.platform, self.properties)
         self.initPositions()
         self.initVelocities()
         self.forcesApplied = True

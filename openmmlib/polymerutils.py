@@ -226,7 +226,7 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
             if len(st) > n:
                 return st[:n]
             else:
-                return st + " " * (n - len(st))
+                return st + " " * (n - len(st) )
 
         if pdbGroups == None:
             pdbGroups = ["A" for i in range(len(data))]
@@ -234,18 +234,21 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
             pdbGroups = [str(int(i)) for i in pdbGroups]
 
         for i, line, group in zip(list(range(len(data))), data, pdbGroups):
-            atomNum = (i + 1) % 90000
-            segmentNum = (i + 1) // 90000 + 1
+            atomNum = (i + 1) % 9000
+            segmentNum = (i + 1) // 9000 + 1
             line = [float(j) for j in line]
-            ret = add("ATOM", 7)
-            ret = add(ret + "%i" % (atomNum), 13)
+            ret = add("ATOM", 6)
+            ret = add(ret + "{:5d}".format(atomNum), 11)
+            ret = ret + " "
             ret = add(ret + "CA", 17)
             ret = add(ret + "ALA", 21)
             ret = add(ret + group[0], 22)
-            ret = add(ret + "%i" % (atomNum), 30)
-            ret = add(ret + ("%8.3f" % line[0]), 37)
-            ret = add(ret + ("%8.3f" % line[1]), 45)
-            ret = add(ret + ("%8.3f" % line[2]), 53)
+            ret = add(ret + str(atomNum), 26)
+            ret = add(ret + "         ", 30)
+            #ret = add(ret + "%i" % (atomNum), 30)
+            ret = add(ret + ("%8.3f" % line[0]), 38)
+            ret = add(ret + ("%8.3f" % line[1]), 46)
+            ret = add(ret + ("%8.3f" % line[2]), 54)
             ret = add(ret + (" 1.00"), 61)
             ret = add(ret + str(float(i % 8 > 4)), 67)
             ret = add(ret, 73)
@@ -254,6 +257,11 @@ def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
         with open(filename, 'w') as f:
             f.write(retret)
             f.flush()
+    elif mode == "pyxyz":
+        with open(filename, 'w') as f:             
+            for i in data: 
+                filename.write("C {0} {1} {2}".format(*i))
+            
 
     else:
         raise ValueError("Unknown mode : %s, use h5dict, joblib, txt or pdb" % mode)

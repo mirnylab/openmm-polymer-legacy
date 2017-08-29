@@ -1684,15 +1684,19 @@ class Simulation():
         self.forceDict["Gravity"] = gravity
 
     def addPullForce(self, particles, forces):
-        """adds force pulling on each particle
         """
-
+        adds force pulling on each particle
+        particles: list of particle indices
+        forces: list of forces [[f0x,f0y,f0z],[f1x,f1y,f1z], ...]
+        if there are fewer forces than particles forces are padded with forces[-1]
+        """
+        import itertools
         pullForce = self.mm.CustomExternalForce(
             "PULLx * x + PULLy * y + PULLz * z")
         pullForce.addPerParticleParameter("PULLx")
         pullForce.addPerParticleParameter("PULLy")
         pullForce.addPerParticleParameter("PULLz")
-        for num, force in map(None, particles, forces):
+        for num, force in itertools.zip_longest(particles, forces, fillvalue=forces[-1]):
             force = [float(i) * (self.kT / self.conlen) for i in force]
             pullForce.addParticle(num, force)
         self.forceDict["PullForce"] = pullForce

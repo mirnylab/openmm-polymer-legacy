@@ -15,6 +15,7 @@ import numpy as np
 import joblib
 import gzip
 
+import io
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -120,20 +121,36 @@ def Cload(filename, center=False):
 def load(filename, h5dictKey=None):
     """Universal load function for any type of data file"""
 
-
     if not os.path.exists(filename):
         raise IOError("File not found :( \n %s" % filename)
 
+    #open and read file at beginning to avoid multiple open/close
+    #and to avoid OSerror "too many open files"        
+    with open(filename,'rb') as myfile:
+        data = myfile.read()
+    #data_file = io.StringIO(data)
+    data_file= io.BytesIO(data)
+    
+    try:
+        "loading from a joblib file here"
+        mydict = dict(joblib.load(data_file))
+        data = mydict.pop("data")
+        return data
+
+    except:
+        pass
+    
+    
     try:
         "checking for a text file"
-        with open(filename) as f1:
-            line0 = f1.readline()
-            try:
-                N = int(line0)
-            except (ValueError, UnicodeDecodeError):
-                raise TypeError("Cannot read text file... reading pickle file")
-            # data = Cload(filename, center=False)
-            data = [list(map(float, i.split())) for i in f1.readlines()]
+        data_file.seek(0)
+        line0 = data_file.readline()
+        try:
+            N = int(line0)
+        except (ValueError, UnicodeDecodeError):
+            raise TypeError("Cannot read text file... reading pickle file")
+        # data = Cload(filename, center=False)
+        data = [list(map(float, i.split())) for i in data_file.readlines()]
 
         if len(data) != N:
             raise ValueError("N does not correspond to the number of lines!")
@@ -141,38 +158,17 @@ def load(filename, h5dictKey=None):
 
     except (TypeError, UnicodeDecodeError):
         pass
+    
 
-    try:
-        "loading from a joblib file here"
-        mydict = dict(joblib.load(filename))
-        data = mydict.pop("data")
-        return data
+    #try:
+    #    data = loadJson(filename)
+    #    return data["data"]
+    #except:
+    #    print("Could not load json")
+    #    pass
 
-    except:
-        pass
+    #h5dict loading deleted
 
-    try:
-        data = loadJson(filename)
-        return data["data"]
-    except:
-        print("Could not load json")
-        pass
-
-
-    try:
-        "checking for h5dict file "
-        from mirnylib.h5dict import h5dict
-        mydict = h5dict(path=filename, mode='r')
-        if h5dictKey is None:
-            keys = list(mydict.keys())
-            if len(keys) != 1:
-                raise ValueError("H5Dict has more than one key. Please specify the key.")
-            h5dictKey = keys[0]
-        assert h5dictKey in list(mydict.keys())
-        data = mydict[str(h5dictKey)]
-        return data
-    except IOError:
-        raise IOError("Failed to open file")
 
 
 def save(data, filename, mode="txt", h5dictKey="1", pdbGroups=None):
@@ -595,27 +591,27 @@ def _test():
     b = load("bla")
     assert abs(b.mean() - a.mean()) < 0.00001
 
-    save(a, "bla.json", mode="json")
-    b = loadJson("bla.json")["data"]
-    assert abs(b.mean() - a.mean()) < 0.00001
+    #save(a, "bla.json", mode="json")
+    #b = loadJson("bla.json")["data"]
+    #assert abs(b.mean() - a.mean()) < 0.00001
 
 
-    save(a, "bla.json.gz", mode="json")
-    b = load("bla.json.gz")
-    assert abs(b.mean() - a.mean()) < 0.00001
+    #save(a, "bla.json.gz", mode="json")
+    #b = load("bla.json.gz")
+    #assert abs(b.mean() - a.mean()) < 0.00001
 
-    save(a, "bla.json", mode="json")
-    b = load("bla.json")
-    assert abs(b.mean() - a.mean()) < 0.00001
+    #save(a, "bla.json", mode="json")
+    #b = load("bla.json")
+    #assert abs(b.mean() - a.mean()) < 0.00001
 
-    save(a, "bla", mode="h5dict")
-    b = load("bla")
-    assert abs(b.mean() - a.mean()) < 0.00001
+    #save(a, "bla", mode="h5dict")
+    #b = load("bla")
+    #assert abs(b.mean() - a.mean()) < 0.00001
 
     os.remove("bla")
     os.remove("bla.json.gz")
 
-    print("Finished testing save/load, successfull")
+    print("Finished testing save/load, successful")
 
 
 def createSpiralRing(N, twist, r=0, offsetPerParticle=np.pi, offset=0):

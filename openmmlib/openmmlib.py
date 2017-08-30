@@ -1184,7 +1184,7 @@ class Simulation():
             "rsc = r / REPsigma * rmin12;"
             ""
             "Eattr = - rshft12 * (rshft2 - 1.0) * ATTRe / emin12 - ATTRe;"
-            "rshft12 = rshft4 * rshft2 * rshft4;"
+            "rshft12 = rshft4 * rshft4 * rshft4;"
             "rshft4 = rshft2 * rshft2;"
             "rshft2 = rshft * rshft;"
             "rshft = (r - REPsigma - ATTRdelta) / ATTRdelta * rmin12"

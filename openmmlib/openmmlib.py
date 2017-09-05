@@ -1597,6 +1597,7 @@ class Simulation():
             Width of attractive layer next to the lamina, nm.
         depth : float, optional
             Depth of attractive potential in kT
+            note- depth < 0 for attractive!  >0 is repulsive
         r : float, optional
             Radius of an attractive cage. If not specified, inferred
             from previously defined spherical potential.

@@ -1,22 +1,14 @@
-import ctypes
-import multiprocessing as mp
+import pickle
 import os
-import random
 import time
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-import pyximport;
-from mirnylib.plotting import nicePlot
 from openmmlib import polymerutils
 from openmmlib.polymerutils import scanBlocks
 from openmmlib.openmmlib import Simulation
 from openmmlib.polymerutils import grow_rw
 
-
-pyximport.install()
+import pyximport; pyximport.install()
 from smcTranslocator import smcTranslocatorDirectional
-
 
 
 # -------defining parameters----------
@@ -25,11 +17,11 @@ SEPARATION = 200
 LIFETIME = 300
 N = 10000   # number of monomers
 smcStepsPerBlock = 1  # now doing 1 SMC step per block 
-steps = 250   # steps per block (now extrusion advances by one step per block, not by 4, so old steps would be 1000)
+steps = 250   # steps per block (now extrusion advances by one step per block)
 stiff = 2
 dens = 0.2
-box = (N / dens) ** 0.33  # density = 0.1
-data = polymerutils.grow_rw(N, int(box) - 2)
+box = (N / dens) ** 0.33  # density = 0.1.
+data = polymerutils.grow_rw(N, int(box) - 2)  # creates a compact conformation 
 block = 0  # starting block 
 
 #folder 
@@ -37,33 +29,24 @@ folder = "trajectory"
 
 # new parameters because some things changed 
 saveEveryBlocks = 10   # save every 10 blocks (saving every block is now too much almost)
-randomizeLEFsEveryBlocks = 2000 # restart LEF positions every 1000 blocks (not counting skipped blocks)
-skipBlocksAfterRestart = 200  # how many blocks to skip after you restart LEF positions
-totalSavedBlocks = 50000  # how many blocks to save (number of blocks done is totalSavedBlocks * saveEveryBlocks)
-restartMilkerEveryBlocks = 100
-
+skipSavedBlocksBeginning = 20  # how many blocks (saved) to skip after you restart LEF positions
+totalSavedBlocks = 40  # how many blocks to save (number of blocks done is totalSavedBlocks * saveEveryBlocks)
+restartMilkerEveryBlocks = 100 
 
 # parameters for smc bonds 
 smcBondWiggleDist = 0.2
 smcBondDist = 0.5
 
 # assertions for easy managing code below 
-totalBlocksDo = totalSavedBlocks * saveEveryBlocks 
 
-assert totalBlocksDo % randomizeLEFsEveryBlocks == 0 
-assert randomizeLEFsEveryBlocks % restartMilkerEveryBlocks == 0
 assert restartMilkerEveryBlocks % saveEveryBlocks == 0 
-assert skipBlocksAfterRestart % restartMilkerEveryBlocks == 0 
+assert (skipSavedBlocksBeginning * saveEveryBlocks) % restartMilkerEveryBlocks == 0 
+assert (totalSavedBlocks * saveEveryBlocks) % restartMilkerEveryBlocks == 0 
 
 savesPerMilker = restartMilkerEveryBlocks // saveEveryBlocks
-milkerInitsSkip = skipBlocksAfterRestart  // restartMilkerEveryBlocks
-milkerInitsPerRestart  = (skipBlocksAfterRestart + randomizeLEFsEveryBlocks) // restartMilkerEveryBlocks
-restartsTotal = totalBlocksDo // randomizeLEFsEveryBlocks
-
-print("LEFs would be restarted {0} times".format(restartsTotal))
-print("Every LEF restart, {0} conformations will be saved".format(randomizeLEFsEveryBlocks // saveEveryBlocks))
-
-
+milkerInitsSkip = saveEveryBlocks * skipSavedBlocksBeginning  // restartMilkerEveryBlocks
+milkerInitsTotal  = (totalSavedBlocks + skipSavedBlocksBeginning) * saveEveryBlocks // restartMilkerEveryBlocks
+print("Milker will be initialized {0} times, first {1} will be skipped".format(milkerInitsTotal, milkerInitsSkip))
 
 class smcTranslocatorMilker(object):
 
@@ -124,6 +107,7 @@ class smcTranslocatorMilker(object):
             ind = bondForce.addBond(bond[0], bond[1], **paramset)
             self.bondInds.append(ind)
         self.bondToInd = {i:j for i,j in zip(self.uniqueBonds, self.bondInds)}
+        return self.curBonds,[]
 
 
     def step(self, context, verbose=False):
@@ -179,83 +163,53 @@ SMCTran = initModel()  # defining actual smc translocator object
 # now polymer simulation code starts
 
 # ------------feed smcTran to the milker---
-SMCTran.steps(1000000)  # first steps to "equilibrate" SMC dynamics
+SMCTran.steps(1000000)  # first steps to "equilibrate" SMC dynamics. If desired of course. 
 milker = smcTranslocatorMilker(SMCTran)   # now feed this thing to milker (do it once!)
 #--------- end new code ------------
 
-
-
-
-
-
-for dummy in range(restartsTotal): 
-    SMCTran.steps(1000000)
-    print("Restarting LEFs") 
+for milkerCount in range(milkerInitsTotal):
+    doSave = milkerCount >= milkerInitsSkip
     
-    for milkerCount in range(milkerInitsPerRestart):
-    
-        if milkerCount <  milkerInitsSkip:
-            doSave = False
+    # simulation parameters are defined below 
+    a = Simulation(timestep=80, thermostat=0.01)
+    a.setup(platform="CUDA", PBC=True, PBCbox=[box, box, box], GPU=0, precision="mixed")  # set up GPU here
+    a.saveFolder(folder)
+    a.load(data)
+    a.addHarmonicPolymerBonds(wiggleDist=0.1)
+    if stiff > 0:
+        a.addGrosbergStiffness(stiff)
+    a.addPolynomialRepulsiveForce(trunc=1.5, radiusMult=1.05)
+    a.step = block
+
+    # ------------ initializing milker; adding bonds ---------
+    # copied from addBond
+    kbond = a.kbondScalingFactor / (smcBondWiggleDist ** 2)
+    bondDist = smcBondDist * a.length_scale
+
+    activeParams = {"length":bondDist,"k":kbond}
+    inactiveParams = {"length":bondDist, "k":0}
+    milker.setParams(activeParams, inactiveParams)
+     
+    # this step actually puts all bonds in and sets first bonds to be what they should be
+    milker.setup(bondForce=a.forceDict["HarmonicBondForce"],
+                blocks=restartMilkerEveryBlocks,   # default value; milk for 100 blocks
+                 smcStepsPerBlock=smcStepsPerBlock)  # now only one step of SMC per step
+    print("Restarting milker")
+
+    a.doBlock(steps=steps, increment=False)  # do block for the first time with first set of bonds in
+    for i in range(restartMilkerEveryBlocks - 1):
+        curBonds, pastBonds = milker.step(a.context)  # this updates bonds. You can do something with bonds here
+        if i % saveEveryBlocks == (saveEveryBlocks - 2):  
+            a.doBlock(steps=steps, increment = doSave)    
+            if doSave: 
+                a.save()
+                pickle.dump(curBonds, open(os.path.join(a.folder, "SMC{0}.dat".format(a.step)),'wb'))
         else:
-            doSave = True
-        
-        # simulation parameters are defined below 
-        a = Simulation(timestep=80, thermostat=0.01)
-        a.setup(platform="CUDA", PBC=True, PBCbox=[box, box, box], GPU=0, precision="mixed")
-        a.saveFolder(folder)
-        a.load(data)
-        a.addHarmonicPolymerBonds(wiggleDist=0.1)
-        if stiff > 0:
-            a.addGrosbergStiffness(stiff)
-        a.addPolynomialRepulsiveForce(trunc=1.5, radiusMult=1.05)
-        a.step = block
+            a.integrator.step(steps)  # do steps without getting the positions from the GPU (faster)
 
-        # ------------ initializing milker; adding bonds ---------
+    data = a.getData()  # save data and step, and delete the simulation
+    block = a.step
+    del a
 
-
-        # copied from addBond
-        kbond = a.kbondScalingFactor / (smcBondWiggleDist ** 2)
-        bondDist = smcBondDist * a.length_scale
-
-        activeParams = {"length":bondDist,"k":kbond}
-        inactiveParams = {"length":bondDist, "k":0}
-        milker.setParams(activeParams, inactiveParams)
-
-        # this step actually puts all bonds in and sets first bonds to be what they should be
-        milker.setup(bondForce=a.forceDict["HarmonicBondForce"],
-                    blocks=restartMilkerEveryBlocks,   # default value; milk for 100 blocks
-                     smcStepsPerBlock=smcStepsPerBlock)  # now only one step of SMC per step
-        print("Restarting milker")
-
-        a.doBlock(steps=steps, increment=doSave)  # do block for the first time with first set of bonds in
-        if doSave: 
-            a.save()
-
-        for i in range(restartMilkerEveryBlocks - 1):
-            curBonds, pastBonds = milker.step(a.context)  # this updates bonds
-
-            if i % saveEveryBlocks == (saveEveryBlocks - 1):  # saving every 10th block (we saved at 0, next is in 10 blocks)
-                a.doBlock(steps=steps, increment = doSave)
-                if doSave: 
-                    a.save()
-
-            else:
-                a.integrator.step(steps)  # do steps without getting the positions from the GPU (faster)
-                    
-        # just verification: probe one current bond, and one bond from the previous step!
-  
-
-        # dummy block to retrive the steps 
-        a.doBlock(1, increment=False)
-        i = random.choice(curBonds)
-        print ("current", a.dist(i[0], i[1]))
-        i = random.choice(pastBonds)
-        print("past", a.dist(i[0], i[1]))
-        # just verification code!
-                
-        data = a.getData()  # save data and step, and delete the simulation
-        block = a.step
-        del a
-
-        time.sleep(0.2)  # for sanity
+    time.sleep(0.2)  # wait 200ms for sanity (to let garbage collector do its magic)
 

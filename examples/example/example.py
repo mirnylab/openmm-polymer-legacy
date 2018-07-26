@@ -4,7 +4,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 import os,sys
 sys.path.insert(0, os.path.abspath(".."))
-from mirnylib.systemutils import setExceptionHook
 from openmmlib.openmmlib import Simulation
 from openmmlib import polymerutils
 import os
@@ -29,7 +28,6 @@ def exampleOpenmm():
     #  which would automatically adjusts timestep
     # This is relevant, for example, for simulations of polymer collapse
     # If simulation blows up, decrease errorTol by a factor of two and try again
-    setExceptionHook()
     a = Simulation(thermostat=0.02)  # timestep not necessary for variableLangevin
 
     a.setup(platform="CUDA", integrator="variableLangevin", errorTol=0.01,  GPU = "0")

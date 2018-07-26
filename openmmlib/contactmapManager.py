@@ -398,9 +398,10 @@ class dummyContactMap(object):
         return self.a
 
 def _test():
-    a = np.random.random((60,3)) * 4
-    from openmmlib import contactmaps
-    conts = contactmaps.giveContactsCKDTree(a,1)
+    ars = [np.random.random((60,3)) * 4 for _ in range(200)]
+    import openmmlib.contactmaps
+    conts = contactmaps.giveContactsCKDTree(ars[0],1)
+    
     cmap1 = averageContacts(dummyContactMap, range(20), 100, classInitArgs=[conts], nproc=20)
     cmap4 = averageContacts(dummyContactMap, range(20), 100, classInitArgs=[conts], nproc=1)
     cmap2 = averageContactsSimple(dummyContactMap, range(20), 100, classInitArgs=[conts])
@@ -417,24 +418,23 @@ def _test():
     assert np.allclose(cmap1, cmap4)
     assert np.allclose(cmap1, cmap3)
 
-    from contactmaps import averagePureContactMap as cmapPureMap
-    from contactmaps import averageBinnedContactMap as cmapBinnedMap
+    from openmmlib.contactmaps import averagePureContactMap as cmapPureMap
+    from openmmlib.contactmaps import averageBinnedContactMap as cmapBinnedMap
 
     for n in [1, 5, 20]:
-        cmap6 = averagePureContactMap(range(200), cutoff = 1, loadFunction=lambda x:a, n=n)
-        cmap5 = cmapPureMap(range(200), cutoff = 1, loadFunction=lambda x:a, n=n, printProbability=0.001)
+        cmap6 = averagePureContactMap(range(200), cutoff = 1, loadFunction=lambda x:ars[x], n=n)
+        cmap5 = cmapPureMap(range(200), cutoff = 1, loadFunction=lambda x:ars[x], n=n, printProbability=0.001)
         print(cmap5.sum(), cmap6.sum())
         assert np.allclose(cmap6, cmap5)
 
-        cmap7 = averageBinnedContactMap(range(200), chains= [(0,27),(27,60)], binSize = 2, cutoff = 1, loadFunction=lambda x:a, n=n)[0]
+        cmap7 = averageBinnedContactMap(range(200), chains= [(0,27),(27,60)], binSize = 2, cutoff = 1, loadFunction=lambda x:ars[x], n=n)[0]
 
-        cmap8 = cmapBinnedMap(range(200), chains= [(0,27),(27,60)], binSize = 2, cutoff = 1, loadFunction=lambda x:a, n=n, printProbability=0.001)[0]
+        cmap8 = cmapBinnedMap(range(200), chains= [(0,27),(27,60)], binSize = 2, cutoff = 1, loadFunction=lambda x:ars[x], n=n, printProbability=0.001)[0]
         print(cmap7.sum(), cmap8.sum())
         assert np.allclose(cmap7, cmap8)
-
-
-
-    exit()
+       
+    
+    print("All tests passed")
 
 
 

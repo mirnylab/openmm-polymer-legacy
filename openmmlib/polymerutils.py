@@ -120,44 +120,34 @@ def Cload(filename, center=False):
 
 def load(filename, h5dictKey=None):
     """Universal load function for any type of data file"""
+   
 
     if not os.path.exists(filename):
         raise IOError("File not found :( \n %s" % filename)
 
-    #open and read file at beginning to avoid multiple open/close
-    #and to avoid OSerror "too many open files"        
-    with open(filename,'rb') as myfile:
-        data = myfile.read()
-    #data_file = io.StringIO(data)
-    data_file= io.BytesIO(data)
-    
     try:
         "loading from a joblib file here"
-        mydict = dict(joblib.load(data_file))
+        mydict = dict(joblib.load(filename))
         data = mydict.pop("data")
         return data
 
     except:
         pass
     
-    
+    "checking for a text file"
+    data_file = open(filename)
+    line0 = data_file.readline()
     try:
-        "checking for a text file"
-        data_file.seek(0)
-        line0 = data_file.readline()
-        try:
-            N = int(line0)
-        except (ValueError, UnicodeDecodeError):
-            raise TypeError("Cannot read text file... reading pickle file")
-        # data = Cload(filename, center=False)
-        data = [list(map(float, i.split())) for i in data_file.readlines()]
+        N = int(line0)
+    except (ValueError, UnicodeDecodeError):
+        raise TypeError("Cannot read text file... reading pickle file")
+    # data = Cload(filename, center=False)
+    data = [list(map(float, i.split())) for i in data_file.readlines()]
 
-        if len(data) != N:
-            raise ValueError("N does not correspond to the number of lines!")
-        return np.array(data)
+    if len(data) != N:
+        raise ValueError("N does not correspond to the number of lines!")
+    return np.array(data)
 
-    except (TypeError, UnicodeDecodeError):
-        pass
     
 
     #try:

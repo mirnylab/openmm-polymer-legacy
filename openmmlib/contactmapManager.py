@@ -8,6 +8,7 @@ from . import polymerutils
 import warnings
 from . import contactmaps
 
+
 def indexing(smaller, larger, M):
     """converts x-y indexes to index in the upper triangular matrix"""
     return larger + smaller * (M - 1) - smaller * (smaller - 1) // 2
@@ -169,6 +170,10 @@ def worker(x):
             contactSum = 0
             contacts = np.concatenate(allContacts, axis=1)
             contacts = contactProcessing__(contacts)
+            if len(contacts) == 0:
+                if stopped:
+                    return
+                continue
             ctrue = indexing(contacts[0,:], contacts[1,:], N__)
             position, counts = np.unique(ctrue, return_counts=True)
             assert position[0] >= 0
@@ -258,7 +263,8 @@ class filenameContactMap(object):
     """
     This is a sample iterator for the contact map finder
     """
-    def __init__(self, filenames, cutoff = 1.7, loadFunction=None, exceptionsToIgnore=[]):
+    def __init__(self, filenames, cutoff = 1.7, loadFunction=None, exceptionsToIgnore=[], 
+                contactFunction=None):
         """
         Init accepts arguments to initialize the iterator.
         filenames will be one of the items in the inValues list of the "averageContacts" function
@@ -274,6 +280,9 @@ class filenameContactMap(object):
         if loadFunction is None:
             import polymerutils
             loadFunction = polymerutils.load()
+        if contactFunction is None:
+            contactFunction = self.contactmaps.giveContacts
+        self.contactFunction = contactFunction
         self.loadFunction = loadFunction
         self.i = 0
 
@@ -292,7 +301,7 @@ class filenameContactMap(object):
             print("contactmap manager could not load file", self.filenames[self.i])
             self.i += 1
             return None
-        contacts = self.contactmaps.giveContacts(data, cutoff=self.cutoff)
+        contacts = self.contactFunction(data, cutoff=self.cutoff)
         self.i += 1
         return contacts
 
@@ -312,7 +321,9 @@ def averagePureContactMap(filenames,
                 break
         except tuple(exceptionsToIgnore):
             continue
-    if method != "auto":
+    if callable(method):
+        pass        
+    elif method != "auto":
         mymethods = {i.lower():j for i,j in contactmaps.methods.items()}
         method = mymethods[method.lower()]
     else:
@@ -320,7 +331,7 @@ def averagePureContactMap(filenames,
     assert len(set(map(len, datas))) == 1
     N = len(datas[0])
 
-    args = [cutoff, loadFunction, exceptionsToIgnore]
+    args = [cutoff, loadFunction, exceptionsToIgnore, method]
     values = [filenames[i::n] for i in range(n)]
     return averageContacts(filenameContactMap,values,N, classInitArgs=args, useFmap=True, uniqueContacts = True, nproc=n)
 
@@ -343,7 +354,9 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
                 break
         except tuple(exceptionsToIgnore):
             continue
-    if method != "auto":
+    if callable(method):
+        pass   
+    elif method != "auto":
         mymethods = {i.lower():j for i,j in contactmaps.methods.items()}
         method = mymethods[method.lower()]
     else:
@@ -381,7 +394,7 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
         contacts.shape = cshape
         return contacts
 
-    args = [cutoff, loadFunction, exceptionsToIgnore]
+    args = [cutoff, loadFunction, exceptionsToIgnore, method]
     values = [filenames[i::n] for i in range(n)]
     mymap =  averageContacts(filenameContactMap,values,Nbase, classInitArgs=args, useFmap=True, contactProcessing=contactAction, nproc=n)
     return mymap, chromosomeStarts

@@ -43,6 +43,12 @@ from scipy.spatial import ckdtree
 
 from .fastContacts import contactsCython
 
+try:
+    import mkl
+    mkl.set_num_threads(1)
+except:
+    pass 
+
 
 class TimeoutException(Exception): pass
 

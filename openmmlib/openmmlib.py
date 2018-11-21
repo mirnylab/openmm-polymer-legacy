@@ -1310,10 +1310,11 @@ class Simulation():
 
         repulforceGr.addPerParticleParameter("Sticky")
         repulforceGr.addPerParticleParameter("ExtraHard")
+        counts = np.bincount(stickyParticlesIdxs, minlength=self.N)
 
         for i in range(self.N):
             repulforceGr.addParticle(
-                (float(stickyParticlesIdxs.count(i)),
+                (float(counts[i]),
                  float(i in extraHardParticlesIdxs)))
 
         self.forceDict["Nonbonded"] = repulforceGr

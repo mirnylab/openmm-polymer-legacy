@@ -96,7 +96,7 @@ def exampleOpenmm():
         a.doBlock(2000)  # Of 2000 timesteps each
         a.save()  # and save data every block
     a.printStats()  # In the end, print statistics
-    a.show()  # and show the polymer if you want to see it.
+    #a.show()  # and show the polymer if you want to see it.
 
 
 exampleOpenmm()

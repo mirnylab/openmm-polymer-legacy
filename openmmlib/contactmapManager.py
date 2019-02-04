@@ -400,6 +400,74 @@ def averageBinnedContactMap(filenames, chains=None, binSize=None, cutoff=1.7,
     return mymap, chromosomeStarts
 
 
+class filenameContactMapRepeat(object):
+    """
+    This is a sample iterator for the contact map finder
+    """
+    def __init__(self, filenames, mapStarts, mapN, cutoff = 1.7, loadFunction=None, exceptionsToIgnore=[], 
+                contactFunction=None,):
+        """
+        Init accepts arguments to initialize the iterator.
+        filenames will be one of the items in the inValues list of the "averageContacts" function
+        cutoff and loadFunction should be provided either in classInitArgs or classInitKwargs of averageContacts
+
+        When initialized, the iterator should store these args properly and create all necessary constructs
+        """
+        from openmmlib import contactmaps
+        self.contactmaps  = contactmaps
+        self.filenames = filenames
+        self.cutoff = cutoff
+        self.exceptionsToIgnore = exceptionsToIgnore
+        self.mapStarts = mapStarts
+        self.mapN = mapN
+        if loadFunction is None:
+            import polymerutils
+            loadFunction = polymerutils.load()
+        if contactFunction is None:
+            contactFunction = self.contactmaps.giveContacts
+        self.contactFunction = contactFunction
+        self.loadFunction = loadFunction
+        self.i = 0
+        self.curStarts = []
+
+    def next(self):
+        """
+        This is the method which gets called by the worker asking for contacts.
+         This method should return new set of contacts each time it is called
+         When there are no more contacts to return (all filenames are gone, or simulation is over),
+         then this method should raise StopIteration
+        """
+        if self.i == len(self.filenames):
+            raise StopIteration
+            
+        try:
+            if len(self.curStarts) == 0:
+                self.data = self.loadFunction(self.filenames[self.i])
+                self.curStarts = list(self.mapStarts)
+            start = self.curStarts.pop()
+            data = self.data[start:start+self.mapN]
+            assert len(data) == self.mapN
+        except tuple(self.exceptionsToIgnore): 
+            print("contactmap manager could not load file", self.filenames[self.i])
+            self.i += 1
+            return None
+        contacts = self.contactFunction(data, cutoff=self.cutoff)
+        self.i += 1
+        return contacts
+
+def averagePureContactMapRepeat(filenames,
+                          mapStarts, 
+                          mapN,
+                          cutoff=1.7,
+                          n=4,  # Num threads
+                          method = contactmaps.giveContactsCKDTree,                          
+                          loadFunction=polymerutils.load,
+                          exceptionsToIgnore=[]):
+
+    args = [ mapStarts, mapN,cutoff, loadFunction, exceptionsToIgnore, method]
+    values = [filenames[i::n] for i in range(n)]
+    return averageContacts(filenameContactMapRepeat,values,mapN, classInitArgs=args, useFmap=True, uniqueContacts = True, nproc=n)
+
 class dummyContactMap(object):
     def __init__(self, x, a):
         self.a = a + x
@@ -410,6 +478,7 @@ class dummyContactMap(object):
         self.M -= 1
         return self.a
 
+  
 def _test():
     ars = [np.random.random((60,3)) * 4 for _ in range(200)]
     import openmmlib.contactmaps

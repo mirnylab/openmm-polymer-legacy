@@ -41,7 +41,6 @@ import time
 
 from scipy.spatial import ckdtree
 
-from .fastContacts import contactsCython
 
 try:
     import mkl
@@ -203,47 +202,15 @@ def giveContacts(data, cutoff=1.7, method="auto"):
     if np.isnan(data).any():
         raise RuntimeError("Data contains NANs")
 
-    if max(data.shape) < 1000:
-        return contactsCython(data, cutoff)
-    else:
-        return giveContactsCKDTree(data, cutoff)
+
+    return giveContactsCKDTree(data, cutoff)
 
 
-methods = {"cython": contactsCython, "ckdtree": giveContactsCKDTree}
+methods = {"ckdtree": giveContactsCKDTree}
 
 
 def findMethod(datas, cutoff):
-    if isinstance(datas, np.ndarray):
-        datas = [datas]
-    for data in datas:
-        assert len(data.shape) == 2
-    datalen = len(datas[0])
-    if datalen > 40000:
-        mymethods = {i: j for i, j in methods.items() if "cython" != i}
-    else:
-        mymethods = methods
-    times = []
-    keys = list(mymethods.keys())
-    for key in keys:
-        st = time.time()
-        try:
-            for data in datas:
-                mymethods[key](data, cutoff)
-        except:
-            print("Method {0} failed (ckdtreeFuture will fail without scipy 0.17)".format(key))
-            traceback.print_exc(file=sys.stdout)
-            times.append(9999999)
-            continue
-        end = time.time()
-        mytime = end - st
-        if key == "OpenMM":
-            mytime *= 2
-        times.append(mytime)
-        print("Method {0} takes {1} seconds".format(key, end - st))
-    arg = np.argmin(times)
-    key = keys[arg]
-    print("Method {0} is the best; using it! ".format(key))
-    return methods[key]
+    return giveContactsCKDTree
 
 
 def rescalePoints(points, bins):

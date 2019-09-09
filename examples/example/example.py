@@ -58,7 +58,7 @@ def exampleOpenmm():
 
 
     # -----------Adding forces ---------------
-    a.addSphericalConfinement(density=0.85, k=1)
+    #a.addSphericalConfinement(density=0.85, k=1)
     # Specifying density is more intuitive than radius
     # k is the slope of confinement potential, measured in kT/mon
     # set k=5 for harsh confinement
@@ -79,12 +79,12 @@ def exampleOpenmm():
 
     # If your simulation does not start, consider using energy minimization below
 
-    # a.localEnergyMinimization()
+    a.localEnergyMinimization()
     # A very efficient algorithm to reach local energy minimum
     # Use it to minimize energy if you're doing diffusion simulations
     # If you're simulating dynamics of collapse or expansion, please do not use it
 
-    a.energyMinimization(stepsPerIteration=10)  # increase to 100 for larger or more complex systems
+    #a.energyMinimization(stepsPerIteration=10)  # increase to 100 for larger or more complex systems
     # An algorithm to start a simulation
     # Which works only with langevin integrator (but will not throw an error otherwise)
     # Decreases a timestep, and then increases it slowly back to normal

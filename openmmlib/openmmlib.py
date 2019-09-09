@@ -679,7 +679,7 @@ class Simulation():
         coords = units.Quantity(coords, nm)
         return coords
 
-    def setData(self, data):
+    def setData(self, data, random_offset = 1e-5):
         """Sets particle positions
 
         Parameters
@@ -689,6 +689,9 @@ class Simulation():
             Array of positions with distance ~1 between connected atoms.
         """
         data = numpy.asarray(data, dtype="float")
+        if random_offset:
+            data = data + (np.random.random(data.shape) * 2 - 1) * random_offset
+        
         self.data = units.Quantity(data, nm)
         self.N = len(self.data)
         if hasattr(self, "context"):
@@ -1808,8 +1811,58 @@ class Simulation():
         self.initPositions()
         self.initVelocities(mult)
 
-    def localEnergyMinimization(self, tolerance=0.3, maxIterations=0):
-        "A wrapper to the build-in OpenMM Local Energy Minimization"
+    def localEnergyMinimization(self, tolerance=0.3, maxIterations=0, random_offset=0.02):
+        """        
+        A wrapper to the build-in OpenMM Local Energy Minimization
+        
+        See caveat below 
+
+        Parameters
+        ----------
+        
+        tolerance: float 
+            It is something like a value of force below which 
+            the minimizer is trying to minimize energy to.             
+            see openmm documentation for description 
+            
+            Value of 0.3 seems to be fine for most normal forces. 
+            
+        maxIterations: int
+            Maximum # of iterations for minimization to do.
+            default: 0 means there is no limit
+            
+            This is relevant especially if your simulation does not have a 
+            well-defined energy minimum (e.g. you want to simulate a collapse of a chain 
+            in some potential). In that case, if you don't limit energy minimization, 
+            it will attempt to do a whole simulation for you. In that case, setting 
+            a limit to the # of iterations will just stop energy minimization manually when 
+            it reaches this # of iterations. 
+            
+        random_offset: float 
+            A random offset to introduce after energy minimization. 
+            Should ideally make your forces have realistic values. 
+            
+            For example, if your stiffest force is polymer bond force
+            with "wiggle_dist" of 0.05, setting this to 0.02 will make
+            separation between monomers realistic, and therefore will 
+            make force values realistic. 
+            
+            See why do we need it in the caveat below. 
+            
+            
+        Caveat
+        ------
+        
+        If using variable langevin integrator after minimization, a big error may 
+        happen in the first timestep. The reason is that enregy minimization 
+        makes all the forces basically 0. Variable langevin integrator measures
+        the forces and assumes that they are all small - so it makes the timestep 
+        very large, and at the first timestep it overshoots completely and energy goes up a lot. 
+        
+        The workaround for now is to randomize positions after energy minimization 
+        
+        """
+
         print("Performing local energy minimization")
 
         self._applyForces()
@@ -1826,10 +1879,13 @@ class Simulation():
         self.mm.LocalEnergyMinimizer.minimize(
             self.context, tolerance, maxIterations)
 
-        self.state = self.context.getState(getPositions=False,
+        self.state = self.context.getState(getPositions=True,
                                            getEnergy=True)
         eK = (self.state.getKineticEnergy() / self.N / self.kT)
         eP = self.state.getPotentialEnergy() / self.N / self.kT
+        coords = self.state.getPositions(asNumpy=True)
+        self.data = coords
+        self.setData(self.getData(), random_offset = random_offset)        
         locTime = self.state.getTime()
         print("after minimization eK={0}, eP={1}, time={2}".format(eK, eP, locTime))
 
